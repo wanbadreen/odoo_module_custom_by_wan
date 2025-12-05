@@ -74,19 +74,15 @@ class LoyaltyPartialRedeemWizard(models.TransientModel):
         card = self.loyalty_card_id
 
         # 1) Cari product "loyalty point redemption"
-        discount_product = self.env['product.product'].search([
-            ('default_code', '=', 'Loyalty Point Redemption'),
-        ], limit=1)
-
-        if not discount_product:
-            discount_product = self.env['product.product'].search([
-                ('name', '=', 'loyalty point redemption'),
-            ], limit=1)
+        discount_product = self.env.ref(
+            'odoo_loyalty_partial_redeem.product_loyalty_discount',
+            raise_if_not_found=False,
+        )
 
         if not discount_product:
             raise UserError(
-                "Product 'loyalty point redemption' not found. "
-                "Please create it or adjust the default_code in the wizard."
+                "Product 'Loyalty Point Redemption' not found. "
+                "Please install the module data or adjust the reference in the wizard."
             )
 
         # 2) Create line diskaun dalam quotation
