@@ -13,4 +13,5 @@
         "views/sale_order_view.xml",
         "views/loyalty_partial_redeem_wizard_view.xml",
     ],
+    "images": ["images/cover.png"],
 }
