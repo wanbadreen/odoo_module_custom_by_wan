@@ -1,5 +1,5 @@
 {
-    "name": "Morimoto Loyalty Partial Redeem",
+    "name": " Loyalty Partial Redeem",
     "summary": "Allow partial redemption of loyalty points on sales orders.",
     "version": "18.0.1.0.0",
     "author": "WanBadreen",
