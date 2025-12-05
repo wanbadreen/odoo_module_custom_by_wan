@@ -108,4 +108,14 @@ Module automatically:
 ## 👤 Author
 Developed by **Wan Badreen**
 
-For support or custom enhancements, feel free to contact.
+## 📝 How to apply this module in your database
+
+1. **Copy to addons path:** Place the `odoo_loyalty_partial_redeem` folder in your Odoo 18 addons directory or add the repository path to `addons_path`.
+2. **Update the apps list:** From the Odoo Apps menu click **Update Apps List** (or run `-u odoo_loyalty_partial_redeem` from the command line).
+3. **Install the module:** Search for **"Morimoto Loyalty Partial Redeem"** and install it.
+4. **Ensure a loyalty program exists:** Create/activate a loyalty program of type **Loyalty**, then issue loyalty cards to customers so they have a starting balance.
+5. **Use in a quotation:** Open any quotation for a customer with points and click **Redeem Loyalty Points**. Enter the points to redeem; the wizard will add a negative service line using the bundled **Loyalty Point Redemption** product.
+6. **Confirm the order:** Confirming the order reduces the card balance and logs a loyalty history entry showing the redeemed points.
+
+## 📞 Support
+For support or custom enhancements, feel free to contact **wanbadreen@gmail.com** or open an issue on the [project website](https://github.com/wanbadreen/odoo_loyalty_partial_redeem).
