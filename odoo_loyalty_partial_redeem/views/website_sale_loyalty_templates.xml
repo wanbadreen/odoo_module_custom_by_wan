@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <template id="cart_loyalty_redeem" inherit_id="website_sale.cart">
+        <xpath expr="//div[contains(@class, 'cart-summary')]" position="before">
+            <t t-set="loyalty_card" t-value="request.env['loyalty.card'].sudo().search([('program_id.program_type', '=', 'loyalty'), ('program_id.active', '=', True), ('partner_id', '=', request.env.user.partner_id.id)], limit=1)"/>
+            <t t-if="loyalty_card">
+                <t t-set="message" t-value="request.session.pop('loyalty_message', None)"/>
+                <t t-if="message">
+                    <div t-attf-class="alert alert-{{ message[0] }}">
+                        <t t-esc="message[1]"/>
+                    </div>
+                </t>
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <strong><span class="fa fa-star me-2"/>Loyalty Points</strong>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-2">
+                            <strong><t t-esc="loyalty_card.points"/></strong>
+                            <span>points available</span>
+                        </p>
+                        <form action="/shop/redeem_points" method="post" class="o_loyalty_redeem_form row g-2">
+                            <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="points_to_use">Points to redeem</label>
+                                <input type="number" class="form-control" name="points_to_use" min="1" step="1" required="required"/>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <label class="form-label" for="rm_per_point">RM per point</label>
+                                <input type="number" class="form-control" name="rm_per_point" step="0.01" value="0.01" required="required"/>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary mt-2">Redeem points</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </t>
+            <t t-else=""/>
+        </xpath>
+    </template>
+</odoo>

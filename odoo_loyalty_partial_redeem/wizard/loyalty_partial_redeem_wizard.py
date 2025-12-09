@@ -60,57 +60,14 @@ class LoyaltyPartialRedeemWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
 
-        if self.points_to_use <= 0:
-            raise UserError(_("Points to use must be greater than zero."))
+        amount = self.sale_order_id.apply_loyalty_redemption(
+            card=self.loyalty_card_id,
+            points=self.points_to_use,
+            rm_per_point=self.rm_per_point,
+            context_description=_("Redeem %(points).0f loyalty points", points=self.points_to_use),
+        )
 
-        if self.points_to_use > self.available_points:
-            raise UserError(_("You cannot use more points than available."))
-
-        amount = self.amount_discount
         if amount <= 0:
             raise UserError(_("Discount amount must be positive."))
 
-        order = self.sale_order_id
-        card = self.loyalty_card_id
-
-        # 1) Cari product "loyalty point redemption"
-        discount_product = self.env['product.product'].search([
-            ('default_code', '=', 'Loyalty Point Redemption'),
-        ], limit=1)
-
-        if not discount_product:
-            discount_product = self.env['product.product'].search([
-                ('name', '=', 'loyalty point redemption'),
-            ], limit=1)
-
-        if not discount_product:
-            raise UserError(
-                "Product 'loyalty point redemption' not found. "
-                "Please create it or adjust the default_code in the wizard."
-            )
-
-        # 2) Create line diskaun dalam quotation
-        self.env['sale.order.line'].create({
-            'order_id': order.id,
-            'product_id': discount_product.id,
-            'name': f"Redeem {self.points_to_use:.0f} loyalty points",
-            'product_uom_qty': 1.0,
-            'price_unit': -amount,  # negative = diskaun
-        })
-
-        # 3) Tolak point dalam loyalty card
-        # NOTE: kalau nama field balance lain dari 'points', tukar sini
-        card.points = (card.points or 0.0) - self.points_to_use
-
-        # 4) Rekodkan penggunaan dalam history (supaya 'Used' update)
-        self.env['loyalty.history'].create({
-            'card_id': card.id,
-            'description': f"Redeem {self.points_to_use:.0f} pts on order {order.name}",
-            'issued': 0.0,
-            'used': self.points_to_use,
-            'order_id': order.id,
-            'order_model': 'sale.order',
-        })
-
         return {'type': 'ir.actions.act_window_close'}
-
