@@ -7,11 +7,15 @@
     "category": "Sales",
     "license": "LGPL-3",
     "application": False,
-    "depends": ["sale_management", "loyalty"],
+    "depends": ["sale_management", "loyalty", "website_sale"],
     "data": [
         "security/ir.model.access.csv",
         "views/sale_order_view.xml",
         "views/loyalty_partial_redeem_wizard_view.xml",
+        "views/website_cart_loyalty.xml",
     ],
+    "assets": {
+        "web.assets_frontend": [],
+    },
     "images": ["images/main_screenshot.png"],
 }
