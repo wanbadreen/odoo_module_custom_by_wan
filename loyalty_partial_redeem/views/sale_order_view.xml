@@ -9,7 +9,8 @@
                 <button name="action_open_loyalty_redeem_wizard"
                         type="object"
                         string="Redeem Loyalty Points"
-                        class="btn btn-secondary"/>
+                        class="btn btn-secondary"
+                        attrs="{'invisible': [('has_loyalty_redeem', '=', True)]}"/>
             </xpath>
         </field>
     </record>

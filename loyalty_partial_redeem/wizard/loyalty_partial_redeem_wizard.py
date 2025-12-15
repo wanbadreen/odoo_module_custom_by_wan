@@ -32,6 +32,9 @@ class LoyaltyPartialRedeemWizard(models.TransientModel):
         order = self.sale_order_id
         card = self.loyalty_card_id
 
+        if order._get_loyalty_redeem_lines():
+            raise UserError(_("This order already has a loyalty redemption. Remove the redemption line first."))
+
         discount_product = self.env['product.product'].search([
             ('default_code', '=', 'Loyalty Point Redemption'),
         ], limit=1)
@@ -50,9 +53,14 @@ class LoyaltyPartialRedeemWizard(models.TransientModel):
             'name': f"Redeem {self.points_to_use:.0f} loyalty points",
             'product_uom_qty': 1.0,
             'price_unit': -amount,
+            'is_loyalty_redeem_line': True,
         })
 
         card.points -= self.points_to_use
+
+        order.loyalty_card_id = card.id
+        order.loyalty_points_redeemed = self.points_to_use
+        order.loyalty_redeem_reversed = False
 
         self.env['loyalty.history'].create({
             'card_id': card.id,
