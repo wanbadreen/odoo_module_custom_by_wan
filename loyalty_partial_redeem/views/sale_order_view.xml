@@ -10,7 +10,7 @@
                         type="object"
                         string="Redeem Loyalty Points"
                         class="btn btn-secondary"
-                        attrs="{'invisible': [('has_loyalty_redeem', '=', True)]}"/>
+                        invisible="has_loyalty_redeem"/>
             </xpath>
         </field>
     </record>
