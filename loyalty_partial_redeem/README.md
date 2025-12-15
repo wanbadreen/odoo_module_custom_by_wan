@@ -1,3 +1,1 @@
-# Loyalty Partial Redeem
-
-Module for partial loyalty redemption.
+Odoo Module Custom By Wan
