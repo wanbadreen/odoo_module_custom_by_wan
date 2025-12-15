@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <odoo>
     <record id="product_loyalty_discount" model="product.product">
-        <field name="name">Loyalty Redemption</field>
+        <field name="name">Loyalty Point Redemption</field>
         <field name="type">service</field>
         <field name="invoice_policy">order</field>
         <field name="sale_ok" eval="False"/>
