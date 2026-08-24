@@ -34,7 +34,7 @@
                     <div class="oe_title">
                         <label for="name"/>
                         <h1>
-                            <field name="name" placeholder="e.g. RM2,000 Free Gift"/>
+                            <field name="name" placeholder="e.g. Buy KoraGene Unlock Oshino PWP"/>
                         </h1>
                     </div>
 
@@ -66,12 +66,42 @@
                             <field name="shipping_handling"
                                    invisible="rule_type != 'minimum_purchase'"/>
 
-                            <field name="repeat_reward"/>
+                            <field name="repeat_reward"
+                                   invisible="rule_type == 'pwp'"/>
+
+                            <field name="pwp_trigger_qty"
+                                   invisible="rule_type != 'pwp'"/>
+
+                            <field name="pwp_buy_qty"
+                                   invisible="rule_type != 'pwp'"/>
+
+                            <field name="pwp_repeat_per_trigger"
+                                   invisible="rule_type != 'pwp'"/>
                         </group>
                     </group>
 
                     <div class="text-muted mb-3" groups="base.group_multi_company">
                         Leave Company blank to apply this promotion to all companies.
+                    </div>
+
+                    <group string="PWP Trigger Eligibility"
+                           invisible="rule_type != 'pwp'">
+                        <group>
+                            <field name="pwp_trigger_product_tmpl_ids"
+                                   widget="many2many_tags"
+                                   placeholder="e.g. KoraGene Box"/>
+                        </group>
+                        <group>
+                            <field name="pwp_trigger_product_tag_ids"
+                                   widget="many2many_tags"
+                                   placeholder="Optional trigger product tags"/>
+                        </group>
+                    </group>
+
+                    <div class="text-muted mb-3" invisible="rule_type != 'pwp'">
+                        Trigger products unlock PWP entitlement. The customer or CS must still add the paid
+                        PWP Product to the order. Free quantity is capped by both the number of completed
+                        trigger entitlements and the number of paid PWP sets selected.
                     </div>
 
                     <group string="Eligibility for Normal Single Products"
@@ -101,10 +131,20 @@
                     <group string="Reward">
                         <group>
                             <field name="reward_type"/>
-                            <field name="reward_product_id"/>
+                            <field name="reward_product_id"
+                                   string="PWP Product"
+                                   invisible="rule_type != 'pwp'"/>
+                            <field name="reward_product_id"
+                                   string="Free Product"
+                                   invisible="rule_type == 'pwp'"/>
                         </group>
                         <group>
-                            <field name="reward_qty"/>
+                            <field name="reward_qty"
+                                   string="Free Qty per PWP Set"
+                                   invisible="rule_type != 'pwp'"/>
+                            <field name="reward_qty"
+                                   string="Free Quantity Per Reward"
+                                   invisible="rule_type == 'pwp'"/>
                             <field name="reward_line_label"/>
                         </group>
                     </group>
