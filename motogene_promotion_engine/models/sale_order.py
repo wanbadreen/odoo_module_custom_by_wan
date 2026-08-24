@@ -36,7 +36,7 @@ class SaleOrder(models.Model):
         self.ensure_one()
         Program = self.env["motogene.promotion.program"].sudo()
         active_programs = Program.search([
-            ("company_id", "=", self.company_id.id),
+            ("company_id", "in", [False, self.company_id.id]),
             ("state", "=", "active"),
             ("active", "=", True),
         ])
