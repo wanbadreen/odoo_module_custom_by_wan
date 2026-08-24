@@ -35,14 +35,15 @@ class MotogenePromotionProgram(models.Model):
 
     company_id = fields.Many2one(
         "res.company",
-        required=True,
+        required=False,
         default=lambda self: self.env.company,
         index=True,
+        help="Leave blank to apply this promotion to all companies.",
     )
 
     currency_id = fields.Many2one(
         "res.currency",
-        related="company_id.currency_id",
+        compute="_compute_currency_id",
         readonly=True,
     )
 
@@ -194,6 +195,19 @@ class MotogenePromotionProgram(models.Model):
     notes = fields.Text()
 
     # =========================================================
+    # COMPUTED FIELDS
+    # =========================================================
+
+    @api.depends("company_id")
+    def _compute_currency_id(self):
+        for program in self:
+            program.currency_id = (
+                program.company_id.currency_id
+                if program.company_id
+                else self.env.company.currency_id
+            )
+
+    # =========================================================
     # SQL CONSTRAINTS
     # =========================================================
 
@@ -258,7 +272,9 @@ class MotogenePromotionProgram(models.Model):
         if not self.active or self.state != "active":
             return False
 
-        if order.company_id != self.company_id:
+        # A configured company restricts the promotion to that company.
+        # Blank company means the promotion is valid for all companies.
+        if self.company_id and order.company_id != self.company_id:
             return False
 
         order_date = (
