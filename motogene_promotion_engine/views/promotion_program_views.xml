@@ -42,7 +42,9 @@
                         <group string="Validity">
                             <field name="date_start"/>
                             <field name="date_end"/>
-                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="company_id"
+                                   groups="base.group_multi_company"
+                                   placeholder="All Companies"/>
                             <field name="priority"/>
                         </group>
 
@@ -67,6 +69,10 @@
                             <field name="repeat_reward"/>
                         </group>
                     </group>
+
+                    <div class="text-muted mb-3" groups="base.group_multi_company">
+                        Leave Company blank to apply this promotion to all companies.
+                    </div>
 
                     <group string="Eligibility for Normal Single Products"
                            invisible="rule_type != 'every_x_qty'">
