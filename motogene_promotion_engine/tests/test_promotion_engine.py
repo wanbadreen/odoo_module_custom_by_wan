@@ -12,6 +12,10 @@ class TestMotogenePromotionEngine(TransactionCase):
         super().setUp()
         Product = self.env["product.product"]
         self.partner = self.env["res.partner"].create({"name": "Promo Test Customer"})
+        self.company_2 = self.env["res.company"].create({
+            "name": "Promo Test Company 2",
+            "currency_id": self.env.company.currency_id.id,
+        })
         self.box = Product.create({
             "name": "MotoGene Standard Box",
             "type": "consu",
@@ -81,8 +85,11 @@ class TestMotogenePromotionEngine(TransactionCase):
             "reward_qty": 1,
         })
 
-    def _new_order(self):
-        return self.env["sale.order"].create({"partner_id": self.partner.id})
+    def _new_order(self, company=None):
+        vals = {"partner_id": self.partner.id}
+        if company:
+            vals["company_id"] = company.id
+        return self.env["sale.order"].create(vals)
 
     def _reward_qty(self, order, program=None):
         program = program or self.program
@@ -251,3 +258,24 @@ class TestMotogenePromotionEngine(TransactionCase):
         })
         self.assertEqual(self._reward_qty(order, self.program), 4)
         self.assertEqual(self._reward_qty(order, self.minimum_program), 1)
+
+    def test_12_company_specific_program_does_not_apply_to_other_company(self):
+        order = self._new_order(self.company_2)
+        self.env["sale.order.line"].create({
+            "order_id": order.id,
+            "product_id": self.box.id,
+            "product_uom_qty": 3,
+            "price_unit": 100,
+        })
+        self.assertEqual(self._reward_qty(order, self.program), 0)
+
+    def test_13_blank_company_program_applies_to_all_companies(self):
+        self.program.write({"company_id": False})
+        order = self._new_order(self.company_2)
+        self.env["sale.order.line"].create({
+            "order_id": order.id,
+            "product_id": self.box.id,
+            "product_uom_qty": 3,
+            "price_unit": 100,
+        })
+        self.assertEqual(self._reward_qty(order, self.program), 2)
