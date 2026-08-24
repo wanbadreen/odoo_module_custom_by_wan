@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_order_form_motogene_promotion_engine" model="ir.ui.view">
+        <field name="name">sale.order.form.motogene.promotion.engine</field>
+        <field name="model">sale.order</field>
+        <field name="inherit_id" ref="sale.view_order_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_recompute_motogene_promotions"
+                        type="object"
+                        string="Recompute Promotions"
+                        class="btn-secondary"
+                        invisible="state not in ('draft', 'sent')"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Promotion Rewards" name="motogene_promotion_rewards">
+                    <field name="promotion_reward_line_ids" readonly="1">
+                        <list create="0" delete="0" edit="0">
+                            <field name="promotion_program_id"/>
+                            <field name="product_id"/>
+                            <field name="product_uom_qty"/>
+                            <field name="price_unit"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
