@@ -58,6 +58,7 @@ class MotogenePromotionProgram(models.Model):
         [
             ("every_x_qty", "Every X Paid Box Units"),
             ("minimum_purchase", "Minimum Purchase Amount"),
+            ("pwp", "Specific Product Purchase (PWP)"),
         ],
         string="Condition Type",
         required=True,
@@ -127,6 +128,64 @@ class MotogenePromotionProgram(models.Model):
     )
 
     # =========================================================
+    # V1.3 - PWP CONDITION
+    # =========================================================
+
+    pwp_trigger_product_tmpl_ids = fields.Many2many(
+        "product.template",
+        "motogene_promo_pwp_trigger_product_rel",
+        "program_id",
+        "product_tmpl_id",
+        string="Trigger Products",
+        domain=[("sale_ok", "=", True)],
+        help=(
+            "Paid products that unlock PWP entitlement. "
+            "The quantities of all selected trigger products are combined."
+        ),
+    )
+
+    pwp_trigger_product_tag_ids = fields.Many2many(
+        "product.tag",
+        "motogene_promo_pwp_trigger_tag_rel",
+        "program_id",
+        "tag_id",
+        string="Trigger Product Tags",
+        help=(
+            "Any paid product carrying one of these tags can unlock PWP entitlement. "
+            "Use this when many products share the same trigger rule."
+        ),
+    )
+
+    pwp_trigger_qty = fields.Float(
+        string="Trigger Qty per Entitlement",
+        required=True,
+        default=1.0,
+        help=(
+            "How many paid trigger units are required to unlock one PWP entitlement. "
+            "Example: 1 KoraGene box unlocks 1 PWP entitlement."
+        ),
+    )
+
+    pwp_buy_qty = fields.Float(
+        string="PWP Buy Qty",
+        required=True,
+        default=1.0,
+        help=(
+            "Paid quantity of the PWP Product required for one PWP set. "
+            "Example: Buy 1 Oshino to receive the configured free quantity."
+        ),
+    )
+
+    pwp_repeat_per_trigger = fields.Boolean(
+        string="Repeat per Trigger Quantity",
+        default=True,
+        help=(
+            "If enabled, each additional completed trigger quantity unlocks another PWP entitlement. "
+            "The free reward is always capped by both trigger entitlement and paid PWP quantity."
+        ),
+    )
+
+    # =========================================================
     # ELIGIBILITY - PRODUCT TAG
     # =========================================================
 
@@ -179,6 +238,10 @@ class MotogenePromotionProgram(models.Model):
         string="Free Product",
         required=True,
         domain=[("sale_ok", "=", True)],
+        help=(
+            "For PWP rules, this is also the PWP Product the customer must add as a paid line. "
+            "The engine then adds the free quantity of the same product."
+        ),
     )
 
     reward_qty = fields.Float(
@@ -227,6 +290,16 @@ class MotogenePromotionProgram(models.Model):
             "CHECK(tagged_box_units_per_qty > 0)",
             "Tagged product paid box units must be greater than zero.",
         ),
+        (
+            "pwp_trigger_qty_positive",
+            "CHECK(pwp_trigger_qty > 0)",
+            "PWP Trigger Qty per Entitlement must be greater than zero.",
+        ),
+        (
+            "pwp_buy_qty_positive",
+            "CHECK(pwp_buy_qty > 0)",
+            "PWP Buy Qty must be greater than zero.",
+        ),
     ]
 
     # =========================================================
@@ -248,6 +321,29 @@ class MotogenePromotionProgram(models.Model):
         for program in self:
             if program.rule_type == "minimum_purchase" and program.minimum_amount <= 0:
                 raise ValidationError(_("Minimum Purchase Amount must be greater than zero."))
+
+    @api.constrains(
+        "rule_type",
+        "pwp_trigger_product_tmpl_ids",
+        "pwp_trigger_product_tag_ids",
+        "pwp_trigger_qty",
+        "pwp_buy_qty",
+    )
+    def _check_pwp_setup(self):
+        for program in self:
+            if program.rule_type != "pwp":
+                continue
+
+            if not program.pwp_trigger_product_tmpl_ids and not program.pwp_trigger_product_tag_ids:
+                raise ValidationError(
+                    _("PWP requires at least one Trigger Product or Trigger Product Tag.")
+                )
+
+            if program.pwp_trigger_qty <= 0:
+                raise ValidationError(_("PWP Trigger Qty per Entitlement must be greater than zero."))
+
+            if program.pwp_buy_qty <= 0:
+                raise ValidationError(_("PWP Buy Qty must be greater than zero."))
 
     # =========================================================
     # BUTTON ACTIONS
@@ -326,6 +422,34 @@ class MotogenePromotionProgram(models.Model):
             return True
         return False
 
+    @staticmethod
+    def _is_combo_child_line(line):
+        return bool("combo_item_id" in line._fields and line.combo_item_id)
+
+    def _is_normal_paid_line(self, line):
+        """Return True only for normal paid product lines usable by PWP logic."""
+        if line.display_type or not line.product_id:
+            return False
+
+        if line.is_motogene_promo_reward:
+            return False
+
+        if self._is_combo_child_line(line):
+            return False
+
+        if self._is_other_reward_line(line):
+            return False
+
+        if float(line.product_uom_qty or 0.0) <= 0:
+            return False
+
+        # PWP is based on purchased items. Fully free/zero-value lines must not
+        # create trigger entitlement or count as the customer's paid PWP choice.
+        if float(line.price_subtotal or 0.0) <= 0:
+            return False
+
+        return True
+
     # =========================================================
     # V1 - ELIGIBLE PAID BOX UNIT CALCULATION
     # =========================================================
@@ -355,7 +479,7 @@ class MotogenePromotionProgram(models.Model):
 
             # Parent combo/package is counted using its explicit configured factor.
             # Child combo lines must not be counted again for the box-unit rule.
-            if "combo_item_id" in line._fields and line.combo_item_id:
+            if self._is_combo_child_line(line):
                 continue
 
             # Exclude rewards generated by other Odoo promotion/loyalty mechanisms.
@@ -442,6 +566,102 @@ class MotogenePromotionProgram(models.Model):
         return total
 
     # =========================================================
+    # V1.3 - PWP CALCULATION
+    # =========================================================
+
+    def _pwp_trigger_quantity_for_order(self, order):
+        """Count paid trigger units from configured products and/or product tags."""
+        self.ensure_one()
+
+        trigger_template_ids = set(self.pwp_trigger_product_tmpl_ids.ids)
+        trigger_tag_ids = set(self.pwp_trigger_product_tag_ids.ids)
+
+        if not trigger_template_ids and not trigger_tag_ids:
+            return 0.0
+
+        total = 0.0
+
+        for line in order.order_line:
+            if not self._is_normal_paid_line(line):
+                continue
+
+            template = line.product_id.product_tmpl_id
+            matches_product = template.id in trigger_template_ids
+            matches_tag = bool(
+                trigger_tag_ids.intersection(set(template.product_tag_ids.ids))
+            )
+
+            if matches_product or matches_tag:
+                total += float(line.product_uom_qty or 0.0)
+
+        return total
+
+    def _pwp_paid_product_quantity_for_order(self, order):
+        """Count how many paid PWP products the customer/CS actually selected."""
+        self.ensure_one()
+
+        if not self.reward_product_id:
+            return 0.0
+
+        total = 0.0
+
+        for line in order.order_line:
+            if not self._is_normal_paid_line(line):
+                continue
+
+            if line.product_id == self.reward_product_id:
+                total += float(line.product_uom_qty or 0.0)
+
+        return total
+
+    def _pwp_reward_quantity_for_order(self, order):
+        """
+        Calculate free PWP quantity.
+
+        Example:
+        - Trigger: 1 KoraGene = 1 entitlement
+        - PWP Product: Oshino
+        - Buy Qty: 1
+        - Free Qty: 1
+
+        1 KoraGene + 3 paid Oshino => only 1 free Oshino.
+        2 KoraGene + 2 paid Oshino => 2 free Oshino.
+
+        Reward sets are capped by the lower of:
+        1) trigger entitlements, and
+        2) paid PWP sets selected by the customer/CS.
+        """
+        self.ensure_one()
+
+        trigger_threshold = float(self.pwp_trigger_qty or 0.0)
+        pwp_buy_qty = float(self.pwp_buy_qty or 0.0)
+
+        if trigger_threshold <= 0 or pwp_buy_qty <= 0:
+            return 0.0
+
+        trigger_qty = self._pwp_trigger_quantity_for_order(order)
+        trigger_entitlements = math.floor(
+            (trigger_qty + 1e-9) / trigger_threshold
+        )
+
+        if trigger_entitlements <= 0:
+            return 0.0
+
+        if not self.pwp_repeat_per_trigger:
+            trigger_entitlements = 1
+
+        paid_pwp_qty = self._pwp_paid_product_quantity_for_order(order)
+        paid_pwp_sets = math.floor(
+            (paid_pwp_qty + 1e-9) / pwp_buy_qty
+        )
+
+        if paid_pwp_sets <= 0:
+            return 0.0
+
+        reward_sets = min(trigger_entitlements, paid_pwp_sets)
+        return float(reward_sets) * self.reward_qty
+
+    # =========================================================
     # REWARD QUANTITY CALCULATION
     # =========================================================
 
@@ -450,6 +670,10 @@ class MotogenePromotionProgram(models.Model):
 
         if not self._is_valid_for_order(order):
             return 0.0
+
+        # V1.3: Trigger Product Purchase -> customer-selected PWP -> Free Product
+        if self.rule_type == "pwp":
+            return self._pwp_reward_quantity_for_order(order)
 
         # V1.2: Minimum Purchase Amount -> Free Product
         if self.rule_type == "minimum_purchase":
