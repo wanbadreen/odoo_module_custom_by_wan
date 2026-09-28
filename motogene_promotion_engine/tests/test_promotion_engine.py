@@ -344,6 +344,27 @@ class TestMotogenePromotionEngine(TransactionCase):
         with self.assertRaises(UserError):
             picking.button_validate()
 
+    def test_package_without_included_cards_still_gets_vip_and_spend_cards(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch zero-card package",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards",
+            "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.koragene_box.product_tmpl_id.id,
+                "advertised_cards": 0,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.koragene_box, 2, 700)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual((order.scratch_base_cards, order.scratch_vip_cards), (1, 2))
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
+        self.assertEqual(picking._scratch_expected_types(), ["A", "A", "D"])
+
     def test_lucky_draw_respects_quotation_date_when_confirmed_later(self):
         draw = self.env["motogene.promotion.program"].create({
             "name": "Past Lucky Draw",

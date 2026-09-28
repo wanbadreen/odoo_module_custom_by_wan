@@ -44,8 +44,10 @@ class StockPicking(models.Model):
                 continue
             unit_count = math.floor(float(move.product_uom_qty or 0) + 1e-9)
             configured = [p.strip().upper() for p in (package.card_prefixes or "").split(",") if p.strip()]
-            if not configured:
+            if not configured and package.advertised_cards:
                 raise UserError(_("Set the card types for package %s in the promotion first.") % package.product_tmpl_id.display_name)
+            if len(configured) != package.advertised_cards:
+                raise UserError(_("Card types and Included Cards disagree for package %s.") % package.product_tmpl_id.display_name)
             types.extend(configured * unit_count)
             if vip:
                 types.extend([program.scratch_vip_prefix] * unit_count)

@@ -799,7 +799,7 @@ class MotogeneScratchPackage(models.Model):
     )
     advertised_cards = fields.Integer(
         string="Included Cards", default=1,
-        help="Reserved for package allocation in a later phase; not used in card entitlement.",
+        help="Cards included with one package unit. Use zero for packages without included cards.",
     )
     card_prefixes = fields.Char(
         string="Card Types in Order", help="Comma-separated card types, e.g. A,B,F,E. "
@@ -809,8 +809,10 @@ class MotogeneScratchPackage(models.Model):
     @api.constrains("card_prefixes", "advertised_cards")
     def _check_card_prefixes(self):
         for package in self:
-            if not package.card_prefixes:
+            if not package.card_prefixes and not package.advertised_cards:
                 continue
+            if not package.card_prefixes:
+                continue  # Existing records can be configured in a later edit.
             prefixes = [p.strip().upper() for p in package.card_prefixes.split(",")]
             if len(prefixes) != package.advertised_cards or any(
                 len(prefix) != 1 or not prefix.isalpha() for prefix in prefixes
@@ -819,8 +821,8 @@ class MotogeneScratchPackage(models.Model):
     _sql_constraints = [
         ("scratch_package_unique", "UNIQUE(program_id, product_tmpl_id)",
          "This package is already configured for this Scratch & Win program."),
-        ("scratch_package_cards_positive", "CHECK(advertised_cards > 0)",
-         "Cards included in the package must be greater than zero."),
+        ("scratch_package_cards_nonnegative", "CHECK(advertised_cards >= 0)",
+         "Cards included in the package cannot be negative."),
     ]
 
 
