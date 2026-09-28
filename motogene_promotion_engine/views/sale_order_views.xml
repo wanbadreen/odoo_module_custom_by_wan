@@ -16,6 +16,10 @@
                 <field name="lucky_draw_program_id" invisible="1"/>
                 <field name="lucky_draw_entries" readonly="1"
                        invisible="not lucky_draw_program_id"/>
+                <field name="scratch_program_id" invisible="1"/>
+                <field name="scratch_base_cards" readonly="1" invisible="not scratch_program_id"/>
+                <field name="scratch_vip_cards" readonly="1" invisible="not scratch_program_id"/>
+                <field name="scratch_total_cards" readonly="1" invisible="not scratch_program_id"/>
             </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Promotion Rewards" name="motogene_promotion_rewards">
