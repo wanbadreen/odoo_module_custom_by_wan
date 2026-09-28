@@ -11,6 +11,16 @@ class MotogenePromotionProgram(models.Model):
     _description = "MotoGene Promotion Program"
     _order = "priority, id"
 
+    @api.model_create_multi
+    def create(self, vals_list):
+        # The form's reward-type onchange may show Repeat Reward checked while
+        # the first create request still sends its former false value. A draw
+        # always repeats per threshold, so enforce that invariant on creation.
+        for vals in vals_list:
+            if vals.get("reward_type") == "lucky_draw_entries":
+                vals["repeat_reward"] = True
+        return super().create(vals_list)
+
     # =========================================================
     # BASIC INFORMATION
     # =========================================================
