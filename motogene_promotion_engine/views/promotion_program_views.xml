@@ -177,6 +177,23 @@
                             <field name="scratch_package_line_ids" invisible="reward_type != 'scratch_cards'">
                                 <list editable="bottom">
                                     <field name="product_tmpl_id"/>
+                                    <field name="advertised_cards"/>
+                                    <field name="card_prefixes"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Scratch Card Serial Pools" invisible="reward_type != 'scratch_cards'">
+                            <group>
+                                <field name="scratch_vip_prefix"/>
+                                <field name="scratch_extra_prefix"/>
+                            </group>
+                            <p class="text-muted">Set the printed serial ranges for each card type. The next number is reserved when Operation prepares a delivery.</p>
+                            <field name="scratch_serial_pool_ids">
+                                <list editable="bottom">
+                                    <field name="prefix"/>
+                                    <field name="first_number"/>
+                                    <field name="last_number"/>
+                                    <field name="next_number" readonly="1"/>
                                 </list>
                             </field>
                         </page>

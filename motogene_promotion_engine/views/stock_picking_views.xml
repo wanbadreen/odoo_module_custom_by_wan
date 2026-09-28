@@ -16,4 +16,27 @@
             </xpath>
         </field>
     </record>
+    <record id="view_picking_form_motogene_scratch_packing" model="ir.ui.view">
+        <field name="name">stock.picking.form.motogene.scratch.packing</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//header" position="inside">
+                <button name="action_prepare_scratch_cards" type="object" string="Prepare Scratch Cards"
+                        invisible="not scratch_program_id or state in ('done', 'cancel')"/>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Scratch Cards to Pack" invisible="not scratch_program_id">
+                    <p class="text-muted">Match each printed serial to the physical card, then tick Packed / Checked before validating the delivery.</p>
+                    <field name="scratch_card_line_ids" readonly="state in ('done', 'cancel')">
+                        <list create="0" delete="0" editable="bottom">
+                            <field name="prefix" readonly="1"/>
+                            <field name="serial_number" readonly="1"/>
+                            <field name="packed"/>
+                        </list>
+                    </field>
+                </page>
+            </xpath>
+        </field>
+    </record>
 </odoo>

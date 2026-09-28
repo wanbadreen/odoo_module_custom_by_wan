@@ -2,3 +2,5 @@ id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_motogene_promotion_program_user,motogene.promotion.program user,model_motogene_promotion_program,base.group_user,1,1,1,1
 access_motogene_promotion_eligibility_user,motogene.promotion.eligibility user,model_motogene_promotion_eligibility,base.group_user,1,1,1,1
 access_motogene_scratch_package_user,motogene.scratch.package user,model_motogene_scratch_package,base.group_user,1,1,1,1
+access_motogene_scratch_serial_pool_user,motogene.scratch.serial.pool user,model_motogene_scratch_serial_pool,base.group_user,1,1,1,0
+access_motogene_scratch_picking_card_user,motogene.scratch.picking.card user,model_motogene_scratch_picking_card,base.group_user,1,1,1,0
