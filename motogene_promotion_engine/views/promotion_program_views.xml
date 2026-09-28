@@ -67,7 +67,7 @@
                                    invisible="rule_type != 'minimum_purchase'"/>
 
                             <field name="repeat_reward"
-                                   invisible="rule_type == 'pwp' or reward_type == 'lucky_draw_entries'"/>
+                                   invisible="rule_type == 'pwp'"/>
 
                             <field name="pwp_trigger_qty"
                                    invisible="rule_type != 'pwp'"/>
