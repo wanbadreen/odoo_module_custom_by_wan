@@ -147,7 +147,7 @@
                                    invisible="rule_type == 'pwp' or reward_type in ('lucky_draw_entries', 'scratch_cards')"/>
                             <field name="reward_qty" string="Entries per Threshold"
                                    invisible="reward_type != 'lucky_draw_entries'"/>
-                            <field name="reward_qty" string="Cards per RM Threshold"
+                            <field name="reward_qty" string="Cards per Threshold"
                                    invisible="reward_type != 'scratch_cards'" readonly="1"/>
                             <field name="reward_line_label"
                                    invisible="reward_type in ('lucky_draw_entries', 'scratch_cards')"/>
@@ -155,31 +155,28 @@
                     </group>
 
                     <notebook>
-                        <page string="11.11 Scratch Packages" invisible="reward_type != 'scratch_cards'">
-                            <p class="text-muted">
-                                Select the actual package products. The listed cards are already included
-                                in the RM888 spend calculation and are not added again. A VIP receives
-                                one additional card for each purchased package unit.
-                            </p>
-                            <field name="scratch_package_line_ids">
-                                <list editable="bottom">
-                                    <field name="product_tmpl_id"/>
-                                    <field name="advertised_cards"/>
-                                </list>
-                            </field>
-                        </page>
                         <page string="Eligible Products / Packages"
-                              invisible="rule_type != 'every_x_qty'">
-                            <p class="text-muted">
+                              invisible="rule_type != 'every_x_qty' and reward_type != 'scratch_cards'">
+                            <p class="text-muted" invisible="reward_type == 'scratch_cards'">
                                 Use this section for products or packages that represent a specific number
                                 of paid boxes. Example: normal box = 1, 2-box combo = 2, 3-box combo = 3,
                                 and 8-box combo = 8. Explicit Product / Package configuration overrides
                                 Product Tag eligibility.
                             </p>
-                            <field name="eligibility_line_ids">
+                            <field name="eligibility_line_ids" invisible="reward_type == 'scratch_cards'">
                                 <list editable="bottom">
                                     <field name="product_tmpl_id"/>
                                     <field name="box_units_per_qty"/>
+                                </list>
+                            </field>
+                            <p class="text-muted" invisible="reward_type != 'scratch_cards'">
+                                Select the package products eligible for the VIP bonus. Cards advertised
+                                with a package are already counted by the spending rule. Each purchased
+                                package unit gives a VIP one additional card.
+                            </p>
+                            <field name="scratch_package_line_ids" invisible="reward_type != 'scratch_cards'">
+                                <list editable="bottom">
+                                    <field name="product_tmpl_id"/>
                                 </list>
                             </field>
                         </page>

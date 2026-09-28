@@ -296,7 +296,6 @@ class TestMotogenePromotionEngine(TransactionCase):
             "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
-                "advertised_cards": 1,
             })],
         })
         order = self._new_order()

@@ -265,7 +265,7 @@ class MotogenePromotionProgram(models.Model):
     )
 
     scratch_package_line_ids = fields.One2many(
-        "motogene.scratch.package", "program_id", string="11.11 Packages",
+        "motogene.scratch.package", "program_id", string="Eligible Package Products",
     )
 
     @api.onchange("reward_type")
@@ -395,7 +395,7 @@ class MotogenePromotionProgram(models.Model):
         for program in self:
             if program.reward_type == "scratch_cards" and not program.scratch_package_line_ids:
                 raise ValidationError(_(
-                    "Select the 11.11 package products before activating Scratch & Win. "
+                    "Select the eligible package products before activating Scratch & Win. "
                     "They are required to calculate VIP bonus cards per package."
                 ))
         self.write({"state": "active", "active": True})
@@ -755,7 +755,7 @@ class MotogenePromotionProgram(models.Model):
         return 0.0
 
     def _scratch_package_units_for_order(self, order):
-        """Count purchased 11.11 packages; one VIP card per package unit."""
+        """Count purchased configured packages; one VIP card per package unit."""
         self.ensure_one()
         template_ids = set(self.scratch_package_line_ids.mapped("product_tmpl_id").ids)
         return sum(
@@ -784,14 +784,13 @@ class MotogeneScratchPackage(models.Model):
         "motogene.promotion.program", required=True, ondelete="cascade",
     )
     product_tmpl_id = fields.Many2one(
-        "product.template", string="11.11 Package Product", required=True,
+        "product.template", string="Package Product", required=True,
         domain=[("sale_ok", "=", True)],
     )
     advertised_cards = fields.Integer(
-        string="Cards Included in RM888 Calculation", required=True, default=1,
-        help="For reference only. These cards are already included in the RM888 spend calculation.",
+        string="Included Cards", default=1,
+        help="Reserved for package allocation in a later phase; not used in card entitlement.",
     )
-
     _sql_constraints = [
         ("scratch_package_unique", "UNIQUE(program_id, product_tmpl_id)",
          "This package is already configured for this Scratch & Win program."),
