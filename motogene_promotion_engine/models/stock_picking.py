@@ -36,7 +36,8 @@ class StockPicking(models.Model):
             return []
         packages = {line.product_tmpl_id.id: line for line in program.scratch_package_line_ids}
         types = []
-        vip = program._is_scratch_vip_customer(self.sale_id)
+        # Keep the VIP decision taken when the Sales Order was confirmed.
+        vip = bool(self.sale_id.scratch_vip_cards)
         for move in self.move_ids.filtered(lambda m: m.state != "cancel"):
             package = packages.get(move.product_id.product_tmpl_id.id)
             if not package:
