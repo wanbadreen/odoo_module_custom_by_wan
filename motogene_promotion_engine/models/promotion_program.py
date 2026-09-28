@@ -228,7 +228,7 @@ class MotogenePromotionProgram(models.Model):
     # =========================================================
 
     reward_type = fields.Selection(
-        [("free_product", "Free Product")],
+        [("free_product", "Free Product"), ("lucky_draw_entries", "Lucky Draw Entries")],
         required=True,
         default="free_product",
     )
@@ -236,7 +236,7 @@ class MotogenePromotionProgram(models.Model):
     reward_product_id = fields.Many2one(
         "product.product",
         string="Free Product",
-        required=True,
+        required=False,
         domain=[("sale_ok", "=", True)],
         help=(
             "For PWP rules, this is also the PWP Product the customer must add as a paid line. "
@@ -249,6 +249,13 @@ class MotogenePromotionProgram(models.Model):
         required=True,
         default=2.0,
     )
+
+    @api.onchange("reward_type")
+    def _onchange_reward_type(self):
+        if self.reward_type == "lucky_draw_entries":
+            self.rule_type = "minimum_purchase"
+            self.repeat_reward = True
+            self.reward_qty = 1
 
     reward_line_label = fields.Char(
         default="Promotion Reward",
@@ -321,6 +328,21 @@ class MotogenePromotionProgram(models.Model):
         for program in self:
             if program.rule_type == "minimum_purchase" and program.minimum_amount <= 0:
                 raise ValidationError(_("Minimum Purchase Amount must be greater than zero."))
+
+    @api.constrains("reward_type", "rule_type", "reward_product_id", "reward_qty", "repeat_reward")
+    def _check_reward_setup(self):
+        for program in self:
+            if program.reward_type == "free_product" and not program.reward_product_id:
+                raise ValidationError(_("Free Product is required for a product reward."))
+            if program.reward_type == "lucky_draw_entries" and (
+                program.rule_type != "minimum_purchase"
+                or not program.repeat_reward
+                or not float(program.reward_qty).is_integer()
+            ):
+                raise ValidationError(_(
+                    "Lucky Draw Entries requires a repeating Minimum Purchase rule "
+                    "with a whole number of entries per threshold."
+                ))
 
     @api.constrains(
         "rule_type",

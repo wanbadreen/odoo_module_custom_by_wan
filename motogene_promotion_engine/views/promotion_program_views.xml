@@ -49,7 +49,7 @@
                         </group>
 
                         <group string="Condition">
-                            <field name="rule_type"/>
+                            <field name="rule_type" readonly="reward_type == 'lucky_draw_entries'"/>
 
                             <field name="threshold_qty"
                                    invisible="rule_type != 'every_x_qty'"/>
@@ -67,7 +67,7 @@
                                    invisible="rule_type != 'minimum_purchase'"/>
 
                             <field name="repeat_reward"
-                                   invisible="rule_type == 'pwp'"/>
+                                   invisible="rule_type == 'pwp' or reward_type == 'lucky_draw_entries'"/>
 
                             <field name="pwp_trigger_qty"
                                    invisible="rule_type != 'pwp'"/>
@@ -136,7 +136,7 @@
                                    invisible="rule_type != 'pwp'"/>
                             <field name="reward_product_id"
                                    string="Free Product"
-                                   invisible="rule_type == 'pwp'"/>
+                                   invisible="rule_type == 'pwp' or reward_type == 'lucky_draw_entries'"/>
                         </group>
                         <group>
                             <field name="reward_qty"
@@ -144,8 +144,10 @@
                                    invisible="rule_type != 'pwp'"/>
                             <field name="reward_qty"
                                    string="Free Quantity Per Reward"
-                                   invisible="rule_type == 'pwp'"/>
-                            <field name="reward_line_label"/>
+                                   invisible="rule_type == 'pwp' or reward_type == 'lucky_draw_entries'"/>
+                            <field name="reward_qty" string="Entries per Threshold"
+                                   invisible="reward_type != 'lucky_draw_entries'"/>
+                            <field name="reward_line_label" invisible="reward_type == 'lucky_draw_entries'"/>
                         </group>
                     </group>
 
