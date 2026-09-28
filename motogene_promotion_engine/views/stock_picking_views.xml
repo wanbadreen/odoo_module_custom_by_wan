@@ -27,12 +27,11 @@
             </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Scratch Cards to Pack" invisible="not scratch_program_id">
-                    <p class="text-muted">Match each printed serial to the physical card, then tick Packed / Checked before validating the delivery.</p>
+                    <p class="text-muted">Pack the physical cards with these serial numbers. The same list is printed on the delivery slip.</p>
                     <field name="scratch_card_line_ids" readonly="state in ('done', 'cancel')">
                         <list create="0" delete="0" editable="bottom">
                             <field name="prefix" readonly="1"/>
                             <field name="serial_number" readonly="1"/>
-                            <field name="packed"/>
                         </list>
                     </field>
                 </page>

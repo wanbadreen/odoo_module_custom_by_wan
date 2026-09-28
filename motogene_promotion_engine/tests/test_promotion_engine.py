@@ -312,7 +312,7 @@ class TestMotogenePromotionEngine(TransactionCase):
         order.action_cancel()
         self.assertEqual(order.scratch_total_cards, 0)
 
-    def test_scratch_delivery_reserves_serials_once_and_requires_packing(self):
+    def test_scratch_delivery_reserves_serials_once_and_requires_preparation(self):
         scratch = self.env["motogene.promotion.program"].create({
             "name": "Delivery card packing",
             "state": "active",
@@ -341,8 +341,7 @@ class TestMotogenePromotionEngine(TransactionCase):
         picking.action_prepare_scratch_cards()
         self.assertEqual(picking.scratch_card_line_ids.mapped("serial_number"), ["D8001", "D8002"])
         self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 8003)
-        with self.assertRaises(UserError):
-            picking.button_validate()
+        self.assertEqual(len(picking.scratch_card_line_ids), 2)
 
     def test_package_without_included_cards_still_gets_vip_and_spend_cards(self):
         scratch = self.env["motogene.promotion.program"].create({

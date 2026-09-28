@@ -61,7 +61,6 @@ class ScratchPickingCard(models.Model):
     program_id = fields.Many2one("motogene.promotion.program", required=True, ondelete="restrict")
     prefix = fields.Char(string="Card Type", required=True)
     serial_number = fields.Char(required=True, readonly=True, copy=False)
-    packed = fields.Boolean(string="Packed / Checked", default=False, copy=False)
     _sql_constraints = [
         ("scratch_card_serial_unique", "UNIQUE(serial_number)", "This scratch card serial is already allocated."),
     ]

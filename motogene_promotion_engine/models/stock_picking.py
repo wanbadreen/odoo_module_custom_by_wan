@@ -104,6 +104,6 @@ class StockPicking(models.Model):
                 continue
             expected = picking._scratch_expected_types()
             lines = picking.scratch_card_line_ids
-            if Counter(lines.mapped("prefix")) != Counter(expected) or any(not line.packed for line in lines):
-                raise UserError(_("Prepare and check every Scratch & Win card and serial number before validating this delivery."))
+            if Counter(lines.mapped("prefix")) != Counter(expected):
+                raise UserError(_("Prepare the Scratch & Win card serial numbers before validating this delivery."))
         return super().button_validate()
