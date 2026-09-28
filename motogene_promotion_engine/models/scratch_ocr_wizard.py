@@ -18,6 +18,7 @@ class ScratchCardOcrWizard(models.TransientModel):
     confirmed_serial = fields.Char(string="Serial on Physical Card",
                                    help="Check this against the card. Correct it if OCR misread the photo.")
     ocr_text = fields.Text(string="OCR Text", readonly=True)
+    ocr_status = fields.Char(string="Result", readonly=True)
     photo_read = fields.Boolean(default=False)
 
     @api.onchange("photo")
@@ -25,6 +26,7 @@ class ScratchCardOcrWizard(models.TransientModel):
         self.detected_serial = False
         self.confirmed_serial = False
         self.ocr_text = False
+        self.ocr_status = False
         self.photo_read = False
 
     def _reopen(self):
@@ -52,6 +54,11 @@ class ScratchCardOcrWizard(models.TransientModel):
             "detected_serial": detected,
             "confirmed_serial": detected,
             "ocr_text": raw_text[:2000],
+            "ocr_status": (
+                _("Read %(serial)s. Check it against the physical card.") % {"serial": detected}
+                if detected else _("Could not read one clear serial. Retake a close photo of the number, "
+                                "or enter the number yourself.")
+            ),
             "photo_read": True,
         })
         return self._reopen()
