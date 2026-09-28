@@ -13,11 +13,12 @@ class MotogenePromotionProgram(models.Model):
 
     @api.model_create_multi
     def create(self, vals_list):
-        # The form's reward-type onchange may show Repeat Reward checked while
-        # the first create request still sends its former false value. A draw
-        # always repeats per threshold, so enforce that invariant on creation.
+        # On the first save the form can submit stale condition values from
+        # before the reward-type onchange. A draw always uses a repeating
+        # purchase threshold, so normalize both condition fields on creation.
         for vals in vals_list:
             if vals.get("reward_type") == "lucky_draw_entries":
+                vals["rule_type"] = "minimum_purchase"
                 vals["repeat_reward"] = True
         return super().create(vals_list)
 
