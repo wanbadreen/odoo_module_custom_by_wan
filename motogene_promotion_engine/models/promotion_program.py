@@ -767,9 +767,13 @@ class MotogenePromotionProgram(models.Model):
 
     def _is_scratch_vip_customer(self, order):
         """Reuse the existing Studio VIP level without requiring Studio on fresh databases."""
-        partner = order.partner_id.commercial_partner_id
         field_name = "x_studio_loyalty_program_level_1"
-        return field_name in partner._fields and str(partner[field_name] or "").strip().lower() == "vip"
+        partners = order.partner_id | order.partner_id.commercial_partner_id
+        return any(
+            field_name in partner._fields
+            and str(partner[field_name] or "").strip().lower() == "vip"
+            for partner in partners
+        )
 
 
 class MotogeneScratchPackage(models.Model):

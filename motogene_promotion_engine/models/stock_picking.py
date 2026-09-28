@@ -15,7 +15,7 @@ class StockPicking(models.Model):
     scratch_base_cards = fields.Integer(related="sale_id.scratch_base_cards", readonly=True)
     scratch_vip_cards = fields.Integer(related="sale_id.scratch_vip_cards", readonly=True)
     scratch_total_cards = fields.Integer(
-        related="sale_id.scratch_total_cards", string="SO Total Scratch Cards", readonly=True,
+        related="sale_id.scratch_total_cards", string="SO Scratch Cards (Info Only)", readonly=True,
         help="Total entitlement on the Sales Order. When an order has multiple deliveries, "
              "this does not mean the full count should be packed in every delivery.",
     )
