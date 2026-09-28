@@ -28,6 +28,19 @@ class StockPicking(models.Model):
         copy=False,
     )
 
+    def action_check_scratch_card_photo(self):
+        self.ensure_one()
+        if not self.scratch_card_line_ids:
+            raise UserError(_("Prepare the Scratch & Win cards first."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Check Scratch Card Photo"),
+            "res_model": "motogene.scratch.ocr.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_picking_id": self.id},
+        }
+
     def _scratch_expected_types(self):
         """Cards on this delivery; unmatched spend cards go to the first delivery."""
         self.ensure_one()

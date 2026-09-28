@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_motogene_scratch_ocr_wizard_form" model="ir.ui.view">
+        <field name="name">motogene.scratch.ocr.wizard.form</field>
+        <field name="model">motogene.scratch.ocr.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Check Scratch Card Photo">
+                <group>
+                    <field name="picking_id" invisible="1"/>
+                    <field name="photo_read" invisible="1"/>
+                    <field name="photo" widget="image" options="{'size': [2048, 2048]}"/>
+                    <field name="detected_serial" readonly="1" invisible="not photo_read"/>
+                    <field name="confirmed_serial" invisible="not photo_read"/>
+                    <field name="ocr_text" readonly="1" invisible="not photo_read"/>
+                </group>
+                <p class="text-muted">Take a close photo of the printed serial only. Check the suggested number against the physical card before confirming.</p>
+                <footer>
+                    <button name="action_read_photo" type="object" string="Read Photo" class="btn-primary"/>
+                    <button name="action_verify_card" type="object" string="Verify &amp; Pack"
+                            class="btn-primary" invisible="not photo_read"/>
+                    <button string="Cancel" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

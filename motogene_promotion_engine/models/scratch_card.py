@@ -62,6 +62,11 @@ class ScratchPickingCard(models.Model):
     prefix = fields.Char(string="Card Type", required=True)
     serial_number = fields.Char(required=True, readonly=True, copy=False)
     packed = fields.Boolean(string="Packed / Checked", default=False, copy=False)
+    verified_serial = fields.Char(string="Photo-Verified Serial", readonly=True, copy=False)
+    verification_method = fields.Selection([
+        ("photo_ocr", "Photo OCR"),
+        ("photo_corrected", "Photo, OCR Corrected"),
+    ], string="Verification Method", readonly=True, copy=False)
     _sql_constraints = [
         ("scratch_card_serial_unique", "UNIQUE(serial_number)", "This scratch card serial is already allocated."),
     ]

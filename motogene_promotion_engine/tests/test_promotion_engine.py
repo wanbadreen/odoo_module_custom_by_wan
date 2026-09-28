@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
+import base64
+import io
 from datetime import timedelta
 from unittest.mock import patch
 
+from PIL import Image
 from odoo import fields
 from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase, tagged
@@ -341,6 +344,26 @@ class TestMotogenePromotionEngine(TransactionCase):
         picking.action_prepare_scratch_cards()
         self.assertEqual(picking.scratch_card_line_ids.mapped("serial_number"), ["D8001", "D8002"])
         self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 8003)
+        with self.assertRaises(UserError):
+            picking.button_validate()
+        photo = io.BytesIO()
+        Image.new("RGB", (400, 120), "white").save(photo, format="PNG")
+        wizard = self.env["motogene.scratch.ocr.wizard"].create({
+            "picking_id": picking.id,
+            "photo": base64.b64encode(photo.getvalue()),
+        })
+        with patch(
+            "odoo.addons.motogene_promotion_engine.models.scratch_ocr_wizard.read_serials",
+            return_value=(["D8001"], "D8001"),
+        ):
+            wizard.action_read_photo()
+        wizard.action_verify_card()
+        self.assertTrue(picking.scratch_card_line_ids.filtered(
+            lambda line: line.serial_number == "D8001"
+        ).packed)
+        self.assertFalse(picking.scratch_card_line_ids.filtered(
+            lambda line: line.serial_number == "D8002"
+        ).packed)
         with self.assertRaises(UserError):
             picking.button_validate()
 
