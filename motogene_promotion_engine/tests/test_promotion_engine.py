@@ -258,6 +258,52 @@ class TestMotogenePromotionEngine(TransactionCase):
         self._add_line(order, self.oshino, 1, 89)
         self.assertEqual(self._reward_qty(order, self.pwp_program), 1)
 
+    def test_lucky_draw_snapshots_order_amount_without_free_product(self):
+        draw = self.env["motogene.promotion.program"].create({
+            "name": "Lucky Draw per RM1000",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=30),
+            "rule_type": "minimum_purchase",
+            "minimum_amount": 1000,
+            "amount_basis": "after_discount",
+            "shipping_handling": "exclude",
+            "repeat_reward": True,
+            "reward_type": "lucky_draw_entries",
+            "reward_qty": 1,
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 1, 2300)
+        self.assertFalse(order.lucky_draw_entries)
+        self.assertFalse(order.order_line.filtered(
+            lambda line: line.promotion_program_id == draw
+        ))
+        order.action_confirm()
+        self.assertEqual(order.lucky_draw_entries, 2)
+        self.assertEqual(order.lucky_draw_program_id, draw)
+        order.action_cancel()
+        self.assertEqual(order.lucky_draw_entries, 0)
+        self.assertEqual(order.lucky_draw_program_id, draw)
+
+    def test_lucky_draw_respects_quotation_date_when_confirmed_later(self):
+        draw = self.env["motogene.promotion.program"].create({
+            "name": "Past Lucky Draw",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=5),
+            "date_end": fields.Date.today() - timedelta(days=1),
+            "rule_type": "minimum_purchase",
+            "minimum_amount": 1000,
+            "repeat_reward": True,
+            "reward_type": "lucky_draw_entries",
+            "reward_qty": 1,
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 1, 2300)
+        order.date_order = fields.Datetime.now() - timedelta(days=2)
+        order.action_confirm()
+        self.assertEqual(order.lucky_draw_program_id, draw)
+        self.assertEqual(order.lucky_draw_entries, 2)
+
     def test_15_one_trigger_caps_pwp_reward_even_if_more_pwp_products_bought(self):
         order = self._new_order()
         self._add_line(order, self.koragene_box, 1, 700)

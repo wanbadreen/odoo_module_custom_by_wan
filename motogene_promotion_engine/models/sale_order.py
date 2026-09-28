@@ -16,6 +16,12 @@ class SaleOrder(models.Model):
         readonly=True,
     )
 
+    lucky_draw_entries = fields.Integer(string="Lucky Draw Entries", copy=False, readonly=True)
+    lucky_draw_program_id = fields.Many2one(
+        "motogene.promotion.program", string="Lucky Draw Program",
+        copy=False, readonly=True, ondelete="set null",
+    )
+
     @api.model_create_multi
     def create(self, vals_list):
         orders = super().create(vals_list)
@@ -53,6 +59,8 @@ class SaleOrder(models.Model):
 
             programs = order._promotion_programs_to_evaluate()
             for program in programs.sorted(key=lambda p: (p.priority, p.id)):
+                if program.reward_type != "free_product":
+                    continue
                 expected_qty = program._reward_quantity_for_order(order)
                 reward_lines = order.order_line.filtered(
                     lambda line: line.is_motogene_promo_reward
@@ -88,6 +96,22 @@ class SaleOrder(models.Model):
                     self.env["sale.order.line"].with_context(**{SKIP_CTX: True}).create(vals)
         return True
 
+    def _set_lucky_draw_entries(self):
+        """Snapshot one eligible draw program when an order is confirmed."""
+        Program = self.env["motogene.promotion.program"].sudo()
+        for order in self:
+            program = Program.search([
+                ("company_id", "in", [False, order.company_id.id]),
+                ("state", "=", "active"),
+                ("active", "=", True),
+                ("reward_type", "=", "lucky_draw_entries"),
+            ], order="priority, id").filtered(lambda p: p._is_valid_for_order(order))[:1]
+            entries = int(program._reward_quantity_for_order(order)) if program else 0
+            order.with_context(**{SKIP_CTX: True}).write({
+                "lucky_draw_program_id": program.id if program else False,
+                "lucky_draw_entries": entries,
+            })
+
     def action_recompute_motogene_promotions(self):
         self._apply_motogene_promotions()
         return True
@@ -95,7 +119,18 @@ class SaleOrder(models.Model):
     def action_confirm(self):
         # Final reconciliation before the delivery/invoice chain is generated.
         self.filtered(lambda o: o.state in ("draft", "sent"))._apply_motogene_promotions()
-        return super().action_confirm()
+        # Odoo may replace date_order with the confirmation time. Snapshot the
+        # quotation's order date and spend before that happens.
+        self.filtered(lambda o: o.state in ("draft", "sent"))._set_lucky_draw_entries()
+        result = super().action_confirm()
+        return result
+
+    def action_cancel(self):
+        result = super().action_cancel()
+        self.filtered(lambda o: o.state == "cancel").with_context(**{SKIP_CTX: True}).write({
+            "lucky_draw_entries": 0,
+        })
+        return result
 
 
 class SaleOrderLine(models.Model):

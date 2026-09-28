@@ -12,6 +12,11 @@
                         class="btn-secondary"
                         invisible="state not in ('draft', 'sent')"/>
             </xpath>
+            <xpath expr="//field[@name='date_order']" position="after">
+                <field name="lucky_draw_program_id" invisible="1"/>
+                <field name="lucky_draw_entries" readonly="1"
+                       invisible="not lucky_draw_program_id"/>
+            </xpath>
             <xpath expr="//notebook" position="inside">
                 <page string="Promotion Rewards" name="motogene_promotion_rewards">
                     <field name="promotion_reward_line_ids" readonly="1">

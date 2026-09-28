@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_picking_form_motogene_lucky_draw" model="ir.ui.view">
+        <field name="name">stock.picking.form.motogene.lucky.draw</field>
+        <field name="model">stock.picking</field>
+        <field name="inherit_id" ref="stock.view_picking_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='origin']" position="after">
+                <field name="lucky_draw_program_id" invisible="1"/>
+                <field name="lucky_draw_entries" readonly="1"
+                       invisible="not lucky_draw_program_id"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>
