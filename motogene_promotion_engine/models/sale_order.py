@@ -21,6 +21,13 @@ class SaleOrder(models.Model):
         "motogene.promotion.program", string="Lucky Draw Program",
         copy=False, readonly=True, ondelete="set null",
     )
+    scratch_program_id = fields.Many2one(
+        "motogene.promotion.program", string="Scratch & Win Program",
+        copy=False, readonly=True, ondelete="set null",
+    )
+    scratch_base_cards = fields.Integer(string="Scratch Cards from Spend", copy=False, readonly=True)
+    scratch_vip_cards = fields.Integer(string="Extra VIP Scratch Cards", copy=False, readonly=True)
+    scratch_total_cards = fields.Integer(string="Total Scratch Cards", copy=False, readonly=True)
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -112,6 +119,27 @@ class SaleOrder(models.Model):
                 "lucky_draw_entries": entries,
             })
 
+    def _set_scratch_card_counts(self):
+        """Snapshot card entitlement from the quotation date and eligible spend."""
+        Program = self.env["motogene.promotion.program"].sudo()
+        for order in self:
+            program = Program.search([
+                ("company_id", "in", [False, order.company_id.id]),
+                ("state", "=", "active"), ("active", "=", True),
+                ("reward_type", "=", "scratch_cards"),
+            ], order="priority, id").filtered(lambda p: p._is_valid_for_order(order))[:1]
+            base = int(program._reward_quantity_for_order(order)) if program else 0
+            vip = (
+                program._scratch_package_units_for_order(order)
+                if program and program._is_scratch_vip_customer(order) else 0
+            )
+            order.with_context(**{SKIP_CTX: True}).write({
+                "scratch_program_id": program.id if program else False,
+                "scratch_base_cards": base,
+                "scratch_vip_cards": vip,
+                "scratch_total_cards": base + vip,
+            })
+
     def action_recompute_motogene_promotions(self):
         self._apply_motogene_promotions()
         return True
@@ -122,6 +150,7 @@ class SaleOrder(models.Model):
         # Odoo may replace date_order with the confirmation time. Snapshot the
         # quotation's order date and spend before that happens.
         self.filtered(lambda o: o.state in ("draft", "sent"))._set_lucky_draw_entries()
+        self.filtered(lambda o: o.state in ("draft", "sent"))._set_scratch_card_counts()
         result = super().action_confirm()
         return result
 
@@ -129,6 +158,9 @@ class SaleOrder(models.Model):
         result = super().action_cancel()
         self.filtered(lambda o: o.state == "cancel").with_context(**{SKIP_CTX: True}).write({
             "lucky_draw_entries": 0,
+            "scratch_base_cards": 0,
+            "scratch_vip_cards": 0,
+            "scratch_total_cards": 0,
         })
         return result
 

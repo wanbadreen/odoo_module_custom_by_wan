@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import timedelta
+from unittest.mock import patch
 
 from odoo import fields
 from odoo.tests.common import TransactionCase, tagged
@@ -284,6 +285,32 @@ class TestMotogenePromotionEngine(TransactionCase):
         order.action_cancel()
         self.assertEqual(order.lucky_draw_entries, 0)
         self.assertEqual(order.lucky_draw_program_id, draw)
+
+    def test_scratch_cards_count_spend_and_one_vip_card_per_package(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch cards per RM888",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards",
+            "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        self.assertEqual(scratch._scratch_package_units_for_order(order), 2)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual(order.scratch_base_cards, 2)
+        self.assertEqual(order.scratch_vip_cards, 2)
+        self.assertEqual(order.scratch_total_cards, 4)
+        for picking in order.picking_ids:
+            self.assertEqual(picking.scratch_total_cards, 4)
+        order.action_cancel()
+        self.assertEqual(order.scratch_total_cards, 0)
 
     def test_lucky_draw_respects_quotation_date_when_confirmed_later(self):
         draw = self.env["motogene.promotion.program"].create({

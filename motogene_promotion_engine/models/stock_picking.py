@@ -11,3 +11,11 @@ class StockPicking(models.Model):
     lucky_draw_program_id = fields.Many2one(
         related="sale_id.lucky_draw_program_id", readonly=True,
     )
+    scratch_program_id = fields.Many2one(related="sale_id.scratch_program_id", readonly=True)
+    scratch_base_cards = fields.Integer(related="sale_id.scratch_base_cards", readonly=True)
+    scratch_vip_cards = fields.Integer(related="sale_id.scratch_vip_cards", readonly=True)
+    scratch_total_cards = fields.Integer(
+        related="sale_id.scratch_total_cards", string="SO Total Scratch Cards", readonly=True,
+        help="Total entitlement on the Sales Order. When an order has multiple deliveries, "
+             "this does not mean the full count should be packed in every delivery.",
+    )

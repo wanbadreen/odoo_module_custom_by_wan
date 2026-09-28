@@ -17,9 +17,11 @@ class MotogenePromotionProgram(models.Model):
         # before the reward-type onchange. A draw always uses a repeating
         # purchase threshold, so normalize both condition fields on creation.
         for vals in vals_list:
-            if vals.get("reward_type") == "lucky_draw_entries":
+            if vals.get("reward_type") in ("lucky_draw_entries", "scratch_cards"):
                 vals["rule_type"] = "minimum_purchase"
                 vals["repeat_reward"] = True
+                if vals["reward_type"] == "scratch_cards":
+                    vals["reward_qty"] = 1
         return super().create(vals_list)
 
     # =========================================================
@@ -239,7 +241,8 @@ class MotogenePromotionProgram(models.Model):
     # =========================================================
 
     reward_type = fields.Selection(
-        [("free_product", "Free Product"), ("lucky_draw_entries", "Lucky Draw Entries")],
+        [("free_product", "Free Product"), ("lucky_draw_entries", "Lucky Draw Entries"),
+         ("scratch_cards", "Scratch & Win Cards")],
         required=True,
         default="free_product",
     )
@@ -261,9 +264,13 @@ class MotogenePromotionProgram(models.Model):
         default=2.0,
     )
 
+    scratch_package_line_ids = fields.One2many(
+        "motogene.scratch.package", "program_id", string="11.11 Packages",
+    )
+
     @api.onchange("reward_type")
     def _onchange_reward_type(self):
-        if self.reward_type == "lucky_draw_entries":
+        if self.reward_type in ("lucky_draw_entries", "scratch_cards"):
             self.rule_type = "minimum_purchase"
             self.repeat_reward = True
             self.reward_qty = 1
@@ -345,15 +352,17 @@ class MotogenePromotionProgram(models.Model):
         for program in self:
             if program.reward_type == "free_product" and not program.reward_product_id:
                 raise ValidationError(_("Free Product is required for a product reward."))
-            if program.reward_type == "lucky_draw_entries" and (
+            if program.reward_type in ("lucky_draw_entries", "scratch_cards") and (
                 program.rule_type != "minimum_purchase"
                 or not program.repeat_reward
                 or not float(program.reward_qty).is_integer()
             ):
                 raise ValidationError(_(
-                    "Lucky Draw Entries requires a repeating Minimum Purchase rule "
-                    "with a whole number of entries per threshold."
+                    "Lucky Draw and Scratch Cards require a repeating Minimum Purchase rule "
+                    "with a whole number of rewards per threshold."
                 ))
+            if program.reward_type == "scratch_cards" and program.reward_qty != 1:
+                raise ValidationError(_("Scratch & Win must issue one base card per completed threshold."))
 
     @api.constrains(
         "rule_type",
@@ -383,6 +392,12 @@ class MotogenePromotionProgram(models.Model):
     # =========================================================
 
     def action_activate(self):
+        for program in self:
+            if program.reward_type == "scratch_cards" and not program.scratch_package_line_ids:
+                raise ValidationError(_(
+                    "Select the 11.11 package products before activating Scratch & Win. "
+                    "They are required to calculate VIP bonus cards per package."
+                ))
         self.write({"state": "active", "active": True})
 
     def action_set_draft(self):
@@ -738,6 +753,47 @@ class MotogenePromotionProgram(models.Model):
             return float(occurrences) * self.reward_qty
 
         return 0.0
+
+    def _scratch_package_units_for_order(self, order):
+        """Count purchased 11.11 packages; one VIP card per package unit."""
+        self.ensure_one()
+        template_ids = set(self.scratch_package_line_ids.mapped("product_tmpl_id").ids)
+        return sum(
+            math.floor(float(line.product_uom_qty or 0.0) + 1e-9)
+            for line in order.order_line
+            if line.product_id.product_tmpl_id.id in template_ids
+            and self._is_normal_paid_line(line)
+        )
+
+    def _is_scratch_vip_customer(self, order):
+        """Reuse the existing Studio VIP level without requiring Studio on fresh databases."""
+        partner = order.partner_id.commercial_partner_id
+        field_name = "x_studio_loyalty_program_level_1"
+        return field_name in partner._fields and str(partner[field_name] or "").strip().lower() == "vip"
+
+
+class MotogeneScratchPackage(models.Model):
+    _name = "motogene.scratch.package"
+    _description = "Scratch & Win Eligible Package"
+
+    program_id = fields.Many2one(
+        "motogene.promotion.program", required=True, ondelete="cascade",
+    )
+    product_tmpl_id = fields.Many2one(
+        "product.template", string="11.11 Package Product", required=True,
+        domain=[("sale_ok", "=", True)],
+    )
+    advertised_cards = fields.Integer(
+        string="Cards Included in RM888 Calculation", required=True, default=1,
+        help="For reference only. These cards are already included in the RM888 spend calculation.",
+    )
+
+    _sql_constraints = [
+        ("scratch_package_unique", "UNIQUE(program_id, product_tmpl_id)",
+         "This package is already configured for this Scratch & Win program."),
+        ("scratch_package_cards_positive", "CHECK(advertised_cards > 0)",
+         "Cards included in the package must be greater than zero."),
+    ]
 
 
 class MotogenePromotionEligibility(models.Model):
