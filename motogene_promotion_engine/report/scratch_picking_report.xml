@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="scratch_card_serial_list">
+        <div t-if="o.picking_type_code == 'outgoing' and o.scratch_card_line_ids"
+             class="mt-4" name="motogene_scratch_cards_to_pack">
+            <h4>Scratch &amp; Win Cards to Pack</h4>
+            <p>Total Cards: <strong t-esc="len(o.scratch_card_line_ids)"/></p>
+            <p>Check these serial numbers against the physical cards before dispatch.</p>
+            <table style="width: 60%; border-collapse: collapse; font-size: 17px;">
+                <thead>
+                    <tr>
+                        <th style="border: 1px solid black; padding: 6px;">Card Type</th>
+                        <th style="border: 1px solid black; padding: 6px;">Serial Number</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="o.scratch_card_line_ids" t-as="card">
+                        <td style="border: 1px solid black; padding: 6px;"><span t-field="card.prefix"/></td>
+                        <td style="border: 1px solid black; padding: 6px;"><strong t-field="card.serial_number"/></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </template>
+    <function model="stock.picking" name="configure_scratch_card_picking_report">
+        <value eval="'stock.report_picking_copy_4'"/>
+    </function>
+</odoo>

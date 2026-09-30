@@ -267,6 +267,16 @@ class MotogenePromotionProgram(models.Model):
     scratch_package_line_ids = fields.One2many(
         "motogene.scratch.package", "program_id", string="Eligible Package Products",
     )
+    scratch_serial_pool_ids = fields.One2many(
+        "motogene.scratch.serial.pool", "program_id", string="Scratch Card Serial Pools",
+    )
+    scratch_vip_prefix = fields.Char(
+        string="VIP Bonus Card Type", default="A", size=1,
+    )
+    scratch_extra_prefix = fields.Char(
+        string="Extra Spend Card Type", default="D", size=1,
+        help="Card type used for spend entitlement beyond cards included with packages.",
+    )
 
     @api.onchange("reward_type")
     def _onchange_reward_type(self):
@@ -789,13 +799,30 @@ class MotogeneScratchPackage(models.Model):
     )
     advertised_cards = fields.Integer(
         string="Included Cards", default=1,
-        help="Reserved for package allocation in a later phase; not used in card entitlement.",
+        help="Cards included with one package unit. Use zero for packages without included cards.",
     )
+    card_prefixes = fields.Char(
+        string="Card Types in Order", help="Comma-separated card types, e.g. A,B,F,E. "
+        "Repeat a type when two cards of that type are included, e.g. A,A,B,D,E,F.",
+    )
+
+    @api.constrains("card_prefixes", "advertised_cards")
+    def _check_card_prefixes(self):
+        for package in self:
+            if not package.card_prefixes and not package.advertised_cards:
+                continue
+            if not package.card_prefixes:
+                continue  # Existing records can be configured in a later edit.
+            prefixes = [p.strip().upper() for p in package.card_prefixes.split(",")]
+            if len(prefixes) != package.advertised_cards or any(
+                len(prefix) != 1 or not prefix.isalpha() for prefix in prefixes
+            ):
+                raise ValidationError(_("Card types must match Included Cards and use single letters, e.g. A,B,F,E."))
     _sql_constraints = [
         ("scratch_package_unique", "UNIQUE(program_id, product_tmpl_id)",
          "This package is already configured for this Scratch & Win program."),
-        ("scratch_package_cards_positive", "CHECK(advertised_cards > 0)",
-         "Cards included in the package must be greater than zero."),
+        ("scratch_package_cards_nonnegative", "CHECK(advertised_cards >= 0)",
+         "Cards included in the package cannot be negative."),
     ]
 
 

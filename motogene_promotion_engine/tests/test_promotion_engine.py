@@ -3,6 +3,7 @@ from datetime import timedelta
 from unittest.mock import patch
 
 from odoo import fields
+from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase, tagged
 
 
@@ -310,6 +311,58 @@ class TestMotogenePromotionEngine(TransactionCase):
             self.assertEqual(picking.scratch_total_cards, 4)
         order.action_cancel()
         self.assertEqual(order.scratch_total_cards, 0)
+
+    def test_scratch_delivery_reserves_serials_once_and_requires_preparation(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Delivery card packing",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards",
+            "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1,
+                "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": "D", "first_number": 8001, "last_number": 8002,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        order.action_confirm()
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
+        self.assertTrue(picking)
+        self.assertEqual(picking._scratch_expected_types(), ["D", "D"])
+        with self.assertRaises(UserError):
+            picking.button_validate()
+        picking.action_prepare_scratch_cards()
+        picking.action_prepare_scratch_cards()
+        self.assertEqual(picking.scratch_card_line_ids.mapped("serial_number"), ["D8001", "D8002"])
+        self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 8003)
+        self.assertEqual(len(picking.scratch_card_line_ids), 2)
+
+    def test_package_without_included_cards_still_gets_vip_and_spend_cards(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch zero-card package",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards",
+            "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.koragene_box.product_tmpl_id.id,
+                "advertised_cards": 0,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.koragene_box, 2, 700)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual((order.scratch_base_cards, order.scratch_vip_cards), (1, 2))
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
+        self.assertEqual(picking._scratch_expected_types(), ["A", "A", "D"])
 
     def test_lucky_draw_respects_quotation_date_when_confirmed_later(self):
         draw = self.env["motogene.promotion.program"].create({
