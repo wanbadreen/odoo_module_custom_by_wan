@@ -3,6 +3,10 @@ from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
 
+class ScratchSerialShortage(UserError):
+    """Only exhausted serial pools may be explicitly deferred."""
+
+
 class ScratchSerialPool(models.Model):
     _name = "motogene.scratch.serial.pool"
     _description = "Scratch & Win Serial Pool"
@@ -60,7 +64,7 @@ class ScratchSerialPool(models.Model):
         if reusable:
             return reusable[0]
         if number > maximum:
-            raise UserError(_("Scratch card type %s has no serial numbers remaining.") % self.prefix)
+            raise ScratchSerialShortage(_("Scratch card type %s has no serial numbers remaining.") % self.prefix)
         self.env.cr.execute(
             "UPDATE motogene_scratch_serial_pool SET next_number = %s WHERE id = %s",
             [number + 1, self.id],

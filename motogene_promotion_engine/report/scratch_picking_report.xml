@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
     <template id="scratch_card_serial_list">
+        <div t-if="o.picking_type_code == 'outgoing' and o.scratch_allocation_deferred and o.scratch_pending_cards" class="mt-4" style="border: 2px solid black; padding: 10px;">
+            <strong>SCRATCH CARDS PENDING ALLOCATION</strong>
+            <p>Pending cards for this Sales Order: <strong t-field="o.scratch_pending_cards"/>. No serial numbers allocated. Products may be dispatched without cards.</p>
+        </div>
         <t t-set="cards_to_pack" t-value="o.scratch_card_line_ids.filtered(lambda c: c.state != 'released')"/>
         <div t-if="o.picking_type_code == 'outgoing' and cards_to_pack"
              class="mt-4" name="motogene_scratch_cards_to_pack">

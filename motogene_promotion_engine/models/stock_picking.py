@@ -59,6 +59,8 @@ class StockPicking(models.Model):
     lucky_draw_program_id = fields.Many2one(
         related="sale_id.lucky_draw_program_id", readonly=True,
     )
+    scratch_allocation_deferred = fields.Boolean(related="sale_id.scratch_allocation_deferred", readonly=True)
+    scratch_pending_cards = fields.Integer(related="sale_id.scratch_pending_cards", readonly=True)
     scratch_program_id = fields.Many2one(related="sale_id.scratch_program_id", readonly=True)
     scratch_base_cards = fields.Integer(related="sale_id.scratch_base_cards", readonly=True)
     scratch_vip_cards = fields.Integer(related="sale_id.scratch_vip_cards", readonly=True)
@@ -103,7 +105,7 @@ class StockPicking(models.Model):
 
     def button_validate(self):
         outgoing = self.filtered(lambda p: p.picking_type_code == "outgoing" and p.state not in ("done", "cancel"))
-        outgoing.mapped("sale_id")._allocate_scratch_cards()
+        outgoing.mapped("sale_id").filtered(lambda order: not order.scratch_allocation_deferred)._allocate_scratch_cards()
         return super().button_validate()
 
     def _action_done(self):

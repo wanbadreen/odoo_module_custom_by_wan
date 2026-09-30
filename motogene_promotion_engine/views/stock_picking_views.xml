@@ -8,6 +8,9 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Scratch Cards to Pack" invisible="not scratch_program_id">
                     <p class="text-muted">Pack the physical cards with these serial numbers. The same list is printed on Picking Operations copy(4).</p>
+                    <div class="alert alert-warning" invisible="not scratch_allocation_deferred">
+                        Cards Pending Allocation: serial numbers were insufficient. No cards were allocated for this order. Product delivery may proceed.
+                    </div>
                     <field name="scratch_card_line_ids" readonly="state in ('done', 'cancel')">
                         <list create="0" delete="0" edit="0">
                             <field name="prefix" readonly="1"/>
@@ -32,6 +35,8 @@
                 <field name="scratch_base_cards" readonly="1" invisible="not scratch_program_id"/>
                 <field name="scratch_vip_cards" readonly="1" invisible="not scratch_program_id"/>
                 <field name="scratch_total_cards" readonly="1" invisible="not scratch_program_id"/>
+                <field name="scratch_allocation_deferred" invisible="1"/>
+                <field name="scratch_pending_cards" readonly="1" invisible="not scratch_allocation_deferred"/>
             </xpath>
         </field>
     </record>

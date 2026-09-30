@@ -3,6 +3,7 @@ from odoo import api, fields, models, _
 import math
 from collections import Counter
 from odoo.exceptions import UserError
+from .scratch_card import ScratchSerialShortage
 
 
 SKIP_CTX = "motogene_skip_promotion_engine"
@@ -35,6 +36,19 @@ class SaleOrder(models.Model):
         "motogene.scratch.picking.card", "sale_id", string="Scratch Card Serial History",
         copy=False, readonly=True,
     )
+
+    scratch_allocation_deferred = fields.Boolean(
+        string="Cards Pending Allocation", readonly=True, copy=False,
+    )
+    scratch_pending_cards = fields.Integer(
+        string="Cards Pending Allocation", compute="_compute_scratch_pending_cards",
+    )
+
+    @api.depends("scratch_total_cards", "scratch_card_line_ids.state", "state")
+    def _compute_scratch_pending_cards(self):
+        for order in self:
+            active = len(order.scratch_card_line_ids.filtered(lambda c: c.state != "released"))
+            order.scratch_pending_cards = max(0, order.scratch_total_cards - active) if order.state == "sale" else 0
 
     def _scratch_order_types(self):
         self.ensure_one()
@@ -80,10 +94,13 @@ class SaleOrder(models.Model):
             cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
             current = Counter(cards.mapped("prefix"))
             pools = {p.prefix: p for p in order.scratch_program_id.scratch_serial_pool_ids}
+            # Validate every type before reserving anything. Exhaustion in an
+            # earlier pool must not hide a missing range for another type.
+            for prefix in sorted(expected):
+                if expected[prefix] > current[prefix] and prefix not in pools:
+                    raise UserError(_("Configure the serial range for card type %s before confirming.") % prefix)
             for prefix in sorted(expected):
                 missing = max(0, expected[prefix] - current[prefix])
-                if missing and prefix not in pools:
-                    raise UserError(_("Configure the serial range for card type %s before confirming.") % prefix)
                 for _card in range(missing):
                     self.env["motogene.scratch.picking.card"].create({
                         "sale_id": order.id, "program_id": order.scratch_program_id.id,
@@ -228,6 +245,23 @@ class SaleOrder(models.Model):
         return True
 
     def action_confirm(self):
+        try:
+            # Roll back confirmation, deliveries and all serial reservations
+            # before showing the warning. No partial allocation is committed.
+            with self.env.cr.savepoint():
+                return self._confirm_with_scratch_cards()
+        except ScratchSerialShortage as error:
+            wizard = self.env["motogene.scratch.shortage.wizard"].create({
+                "order_ids": [(6, 0, self.ids)], "message": str(error),
+            })
+            return {
+                "type": "ir.actions.act_window", "name": _("Scratch Card Serial Shortage"),
+                "res_model": wizard._name, "res_id": wizard.id,
+                "view_mode": "form", "target": "new",
+                "view_id": self.env.ref("motogene_promotion_engine.view_scratch_shortage_wizard").id,
+            }
+
+    def _confirm_with_scratch_cards(self):
         # Final reconciliation before the delivery/invoice chain is generated.
         self.filtered(lambda o: o.state in ("draft", "sent"))._apply_motogene_promotions()
         # Odoo may replace date_order with the confirmation time. Snapshot the
@@ -235,7 +269,16 @@ class SaleOrder(models.Model):
         self.filtered(lambda o: o.state in ("draft", "sent"))._set_lucky_draw_entries()
         self.filtered(lambda o: o.state in ("draft", "sent"))._set_scratch_card_counts()
         result = super().action_confirm()
-        self._allocate_scratch_cards()
+        for order in self:
+            try:
+                with self.env.cr.savepoint():
+                    order._allocate_scratch_cards()
+                order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": False})
+            except ScratchSerialShortage:
+                if not self.env.context.get("motogene_allow_scratch_shortage"):
+                    raise
+                order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": True})
+                order.message_post(body=_("Confirmed without scratch card allocation because serial numbers were insufficient. Card entitlement remains pending."))
         return result
 
     def action_cancel(self):
@@ -248,6 +291,7 @@ class SaleOrder(models.Model):
             "scratch_base_cards": 0,
             "scratch_vip_cards": 0,
             "scratch_total_cards": 0,
+            "scratch_allocation_deferred": False,
         })
         return result
 
