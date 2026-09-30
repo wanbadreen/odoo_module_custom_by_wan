@@ -316,6 +316,50 @@ class TestMotogenePromotionEngine(TransactionCase):
         order.action_cancel()
         self.assertEqual(order.scratch_total_cards, 0)
 
+    def test_scratch_paid_combo_parent_gets_vip_and_package_card_types(self):
+        choice = self.env["product.combo"].create({
+            "name": "Scratch test combo choice",
+            "combo_item_ids": [(0, 0, {"product_id": self.box.id})],
+        })
+        combo = self.env["product.product"].create({
+            "name": "Scratch test paid combo", "type": "combo",
+            "list_price": 1050, "combo_ids": [(6, 0, choice.ids)],
+        })
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch combo regression", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": combo.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": prefix, "first_number": 8001, "last_number": 8010,
+            }) for prefix in ("A", "D")],
+        })
+        order = self._new_order()
+        parent = self.env["sale.order.line"].create({
+            "order_id": order.id, "product_id": combo.id,
+            "product_uom_qty": 2, "price_unit": 0,
+        })
+        child = self.env["sale.order.line"].create({
+            "order_id": order.id, "product_id": self.box.id,
+            "product_uom_qty": 2, "price_unit": 1050,
+            "linked_line_id": parent.id,
+            "combo_item_id": choice.combo_item_ids.id,
+        })
+        self.assertEqual(parent.price_subtotal, 0)
+        self.assertEqual(scratch._scratch_package_units_for_order(order), 2)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual(order.scratch_base_cards, 2)
+        self.assertEqual(order.scratch_vip_cards, 2)
+        self.assertEqual(order.scratch_total_cards, 4)
+        self.assertEqual(sorted(order.scratch_card_line_ids.mapped("prefix")), ["A", "A", "D", "D"])
+        child.write({"price_unit": 0})
+        self.assertEqual(scratch._scratch_package_units_for_order(order), 0)
+
     def test_scratch_confirmation_allocates_and_cancel_reuses_with_history(self):
         scratch = self.env["motogene.promotion.program"].create({
             "name": "Delivery card packing",

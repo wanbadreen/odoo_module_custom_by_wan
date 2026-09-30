@@ -46,7 +46,7 @@ class SaleOrder(models.Model):
         included = 0
         for line in self.order_line:
             package = packages.get(line.product_id.product_tmpl_id.id)
-            if not package or not program._is_normal_paid_line(line) or line.product_uom_qty <= 0:
+            if not package or not program._is_paid_scratch_package_line(line) or line.product_uom_qty <= 0:
                 continue
             units = math.floor(float(line.product_uom_qty) + 1e-9)
             prefixes = [p.strip().upper() for p in (package.card_prefixes or "").split(",") if p.strip()]
