@@ -7,9 +7,10 @@
             <form string="Scratch Card Serial Shortage">
                 <field name="order_ids" invisible="1"/>
                 <field name="message" nolabel="1" readonly="1"/>
-                <p>Proceed to confirm and ship products without allocating cards. The full card entitlement will remain pending and will appear on the SO, DO and Picking Operations printout.</p>
+                <p>Choose whether to allocate no cards or allocate the available serial numbers. Any remaining entitlement will appear as pending on the SO, DO and Picking Operations printout.</p>
                 <footer>
-                    <button name="action_proceed_without_cards" type="object" string="Proceed Without Cards" class="btn-primary"/>
+                    <button name="action_proceed_with_available_cards" type="object" string="Proceed With Available Cards" class="btn-primary"/>
+                    <button name="action_proceed_without_cards" type="object" string="Proceed Without Cards" class="btn-secondary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
                 </footer>
             </form>

@@ -75,7 +75,7 @@ class SaleOrder(models.Model):
         types.extend([program.scratch_vip_prefix] * self.scratch_vip_cards)
         return types
 
-    def _allocate_scratch_cards(self):
+    def _allocate_scratch_cards(self, allow_partial=False):
         for order in self.filtered(lambda o: o.state == "sale").sorted("id"):
             # Serialize allocation/cancellation for the same SO.
             self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
@@ -102,9 +102,17 @@ class SaleOrder(models.Model):
             for prefix in sorted(expected):
                 missing = max(0, expected[prefix] - current[prefix])
                 for _card in range(missing):
+                    try:
+                        serial = pools[prefix].reserve_serial()
+                    except ScratchSerialShortage:
+                        if not allow_partial:
+                            raise
+                        # Exhaustion affects only this type. Other types can
+                        # still be allocated; never substitute a different type.
+                        break
                     self.env["motogene.scratch.picking.card"].create({
                         "sale_id": order.id, "program_id": order.scratch_program_id.id,
-                        "prefix": prefix, "serial_number": pools[prefix].reserve_serial(),
+                        "prefix": prefix, "serial_number": serial,
                     })
             order._assign_scratch_cards_to_delivery()
         return True
@@ -277,8 +285,15 @@ class SaleOrder(models.Model):
             except ScratchSerialShortage:
                 if not self.env.context.get("motogene_allow_scratch_shortage"):
                     raise
-                order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": True})
-                order.message_post(body=_("Confirmed without scratch card allocation because serial numbers were insufficient. Card entitlement remains pending."))
+                if self.env.context.get("motogene_scratch_shortage_mode") == "available":
+                    order._allocate_scratch_cards(allow_partial=True)
+                    active = len(order.scratch_card_line_ids.filtered(lambda c: c.state != "released"))
+                    pending = max(0, order.scratch_total_cards - active)
+                    order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": bool(pending)})
+                    order.message_post(body=_("Confirmed with available scratch cards. Allocated/dispatched: %(allocated)s; pending: %(pending)s.") % {"allocated": active, "pending": pending})
+                else:
+                    order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": True})
+                    order.message_post(body=_("Confirmed without scratch card allocation because serial numbers were insufficient. Card entitlement remains pending."))
         return result
 
     def action_cancel(self):

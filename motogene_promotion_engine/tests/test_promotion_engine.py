@@ -400,6 +400,46 @@ class TestMotogenePromotionEngine(TransactionCase):
         self.assertEqual(order.scratch_pending_cards, 2)
         self.assertFalse(order.scratch_card_line_ids)
 
+    def test_scratch_shortage_available_allocates_one_and_defers_remainder(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch serial shortage", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": "D", "first_number": 9001, "last_number": 9001,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=False):
+            action = order.action_confirm()
+            self.assertEqual(action["res_model"], "motogene.scratch.shortage.wizard")
+            self.assertEqual(order.state, "draft")
+            self.assertFalse(order.picking_ids)
+            self.assertFalse(order.scratch_card_line_ids)
+            self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9001)
+            self.env[action["res_model"]].browse(action["res_id"]).action_proceed_with_available_cards()
+        self.assertEqual(order.state, "sale")
+        self.assertTrue(order.scratch_allocation_deferred)
+        self.assertEqual(order.scratch_total_cards, 2)
+        self.assertEqual(order.scratch_pending_cards, 1)
+        self.assertEqual(order.scratch_card_line_ids.mapped("serial_number"), ["D9001"])
+        self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9002)
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")
+        self.assertEqual(picking.scratch_pending_cards, 1)
+        for move in picking.move_ids:
+            move.write({"quantity": move.product_uom_qty, "picked": True})
+        with patch.object(type(order), "_allocate_scratch_cards", side_effect=AssertionError("Deferred order must not allocate during validation")):
+            picking.button_validate()
+        self.assertEqual(picking.state, "done")
+        self.assertEqual(order.scratch_pending_cards, 1)
+        self.assertEqual(order.scratch_card_line_ids.mapped("state"), ["sent"])
+
     def test_scratch_missing_range_cannot_be_bypassed(self):
         scratch = self.env["motogene.promotion.program"].create({
             "name": "Scratch missing range", "state": "active",
