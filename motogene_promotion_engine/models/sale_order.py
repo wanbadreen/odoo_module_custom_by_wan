@@ -1,5 +1,8 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
+import math
+from collections import Counter
+from odoo.exceptions import UserError
 
 
 SKIP_CTX = "motogene_skip_promotion_engine"
@@ -28,6 +31,86 @@ class SaleOrder(models.Model):
     scratch_base_cards = fields.Integer(string="Scratch Cards from Spend", copy=False, readonly=True)
     scratch_vip_cards = fields.Integer(string="Extra VIP Scratch Cards", copy=False, readonly=True)
     scratch_total_cards = fields.Integer(string="Total Scratch Cards", copy=False, readonly=True)
+    scratch_card_line_ids = fields.One2many(
+        "motogene.scratch.picking.card", "sale_id", string="Scratch Card Serial History",
+        copy=False, readonly=True,
+    )
+
+    def _scratch_order_types(self):
+        self.ensure_one()
+        program = self.scratch_program_id
+        if not program or not self.scratch_total_cards:
+            return []
+        packages = {p.product_tmpl_id.id: p for p in program.scratch_package_line_ids}
+        types = []
+        included = 0
+        for line in self.order_line:
+            package = packages.get(line.product_id.product_tmpl_id.id)
+            if not package or not program._is_normal_paid_line(line) or line.product_uom_qty <= 0:
+                continue
+            units = math.floor(float(line.product_uom_qty) + 1e-9)
+            prefixes = [p.strip().upper() for p in (package.card_prefixes or "").split(",") if p.strip()]
+            if len(prefixes) != package.advertised_cards:
+                raise UserError(_("Configure the included card types for package %s before confirming.") % package.product_tmpl_id.display_name)
+            types.extend(prefixes * units)
+            included += len(prefixes) * units
+        extra = self.scratch_base_cards - included
+        if extra < 0:
+            raise UserError(_("Package card allocations exceed the order's spend-based entitlement."))
+        types.extend([program.scratch_extra_prefix] * extra)
+        types.extend([program.scratch_vip_prefix] * self.scratch_vip_cards)
+        return types
+
+    def _allocate_scratch_cards(self):
+        for order in self.filtered(lambda o: o.state == "sale").sorted("id"):
+            # Serialize allocation/cancellation for the same SO.
+            self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
+            order.invalidate_recordset(["scratch_card_line_ids"])
+            order.scratch_card_line_ids.filtered(
+                lambda c: c.state == "reserved" and c.picking_id.state == "cancel"
+            ).write({"state": "released"})
+            expected = Counter(order._scratch_order_types())
+            cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
+            # Keep dispatched cards; release any excess unshipped allocation.
+            for prefix in set(cards.mapped("prefix")):
+                matching = cards.filtered(lambda c: c.prefix == prefix)
+                excess = max(0, len(matching) - expected[prefix])
+                reserved = matching.filtered(lambda c: c.state == "reserved").sorted("id", reverse=True)
+                reserved[:excess].write({"state": "released"})
+            cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
+            current = Counter(cards.mapped("prefix"))
+            pools = {p.prefix: p for p in order.scratch_program_id.scratch_serial_pool_ids}
+            for prefix in sorted(expected):
+                missing = max(0, expected[prefix] - current[prefix])
+                if missing and prefix not in pools:
+                    raise UserError(_("Configure the serial range for card type %s before confirming.") % prefix)
+                for _card in range(missing):
+                    self.env["motogene.scratch.picking.card"].create({
+                        "sale_id": order.id, "program_id": order.scratch_program_id.id,
+                        "prefix": prefix, "serial_number": pools[prefix].reserve_serial(),
+                    })
+            order._assign_scratch_cards_to_delivery()
+        return True
+
+    def _assign_scratch_cards_to_delivery(self):
+        for order in self:
+            reserved = order.scratch_card_line_ids.filtered(
+                lambda c: c.state == "reserved" and not c.picking_id
+            )
+            deliveries = order.picking_ids.filtered(
+                lambda p: p.picking_type_code == "outgoing" and p.state not in ("done", "cancel")
+            ).sorted("id")
+            if reserved and deliveries:
+                reserved.write({"picking_id": deliveries[0].id})
+
+    def _release_reserved_scratch_cards(self):
+        for order in self.sorted("id"):
+            self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
+            order.invalidate_recordset(["scratch_card_line_ids"])
+            cards = order.scratch_card_line_ids.filtered(lambda c: c.state == "reserved")
+            pickings = cards.mapped("picking_id")
+            cards.write({"state": "released"})
+            pickings.invalidate_recordset(["scratch_card_line_ids"])
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -152,10 +235,14 @@ class SaleOrder(models.Model):
         self.filtered(lambda o: o.state in ("draft", "sent"))._set_lucky_draw_entries()
         self.filtered(lambda o: o.state in ("draft", "sent"))._set_scratch_card_counts()
         result = super().action_confirm()
+        self._allocate_scratch_cards()
         return result
 
     def action_cancel(self):
+        for order in self.sorted("id"):
+            self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
         result = super().action_cancel()
+        self._release_reserved_scratch_cards()
         self.filtered(lambda o: o.state == "cancel").with_context(**{SKIP_CTX: True}).write({
             "lucky_draw_entries": 0,
             "scratch_base_cards": 0,

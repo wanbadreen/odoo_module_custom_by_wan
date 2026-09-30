@@ -35,12 +35,30 @@ class ScratchSerialPool(models.Model):
 
     def reserve_serial(self):
         self.ensure_one()
+        self.env["motogene.scratch.picking.card"].flush_model([
+            "state", "serial_number", "program_id", "prefix",
+        ])
         # Row lock serializes simultaneous preparations of different deliveries.
         self.env.cr.execute(
             "SELECT next_number, last_number FROM motogene_scratch_serial_pool WHERE id = %s FOR UPDATE",
             [self.id],
         )
         number, maximum = self.env.cr.fetchone()
+        self.env.cr.execute("""
+            SELECT released.serial_number
+              FROM motogene_scratch_picking_card released
+             WHERE released.program_id = %s AND released.prefix = %s
+               AND released.state = 'released'
+               AND NOT EXISTS (
+                   SELECT 1 FROM motogene_scratch_picking_card active
+                    WHERE active.serial_number = released.serial_number
+                      AND active.state != 'released'
+               )
+             ORDER BY released.id LIMIT 1
+        """, [self.program_id.id, self.prefix])
+        reusable = self.env.cr.fetchone()
+        if reusable:
+            return reusable[0]
         if number > maximum:
             raise UserError(_("Scratch card type %s has no serial numbers remaining.") % self.prefix)
         self.env.cr.execute(
@@ -56,11 +74,22 @@ class ScratchPickingCard(models.Model):
     _description = "Scratch & Win Card to Pack"
     _order = "id"
 
-    picking_id = fields.Many2one("stock.picking", required=True, ondelete="cascade", index=True)
-    sale_id = fields.Many2one(related="picking_id.sale_id", store=True)
+    picking_id = fields.Many2one("stock.picking", ondelete="restrict", index=True, copy=False)
+    sale_id = fields.Many2one("sale.order", required=True, ondelete="restrict", index=True, copy=False)
     program_id = fields.Many2one("motogene.promotion.program", required=True, ondelete="restrict")
     prefix = fields.Char(string="Card Type", required=True)
     serial_number = fields.Char(required=True, readonly=True, copy=False)
-    _sql_constraints = [
-        ("scratch_card_serial_unique", "UNIQUE(serial_number)", "This scratch card serial is already allocated."),
-    ]
+    state = fields.Selection([
+        ("reserved", "Allocated"), ("sent", "Dispatched"), ("released", "Released"),
+    ], default="reserved", required=True, readonly=True, copy=False, index=True)
+
+    def init(self):
+        self.env.cr.execute("""
+            ALTER TABLE motogene_scratch_picking_card
+            DROP CONSTRAINT IF EXISTS motogene_scratch_picking_card_scratch_card_serial_unique
+        """)
+        self.env.cr.execute("""
+            CREATE UNIQUE INDEX IF NOT EXISTS motogene_scratch_active_serial_unique
+            ON motogene_scratch_picking_card (serial_number)
+            WHERE state != 'released'
+        """)
