@@ -1,13 +1,60 @@
 # -*- coding: utf-8 -*-
 import math
+import logging
 from collections import Counter
 
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+
+_logger = logging.getLogger(__name__)
 
 
 class StockPicking(models.Model):
     _inherit = "stock.picking"
+
+    @api.model
+    def configure_scratch_card_picking_report(self, template_key):
+        """Attach to the database's optional Studio copy by its QWeb key."""
+        legacy = self.env.ref(
+            "motogene_promotion_engine.report_delivery_document_scratch_cards",
+            raise_if_not_found=False,
+        )
+        if legacy:
+            legacy.write({"active": False})
+        target = self.env["ir.ui.view"].search([
+            ("type", "=", "qweb"), ("key", "=", template_key), ("active", "=", True),
+        ], limit=1)
+        xml_name = "report_picking_copy_scratch_cards"
+        extension = self.env.ref(
+            "motogene_promotion_engine." + xml_name, raise_if_not_found=False,
+        )
+        if not target:
+            if extension:
+                extension.write({"active": False})
+            _logger.info("Scratch card print target %s is not present; skipping report extension", template_key)
+            return True
+        values = {
+            "name": "MotoGene scratch cards on Picking Operations copy(4)",
+            "type": "qweb",
+            "key": "motogene_promotion_engine." + xml_name,
+            "inherit_id": target.id,
+            "mode": "extension",
+            "active": True,
+            "arch_db": '''<data>
+                <xpath expr="//t[@t-set='seen_product_ids']/following-sibling::table[1]" position="after">
+                    <t t-call="motogene_promotion_engine.scratch_card_serial_list"/>
+                </xpath>
+            </data>''',
+        }
+        if extension:
+            extension.write(values)
+        else:
+            extension = self.env["ir.ui.view"].create(values)
+            self.env["ir.model.data"].create({
+                "module": "motogene_promotion_engine", "name": xml_name,
+                "model": "ir.ui.view", "res_id": extension.id, "noupdate": True,
+            })
+        return True
 
     lucky_draw_entries = fields.Integer(
         related="sale_id.lucky_draw_entries", string="Lucky Draw Entries", readonly=True,
