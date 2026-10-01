@@ -77,7 +77,7 @@ class StockPicking(models.Model):
 
     scratch_return_source_id = fields.Many2one(
         "stock.picking", string="Original Scratch Card Delivery",
-        compute="_compute_scratch_return_source",
+        compute="_compute_scratch_return_source", store=True, index=True, recursive=True,
     )
     scratch_return_available_card_ids = fields.Many2many(
         "motogene.scratch.picking.card", string="Original Delivery Card History",
@@ -91,7 +91,7 @@ class StockPicking(models.Model):
     )
 
     @api.depends("return_id", "return_id.state", "return_id.location_dest_id.usage",
-                 "backorder_id", "backorder_id.return_id", "location_id.usage", "location_dest_id.usage")
+                 "backorder_id", "backorder_id.scratch_return_source_id", "location_id.usage", "location_dest_id.usage")
     def _compute_scratch_return_source(self):
         for picking in self:
             source = self.env["stock.picking"]
