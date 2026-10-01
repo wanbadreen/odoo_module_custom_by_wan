@@ -8,7 +8,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Scratch Cards to Pack" invisible="not scratch_program_id">
                     <p class="text-muted">Pack the physical cards with these serial numbers. The same list is printed on Picking Operations copy(4).</p>
-                    <div class="alert alert-warning" invisible="not scratch_allocation_deferred">
+                    <div class="alert alert-warning" role="status" invisible="not scratch_allocation_deferred">
                         Cards Pending Allocation: serial numbers were insufficient. Pack only the listed serial numbers. The remaining card entitlement is pending; product delivery may proceed.
                     </div>
                     <field name="scratch_card_line_ids" readonly="state in ('done', 'cancel')">

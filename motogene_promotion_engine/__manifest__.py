@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "MotoGene Promotion Engine",
-    "version": "18.0.1.9.2",
+    "version": "18.0.1.9.3",
     "category": "Sales/Sales",
     "summary": "Configurable conditional promotion engine for MotoGene sales orders.",
     "author": "WanBadreen",

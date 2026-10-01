@@ -26,7 +26,7 @@
             <xpath expr="//notebook" position="inside">
                 <page string="Scratch Card Serials" name="motogene_scratch_card_serials"
                       invisible="not scratch_card_line_ids and not scratch_program_id">
-                    <div class="alert alert-warning" invisible="not scratch_allocation_deferred">
+                    <div class="alert alert-warning" role="status" invisible="not scratch_allocation_deferred">
                         Cards Pending Allocation: serial numbers were insufficient. Pack only the listed serial numbers. The remaining card entitlement is pending; product delivery may proceed.
                     </div>
                     <field name="scratch_card_line_ids" readonly="1">

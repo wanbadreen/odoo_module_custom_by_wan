@@ -38,7 +38,7 @@ class SaleOrder(models.Model):
     )
 
     scratch_allocation_deferred = fields.Boolean(
-        string="Cards Pending Allocation", readonly=True, copy=False,
+        string="Card Allocation Deferred", readonly=True, copy=False,
     )
     scratch_pending_cards = fields.Integer(
         string="Cards Pending Allocation", compute="_compute_scratch_pending_cards",
