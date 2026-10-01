@@ -17,6 +17,9 @@ class ScratchSerialPool(models.Model):
     first_number = fields.Integer(required=True, default=8001)
     last_number = fields.Integer(required=True)
     next_number = fields.Integer(required=True, default=8001, readonly=True)
+    prize_description = fields.Char(
+        string="Redemption Prize", help="Gift or rebate printed on this card type. Used for CS verification; no SO reward is added automatically.",
+    )
     _sql_constraints = [
         ("scratch_serial_pool_unique", "UNIQUE(program_id, prefix)", "Only one pool per card type is allowed."),
     ]
@@ -87,6 +90,7 @@ class ScratchPickingCard(models.Model):
     state = fields.Selection([
         ("reserved", "Allocated"), ("sent", "Dispatched"), ("released", "Released"),
         ("void", "Void — Returned"),
+        ("redeemed", "Redeemed"),
     ], default="reserved", required=True, readonly=True, copy=False, index=True)
     return_picking_id = fields.Many2one(
         "stock.picking", string="Physical Card Return", readonly=True,
@@ -96,6 +100,43 @@ class ScratchPickingCard(models.Model):
     returned_by_id = fields.Many2one(
         "res.users", string="Card Received By", readonly=True, copy=False,
     )
+    redemption_id = fields.Many2one(
+        "motogene.scratch.redemption", string="Card Redemption", readonly=True,
+        ondelete="restrict", copy=False, index=True,
+    )
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if any(v.get("state") == "redeemed" or v.get("redemption_id") for v in vals_list):
+            raise UserError(_("Use Confirm Redemption to redeem a scratch card."))
+        return super().create(vals_list)
+
+    def write(self, vals):
+        identity = {"state", "serial_number", "sale_id", "picking_id", "program_id", "prefix", "redemption_id"}
+        if set(vals) & identity and self.ids:
+            self.flush_recordset(["state"])
+            self.env.cr.execute(
+                "SELECT id FROM motogene_scratch_picking_card WHERE id IN %s ORDER BY id FOR UPDATE",
+                [tuple(sorted(self.ids))],
+            )
+            self.invalidate_recordset(["state"])
+        if "redemption_id" in vals or vals.get("state") == "redeemed":
+            raise UserError(_("Use Confirm Redemption to redeem a scratch card."))
+        if any(c.state == "redeemed" for c in self) and set(vals) & {
+            "state", "serial_number", "sale_id", "picking_id", "program_id", "prefix",
+        }:
+            raise UserError(_("A redeemed card's identity and status cannot be changed."))
+        return super().write(vals)
+
+    def _mark_redeemed(self, redemption):
+        self.ensure_one()
+        if redemption.card_id != self or redemption.state != "confirmed":
+            raise UserError(_("The confirmed redemption must match this card."))
+        if self.state != "sent":
+            raise UserError(_("Only a dispatched card can be redeemed."))
+        return super(ScratchPickingCard, self).write({
+            "state": "redeemed", "redemption_id": redemption.id,
+        })
 
     def init(self):
         self.env.cr.execute("""

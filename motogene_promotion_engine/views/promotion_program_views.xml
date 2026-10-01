@@ -191,6 +191,7 @@
                             <field name="scratch_serial_pool_ids">
                                 <list editable="bottom">
                                     <field name="prefix"/>
+                                    <field name="prize_description" placeholder="Gift or rebate printed on this card type"/>
                                     <field name="first_number"/>
                                     <field name="last_number"/>
                                     <field name="next_number" readonly="1"/>

@@ -36,6 +36,10 @@ class SaleOrder(models.Model):
         "motogene.scratch.picking.card", "sale_id", string="Scratch Card Serial History",
         copy=False, readonly=True,
     )
+    scratch_redemption_ids = fields.One2many(
+        "motogene.scratch.redemption", "target_sale_id", string="Scratch Card Redemptions",
+        readonly=True, copy=False,
+    )
 
     scratch_allocation_deferred = fields.Boolean(
         string="Card Allocation Deferred", readonly=True, copy=False,
