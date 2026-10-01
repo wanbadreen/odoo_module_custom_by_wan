@@ -7,12 +7,19 @@
         <field name="arch" type="xml">
             <xpath expr="//notebook" position="inside">
                 <page string="Scratch Card Returns" invisible="not scratch_return_source_id">
-                    <field name="scratch_return_source_id" readonly="1"/>
                     <p class="text-muted">Select only cards physically received from the customer. Validate will void those cards permanently. Leave the selection empty for a product-only return.</p>
-                    <field name="scratch_return_card_ids" widget="many2many_tags"
-                           readonly="state in ('done', 'cancel')"
-                           domain="[('id', 'in', scratch_return_available_card_ids), ('state', '=', 'sent')]"
-                           options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                    <div class="border rounded p-3 mb-3">
+                        <group string="Record Physical Cards Received" col="2">
+                            <field name="scratch_return_source_id" string="Original Delivery" readonly="1"/>
+                            <field name="scratch_return_card_ids" string="Physical Cards Received"
+                                   widget="many2many_tags"
+                                   placeholder="Click here to select a returned card serial..."
+                                   readonly="state in ('done', 'cancel')"
+                                   domain="[('id', 'in', scratch_return_available_card_ids), ('state', '=', 'sent')]"
+                                   options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                        </group>
+                    </div>
+                    <separator string="Original Delivery Card History"/>
                     <field name="scratch_return_available_card_ids" readonly="1">
                         <list create="0" delete="0" edit="0">
                             <field name="prefix"/>
