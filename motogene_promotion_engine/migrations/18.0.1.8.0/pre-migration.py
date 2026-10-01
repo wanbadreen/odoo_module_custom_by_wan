@@ -2,6 +2,10 @@
 
 
 def migrate(cr, version):
+    # Rebuilds may upgrade directly from a version before this model existed.
+    cr.execute("SELECT to_regclass(%s)", ["motogene_scratch_picking_card"])
+    if not cr.fetchone()[0]:
+        return
     cr.execute("ALTER TABLE motogene_scratch_picking_card ADD COLUMN IF NOT EXISTS state varchar")
     cr.execute("""
         UPDATE motogene_scratch_picking_card card
