@@ -35,6 +35,8 @@
                             <field name="serial_number"/>
                             <field name="state"/>
                             <field name="picking_id"/>
+                            <field name="return_picking_id"/>
+                            <field name="returned_at"/>
                         </list>
                     </field>
                 </page>

@@ -77,6 +77,7 @@ class ScratchPickingCard(models.Model):
     _name = "motogene.scratch.picking.card"
     _description = "Scratch & Win Card to Pack"
     _order = "id"
+    _rec_name = "serial_number"
 
     picking_id = fields.Many2one("stock.picking", ondelete="restrict", index=True, copy=False)
     sale_id = fields.Many2one("sale.order", required=True, ondelete="restrict", index=True, copy=False)
@@ -85,7 +86,16 @@ class ScratchPickingCard(models.Model):
     serial_number = fields.Char(required=True, readonly=True, copy=False)
     state = fields.Selection([
         ("reserved", "Allocated"), ("sent", "Dispatched"), ("released", "Released"),
+        ("void", "Void — Returned"),
     ], default="reserved", required=True, readonly=True, copy=False, index=True)
+    return_picking_id = fields.Many2one(
+        "stock.picking", string="Physical Card Return", readonly=True,
+        ondelete="restrict", copy=False, index=True,
+    )
+    returned_at = fields.Datetime(string="Card Returned At", readonly=True, copy=False)
+    returned_by_id = fields.Many2one(
+        "res.users", string="Card Received By", readonly=True, copy=False,
+    )
 
     def init(self):
         self.env.cr.execute("""

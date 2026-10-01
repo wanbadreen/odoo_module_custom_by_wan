@@ -123,7 +123,7 @@ class SaleOrder(models.Model):
                 lambda c: c.state == "reserved" and not c.picking_id
             )
             deliveries = order.picking_ids.filtered(
-                lambda p: p.picking_type_code == "outgoing" and p.state not in ("done", "cancel")
+                lambda p: p.picking_type_code == "outgoing" and not p.scratch_return_source_id and p.state not in ("done", "cancel")
             ).sorted("id")
             if reserved and deliveries:
                 reserved.write({"picking_id": deliveries[0].id})
