@@ -4,3 +4,5 @@ from . import sale_order
 from . import promotion_exclusion
 from . import stock_picking
 from . import scratch_card
+from . import scratch_shortage_wizard
+from . import scratch_redemption

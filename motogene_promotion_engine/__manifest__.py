@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "MotoGene Promotion Engine",
-    "version": "18.0.1.7.4",
+    "version": "18.0.1.11.0",
     "category": "Sales/Sales",
     "summary": "Configurable conditional promotion engine for MotoGene sales orders.",
     "author": "WanBadreen",
@@ -9,8 +9,11 @@
     "depends": ["sale_management", "sale_stock", "product"],
     "data": [
         "security/ir.model.access.csv",
+        "security/scratch_redemption_rules.xml",
         "views/promotion_program_views.xml",
         "views/promotion_exclusion_views.xml",
+        "views/scratch_shortage_wizard_views.xml",
+        "views/scratch_redemption_views.xml",
         "views/sale_order_views.xml",
         "views/stock_picking_views.xml",
         "report/scratch_picking_report.xml",

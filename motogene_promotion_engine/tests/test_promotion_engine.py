@@ -297,7 +297,11 @@ class TestMotogenePromotionEngine(TransactionCase):
             "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "card_prefixes": "D",
             })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": prefix, "first_number": 8001, "last_number": 8010,
+            }) for prefix in ("A", "D")],
         })
         order = self._new_order()
         self._add_line(order, self.combo8, 2, 1050)
@@ -312,7 +316,150 @@ class TestMotogenePromotionEngine(TransactionCase):
         order.action_cancel()
         self.assertEqual(order.scratch_total_cards, 0)
 
-    def test_scratch_delivery_reserves_serials_once_and_requires_preparation(self):
+    def test_scratch_paid_combo_parent_gets_vip_and_package_card_types(self):
+        choice = self.env["product.combo"].create({
+            "name": "Scratch test combo choice",
+            "combo_item_ids": [(0, 0, {"product_id": self.box.id})],
+        })
+        combo = self.env["product.product"].create({
+            "name": "Scratch test paid combo", "type": "combo",
+            "list_price": 1050, "combo_ids": [(6, 0, choice.ids)],
+        })
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch combo regression", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": combo.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": prefix, "first_number": 8001, "last_number": 8010,
+            }) for prefix in ("A", "D")],
+        })
+        order = self._new_order()
+        parent = self.env["sale.order.line"].create({
+            "order_id": order.id, "product_id": combo.id,
+            "product_uom_qty": 2, "price_unit": 0,
+        })
+        child = self.env["sale.order.line"].create({
+            "order_id": order.id, "product_id": self.box.id,
+            "product_uom_qty": 2, "price_unit": 1050,
+            "linked_line_id": parent.id,
+            "combo_item_id": choice.combo_item_ids.id,
+        })
+        self.assertEqual(parent.price_subtotal, 0)
+        self.assertEqual(scratch._scratch_package_units_for_order(order), 2)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual(order.scratch_base_cards, 2)
+        self.assertEqual(order.scratch_vip_cards, 2)
+        self.assertEqual(order.scratch_total_cards, 4)
+        self.assertEqual(sorted(order.scratch_card_line_ids.mapped("prefix")), ["A", "A", "D", "D"])
+        child.write({"price_unit": 0})
+        self.assertEqual(scratch._scratch_package_units_for_order(order), 0)
+
+    def test_scratch_shortage_warning_rolls_back_and_explicitly_defers(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch serial shortage", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": "D", "first_number": 9001, "last_number": 9001,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=False):
+            action = order.action_confirm()
+            self.assertEqual(action["res_model"], "motogene.scratch.shortage.wizard")
+            self.assertEqual(order.state, "draft")
+            self.assertFalse(order.picking_ids)
+            self.assertFalse(order.scratch_card_line_ids)
+            self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9001)
+            self.env[action["res_model"]].browse(action["res_id"]).action_proceed_without_cards()
+        self.assertEqual(order.state, "sale")
+        self.assertTrue(order.scratch_allocation_deferred)
+        self.assertEqual(order.scratch_total_cards, 2)
+        self.assertEqual(order.scratch_pending_cards, 2)
+        self.assertFalse(order.scratch_card_line_ids)
+        self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9001)
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")
+        self.assertEqual(picking.scratch_pending_cards, 2)
+        for move in picking.move_ids:
+            move.write({"quantity": move.product_uom_qty, "picked": True})
+        with patch.object(type(order), "_allocate_scratch_cards", side_effect=AssertionError("Deferred order must not allocate during validation")):
+            picking.button_validate()
+        self.assertEqual(picking.state, "done")
+        self.assertEqual(order.scratch_pending_cards, 2)
+        self.assertFalse(order.scratch_card_line_ids)
+
+    def test_scratch_shortage_available_allocates_one_and_defers_remainder(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch serial shortage", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": "D", "first_number": 9001, "last_number": 9001,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=False):
+            action = order.action_confirm()
+            self.assertEqual(action["res_model"], "motogene.scratch.shortage.wizard")
+            self.assertEqual(order.state, "draft")
+            self.assertFalse(order.picking_ids)
+            self.assertFalse(order.scratch_card_line_ids)
+            self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9001)
+            self.env[action["res_model"]].browse(action["res_id"]).action_proceed_with_available_cards()
+        self.assertEqual(order.state, "sale")
+        self.assertTrue(order.scratch_allocation_deferred)
+        self.assertEqual(order.scratch_total_cards, 2)
+        self.assertEqual(order.scratch_pending_cards, 1)
+        self.assertEqual(order.scratch_card_line_ids.mapped("serial_number"), ["D9001"])
+        self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 9002)
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")
+        self.assertEqual(picking.scratch_pending_cards, 1)
+        for move in picking.move_ids:
+            move.write({"quantity": move.product_uom_qty, "picked": True})
+        with patch.object(type(order), "_allocate_scratch_cards", side_effect=AssertionError("Deferred order must not allocate during validation")):
+            picking.button_validate()
+        self.assertEqual(picking.state, "done")
+        self.assertEqual(order.scratch_pending_cards, 1)
+        self.assertEqual(order.scratch_card_line_ids.mapped("state"), ["sent"])
+
+    def test_scratch_missing_range_cannot_be_bypassed(self):
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch missing range", "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 1, 1050)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=False):
+            with self.assertRaises(UserError):
+                order.with_context(motogene_allow_scratch_shortage=True).action_confirm()
+        self.assertEqual(order.state, "draft")
+        self.assertFalse(order.scratch_card_line_ids)
+
+    def test_scratch_confirmation_allocates_and_cancel_reuses_with_history(self):
         scratch = self.env["motogene.promotion.program"].create({
             "name": "Delivery card packing",
             "state": "active",
@@ -335,13 +482,56 @@ class TestMotogenePromotionEngine(TransactionCase):
         picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
         self.assertTrue(picking)
         self.assertEqual(picking._scratch_expected_types(), ["D", "D"])
-        with self.assertRaises(UserError):
-            picking.button_validate()
-        picking.action_prepare_scratch_cards()
-        picking.action_prepare_scratch_cards()
+        order._allocate_scratch_cards()
+        order._allocate_scratch_cards()
         self.assertEqual(picking.scratch_card_line_ids.mapped("serial_number"), ["D8001", "D8002"])
         self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 8003)
         self.assertEqual(len(picking.scratch_card_line_ids), 2)
+        original = order.scratch_card_line_ids
+        self.assertEqual(original.mapped("picking_id"), picking)
+        order.action_cancel()
+        self.assertEqual(set(original.mapped("state")), {"released"})
+        order.action_draft()
+        order.action_confirm()
+        current = order.scratch_card_line_ids.filtered(lambda c: c.state == "reserved")
+        self.assertEqual(sorted(current.mapped("serial_number")), ["D8001", "D8002"])
+        self.assertEqual(len(order.scratch_card_line_ids), 4)
+        self.assertTrue(all(c.picking_id != picking for c in current))
+        self.assertEqual(scratch.scratch_serial_pool_ids.next_number, 8003)
+
+    def test_scratch_partial_delivery_keeps_cards_on_first_dispatch(self):
+        self.env["motogene.promotion.program"].create({
+            "name": "Scratch partial delivery",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": "D", "first_number": 8001, "last_number": 8002,
+            })],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 2, 1050)
+        order.action_confirm()
+        picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
+        picking.move_ids.filtered(lambda m: m.product_id == self.combo8).write({
+            "quantity": 1, "picked": True,
+        })
+        picking._action_done()
+        self.assertEqual(picking.state, "done")
+        self.assertEqual(set(picking.scratch_card_line_ids.mapped("state")), {"sent"})
+        self.assertEqual(len(picking.scratch_card_line_ids), 2)
+        backorder = order.picking_ids.filtered(lambda p: p.backorder_id == picking)
+        self.assertTrue(backorder)
+        order._allocate_scratch_cards()
+        self.assertFalse(backorder.scratch_card_line_ids)
+        order._release_reserved_scratch_cards()
+        self.assertEqual(set(order.scratch_card_line_ids.mapped("state")), {"sent"})
+        self.assertEqual(len(order.scratch_card_line_ids), 2)
 
     def test_package_without_included_cards_still_gets_vip_and_spend_cards(self):
         scratch = self.env["motogene.promotion.program"].create({
@@ -355,6 +545,9 @@ class TestMotogenePromotionEngine(TransactionCase):
                 "product_tmpl_id": self.koragene_box.product_tmpl_id.id,
                 "advertised_cards": 0,
             })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": prefix, "first_number": 8001, "last_number": 8010,
+            }) for prefix in ("A", "D")],
         })
         order = self._new_order()
         self._add_line(order, self.koragene_box, 2, 700)
@@ -362,7 +555,7 @@ class TestMotogenePromotionEngine(TransactionCase):
             order.action_confirm()
         self.assertEqual((order.scratch_base_cards, order.scratch_vip_cards), (1, 2))
         picking = order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
-        self.assertEqual(picking._scratch_expected_types(), ["A", "A", "D"])
+        self.assertEqual(sorted(picking._scratch_expected_types()), ["A", "A", "D"])
 
     def test_lucky_draw_respects_quotation_date_when_confirmed_later(self):
         draw = self.env["motogene.promotion.program"].create({

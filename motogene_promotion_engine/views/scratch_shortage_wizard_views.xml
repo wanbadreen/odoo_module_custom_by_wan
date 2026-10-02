@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_scratch_shortage_wizard" model="ir.ui.view">
+        <field name="name">motogene.scratch.shortage.wizard.form</field>
+        <field name="model">motogene.scratch.shortage.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Scratch Card Serial Shortage">
+                <field name="order_ids" invisible="1"/>
+                <field name="message" nolabel="1" readonly="1"/>
+                <p>Choose whether to allocate no cards or allocate the available serial numbers. Any remaining entitlement will appear as pending on the SO, DO and Picking Operations printout.</p>
+                <footer>
+                    <button name="action_proceed_with_available_cards" type="object" string="Proceed With Available Cards" class="btn-primary"/>
+                    <button name="action_proceed_without_cards" type="object" string="Proceed Without Cards" class="btn-secondary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

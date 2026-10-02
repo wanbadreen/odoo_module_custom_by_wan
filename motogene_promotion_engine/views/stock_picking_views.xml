@@ -5,17 +5,44 @@
         <field name="model">stock.picking</field>
         <field name="inherit_id" ref="stock.view_picking_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//header" position="inside">
-                <button name="action_prepare_scratch_cards" type="object" string="Prepare Scratch Cards"
-                        invisible="not scratch_program_id or state in ('done', 'cancel')"/>
-            </xpath>
             <xpath expr="//notebook" position="inside">
+                <page string="Scratch Card Returns" invisible="not scratch_return_source_id">
+                    <p class="text-muted">Select only cards physically received from the customer. Validate will void those cards permanently. Leave the selection empty for a product-only return.</p>
+                    <div class="border rounded p-3 mb-3">
+                        <group string="Record Physical Cards Received" col="2">
+                            <field name="scratch_return_source_id" string="Original Delivery" readonly="1"/>
+                            <field name="scratch_return_card_ids" string="Physical Cards Received"
+                                   widget="many2many_tags"
+                                   placeholder="Click here to select a returned card serial..."
+                                   readonly="state in ('done', 'cancel')"
+                                   domain="[('id', 'in', scratch_return_available_card_ids), ('state', '=', 'sent')]"
+                                   options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                        </group>
+                    </div>
+                    <separator string="Original Delivery Card History"/>
+                    <field name="scratch_return_available_card_ids" readonly="1">
+                        <list create="0" delete="0" edit="0">
+                            <field name="prefix"/>
+                            <field name="serial_number"/>
+                            <field name="state"/>
+                            <field name="return_picking_id"/>
+                            <field name="returned_at"/>
+                            <field name="returned_by_id"/>
+                        </list>
+                    </field>
+                </page>
                 <page string="Scratch Cards to Pack" invisible="not scratch_program_id">
                     <p class="text-muted">Pack the physical cards with these serial numbers. The same list is printed on Picking Operations copy(4).</p>
+                    <div class="alert alert-warning" role="status" invisible="not scratch_allocation_deferred">
+                        Cards Pending Allocation: serial numbers were insufficient. Pack only the listed serial numbers. The remaining card entitlement is pending; product delivery may proceed.
+                    </div>
                     <field name="scratch_card_line_ids" readonly="state in ('done', 'cancel')">
-                        <list create="0" delete="0" editable="bottom">
+                        <list create="0" delete="0" edit="0">
                             <field name="prefix" readonly="1"/>
                             <field name="serial_number" readonly="1"/>
+                            <field name="state" readonly="1"/>
+                            <field name="return_picking_id" readonly="1"/>
+                            <field name="returned_at" readonly="1"/>
                         </list>
                     </field>
                 </page>
@@ -35,6 +62,8 @@
                 <field name="scratch_base_cards" readonly="1" invisible="not scratch_program_id"/>
                 <field name="scratch_vip_cards" readonly="1" invisible="not scratch_program_id"/>
                 <field name="scratch_total_cards" readonly="1" invisible="not scratch_program_id"/>
+                <field name="scratch_allocation_deferred" invisible="1"/>
+                <field name="scratch_pending_cards" readonly="1" invisible="not scratch_allocation_deferred"/>
             </xpath>
         </field>
     </record>
