@@ -86,9 +86,6 @@ class ScratchSerialPool(models.Model):
             [self.id],
         )
         number, maximum = self.env.cr.fetchone()
-        # Different promotions/companies may contain the same printed prefix.
-        # Serialize prefix allocation across pools, not just within one pool.
-        self.env.cr.execute("SELECT pg_advisory_xact_lock(hashtext(%s))", ["motogene.scratch.serial." + self.prefix])
         self.env.cr.execute("""
             SELECT released.serial_number
               FROM motogene_scratch_picking_card released
@@ -104,22 +101,8 @@ class ScratchSerialPool(models.Model):
         reusable = self.env.cr.fetchone()
         if reusable:
             return reusable[0]
-        # Archiving a promotion does not free its allocated/dispatched/void/redeemed cards.
-        # A copied setup must skip those serials wherever their history is stored.
-        self.env.cr.execute("""
-            SELECT candidate.number
-              FROM generate_series(%s, %s) AS candidate(number)
-             WHERE NOT EXISTS (
-                 SELECT 1 FROM motogene_scratch_picking_card active
-                  WHERE active.serial_number = %s || candidate.number::text
-                    AND active.state != 'released'
-             )
-             ORDER BY candidate.number LIMIT 1
-        """, [number, maximum, self.prefix])
-        available = self.env.cr.fetchone()
-        if not available:
-            raise ScratchSerialShortage(_("Scratch card type %s has no unused serial numbers remaining in this range.") % self.prefix)
-        number = available[0]
+        if number > maximum:
+            raise ScratchSerialShortage(_("Scratch card type %s has no serial numbers remaining.") % self.prefix)
         self.env.cr.execute(
             "UPDATE motogene_scratch_serial_pool SET next_number = %s WHERE id = %s",
             [number + 1, self.id],

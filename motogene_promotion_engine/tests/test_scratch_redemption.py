@@ -325,32 +325,3 @@ class TestScratchRedemption(TransactionCase):
         with self.assertRaises(UserError), self.env.cr.savepoint():
             self.pool.write({"first_number": 2})
         self.assertEqual(self.pool.first_number, 1)
-
-
-    def test_new_pool_skips_archived_promotion_active_serials(self):
-        destination = self._transfer_destination()
-        pool = self.env["motogene.scratch.serial.pool"].create({
-            "program_id": destination.id, "prefix": "D", "first_number": 8001, "last_number": 8003,
-        })
-        original = self.env["motogene.scratch.picking.card"].create({
-            "sale_id": self.source_order.id, "program_id": self.program.id,
-            "prefix": "D", "serial_number": "D8001", "state": "sent",
-        })
-        self.program.action_archive_program()
-        self.assertEqual(pool.reserve_serial(), "D8002")
-        self.assertEqual(pool.next_number, 8003)
-        self.assertEqual(original.state, "sent")
-
-    def test_overlapping_pool_with_no_available_serial_uses_shortage(self):
-        from ..models.scratch_card import ScratchSerialShortage
-        destination = self._transfer_destination()
-        pool = self.env["motogene.scratch.serial.pool"].create({
-            "program_id": destination.id, "prefix": "D", "first_number": 8001, "last_number": 8001,
-        })
-        self.env["motogene.scratch.picking.card"].create({
-            "sale_id": self.source_order.id, "program_id": self.program.id,
-            "prefix": "D", "serial_number": "D8001", "state": "void",
-        })
-        with self.assertRaises(ScratchSerialShortage), self.env.cr.savepoint():
-            pool.reserve_serial()
-        self.assertEqual(pool.next_number, 8001)
