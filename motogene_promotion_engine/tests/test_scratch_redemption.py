@@ -23,12 +23,14 @@ class TestScratchRedemption(TransactionCase):
         })
         today = fields.Date.context_today(self.env["motogene.scratch.redemption"])
         self.program = self.env["motogene.promotion.program"].create({
-            "name": "Reusable Redemption Promo", "reward_product_id": self.product.id,
+            "name": "Reusable Redemption Promo", "reward_type": "scratch_cards", "minimum_amount": 100,
+            "scratch_redemption_expiry_date": today,
             "date_start": today, "date_end": today,
         })
         self.pool = self.env["motogene.scratch.serial.pool"].create({
             "program_id": self.program.id, "prefix": "A", "first_number": 1, "last_number": 10,
-            "prize_description": "Configured test rebate",
+            "prize_description": "Configured test rebate", "redemption_reward_type": "products",
+            "reward_product_line_ids": [Command.create({"product_id": self.product.id, "quantity": 2})],
         })
         warehouse = self.env["stock.warehouse"].search([("company_id", "=", self.env.company.id)], limit=1)
         self.delivery = self.env["stock.picking"].create({
@@ -54,13 +56,12 @@ class TestScratchRedemption(TransactionCase):
     def _redemption(self, **overrides):
         vals = {
             "card_id": self.card.id, "target_sale_id": self.target_order.id,
-            "expiry_date": self.today,
             "card_photo": base64.b64encode(b"test photo evidence"), "photo_filename": "test.png",
         }
         vals.update(overrides)
         return self.env["motogene.scratch.redemption"].create(vals)
 
-    def test_confirm_snapshot_and_no_reward_line(self):
+    def test_confirm_snapshot_and_automatic_reward_line(self):
         record = self._redemption()
         lines = self.target_order.order_line
         record.action_confirm_redemption()
@@ -70,8 +71,12 @@ class TestScratchRedemption(TransactionCase):
         self.assertEqual(record.redeemed_by_id, self.env.user)
         self.assertTrue(record.redeemed_at)
         self.pool.prize_description = "Future prize setting"
-        self.assertEqual(record.prize_snapshot, "Configured test rebate")
-        self.assertEqual(self.target_order.order_line, lines)
+        self.assertTrue(record.prize_snapshot.startswith("Configured test rebate"))
+        self.assertEqual(len(self.target_order.order_line), len(lines) + 1)
+        self.assertEqual(record.reward_line_ids.product_uom_qty, 2)
+        self.assertEqual(record.reward_line_ids.price_unit, 0)
+        self.target_order.action_recompute_motogene_promotions()
+        self.assertTrue(record.reward_line_ids.exists())
 
     def test_duplicate_drafts_and_return_rejected_after_redeem(self):
         first, second = self._redemption(), self._redemption()
@@ -94,10 +99,16 @@ class TestScratchRedemption(TransactionCase):
             with self.assertRaises(UserError), self.env.cr.savepoint():
                 record.action_confirm_redemption()
         self.card.state = "sent"
-        record.expiry_date = self.today - timedelta(days=1)
+        self.env.cr.execute("UPDATE motogene_scratch_picking_card SET expiry_date = %s WHERE id = %s", [self.today - timedelta(days=1), self.card.id])
+        self.card.invalidate_recordset()
+        self.card.modified(["expiry_date"])
+        record.invalidate_recordset()
         with self.assertRaises(UserError), self.env.cr.savepoint():
             record.action_confirm_redemption()
-        record.expiry_date = self.today
+        self.env.cr.execute("UPDATE motogene_scratch_picking_card SET expiry_date = %s WHERE id = %s", [self.today, self.card.id])
+        self.card.invalidate_recordset()
+        self.card.modified(["expiry_date"])
+        record.invalidate_recordset()
         record.card_photo = False
         with self.assertRaises(UserError), self.env.cr.savepoint():
             record.action_confirm_redemption()
@@ -117,7 +128,7 @@ class TestScratchRedemption(TransactionCase):
     def test_confirmed_record_and_card_cannot_be_reset(self):
         record = self._redemption()
         record.action_confirm_redemption()
-        for vals in ({"state": "draft"}, {"expiry_date": self.today + timedelta(days=30)}, {"card_photo": False}):
+        for vals in ({"state": "draft"}, {"card_photo": False}, {"mystery_product_id": self.product.id}):
             with self.assertRaises(UserError), self.env.cr.savepoint():
                 record.write(vals)
         with self.assertRaises(UserError), self.env.cr.savepoint():
@@ -126,3 +137,112 @@ class TestScratchRedemption(TransactionCase):
             self.card.state = "sent"
         with self.assertRaises(UserError), self.env.cr.savepoint():
             self.card.redemption_id = False
+
+
+    def test_fixed_expiry_snapshot_and_legacy_backfill(self):
+        self.assertEqual(self.card.expiry_date, self.today)
+        self.program.scratch_redemption_expiry_date = self.today + timedelta(days=30)
+        self.assertEqual(self.card.expiry_date, self.today)
+        self.env.cr.execute("UPDATE motogene_scratch_picking_card SET expiry_date = NULL WHERE id = %s", [self.card.id])
+        self.card.invalidate_recordset()
+        self.program.scratch_redemption_expiry_date = self.today + timedelta(days=31)
+        self.assertEqual(self.card.expiry_date, self.today + timedelta(days=31))
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.card.expiry_date = self.today
+
+    def test_wizard_customer_filter_and_duplicate(self):
+        self.assertIn(self.card, self.target_order._redeemable_scratch_cards())
+        wizard = self.env["motogene.scratch.redemption.wizard"].create({
+            "sale_id": self.target_order.id, "card_id": self.card.id,
+            "card_photo": base64.b64encode(b"photo"),
+        })
+        wizard.action_confirm()
+        self.assertEqual(self.card.state, "redeemed")
+        self.assertNotIn(self.card, self.target_order._redeemable_scratch_cards())
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        other = self.env["res.partner"].create({"name": "Unrelated account"})
+        unrelated = self.env["sale.order"].create({"partner_id": other.id})
+        self.assertFalse(unrelated._redeemable_scratch_cards())
+
+    def test_cancel_restores_card_and_preserves_history(self):
+        record = self._redemption()
+        record.action_confirm_redemption()
+        rewards = record.reward_line_ids
+        self.target_order.action_cancel()
+        self.assertEqual(record.state, "cancelled")
+        self.assertTrue(record.cancelled_at)
+        self.assertEqual(self.card.state, "sent")
+        self.assertFalse(self.card.redemption_id)
+        self.assertFalse(rewards.exists())
+        self.target_order.action_draft()
+        self.assertIn(self.card, self.target_order._redeemable_scratch_cards())
+        second = self._redemption()
+        second.action_confirm_redemption()
+        self.assertEqual(self.card.redemption_id, second)
+        self.assertEqual(record.state, "cancelled")
+
+    def test_reward_edit_and_paid_purchase_removal_blocked(self):
+        paid = self.target_order.order_line
+        record = self._redemption()
+        record.action_confirm_redemption()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            record.reward_line_ids.unlink()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            record.reward_line_ids.price_unit = 1
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            paid.unlink()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            paid.price_unit = 0
+
+    def test_rebate_and_purchase_cap(self):
+        rebate_product = self.env["product.product"].create({"name": "Scratch Rebate", "type": "service"})
+        self.pool.write({"redemption_reward_type": "rebate", "rebate_product_id": rebate_product.id, "rebate_amount": 10})
+        record = self._redemption()
+        record.action_confirm_redemption()
+        self.assertEqual(record.reward_line_ids.price_unit, -10)
+        self.assertEqual(record.reward_line_ids.product_id, rebate_product)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.target_order.order_line.filtered(lambda l: not l.is_motogene_promo_reward).price_unit = 5
+
+    def test_missing_reward_configuration_rolls_back(self):
+        self.pool.reward_product_line_ids.unlink()
+        record = self._redemption()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            record.action_confirm_redemption()
+        self.assertEqual(record.state, "draft")
+        self.assertEqual(self.card.state, "sent")
+        self.assertFalse(record.reward_line_ids)
+
+    def test_mystery_product_required_and_added(self):
+        self.pool.redemption_reward_type = "mystery"
+        record = self._redemption()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            record.action_confirm_redemption()
+        record.mystery_product_id = self.product
+        record.action_confirm_redemption()
+        self.assertEqual(record.reward_line_ids.product_id, self.product)
+        self.assertEqual(record.reward_line_ids.price_unit, 0)
+
+    def test_delivered_order_cannot_restore_card(self):
+        record = self._redemption()
+        record.action_confirm_redemption()
+        self.target_order.action_confirm()
+        picking = self.target_order.picking_ids.filtered(lambda p: p.picking_type_code == "outgoing")[:1]
+        self.assertTrue(picking)
+        picking.move_ids.write({"quantity": 1, "picked": True})
+        picking._action_done()
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.target_order.action_cancel()
+        self.assertEqual(self.card.state, "redeemed")
+        self.assertEqual(record.state, "confirmed")
+
+
+    def test_copy_order_does_not_copy_redemption_reward(self):
+        record = self._redemption()
+        record.action_confirm_redemption()
+        copied = self.target_order.copy()
+        self.assertFalse(copied.scratch_redemption_ids)
+        self.assertFalse(copied.order_line.scratch_redemption_id)
+        self.assertEqual(len(copied.order_line), 1)
+        self.assertEqual(self.card.state, "redeemed")

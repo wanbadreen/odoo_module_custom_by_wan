@@ -294,6 +294,7 @@ class TestMotogenePromotionEngine(TransactionCase):
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
             "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60),
             "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
@@ -329,7 +330,8 @@ class TestMotogenePromotionEngine(TransactionCase):
             "name": "Scratch combo regression", "state": "active",
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
-            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60), "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": combo.product_tmpl_id.id,
                 "advertised_cards": 1, "card_prefixes": "D",
@@ -365,7 +367,8 @@ class TestMotogenePromotionEngine(TransactionCase):
             "name": "Scratch serial shortage", "state": "active",
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
-            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60), "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
                 "advertised_cards": 1, "card_prefixes": "D",
@@ -405,7 +408,8 @@ class TestMotogenePromotionEngine(TransactionCase):
             "name": "Scratch serial shortage", "state": "active",
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
-            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60), "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
                 "advertised_cards": 1, "card_prefixes": "D",
@@ -445,7 +449,8 @@ class TestMotogenePromotionEngine(TransactionCase):
             "name": "Scratch missing range", "state": "active",
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
-            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60), "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
                 "advertised_cards": 1, "card_prefixes": "D",
@@ -466,6 +471,7 @@ class TestMotogenePromotionEngine(TransactionCase):
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
             "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60),
             "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
@@ -505,7 +511,8 @@ class TestMotogenePromotionEngine(TransactionCase):
             "state": "active",
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
-            "reward_type": "scratch_cards", "minimum_amount": 888,
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60), "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.combo8.product_tmpl_id.id,
                 "advertised_cards": 1, "card_prefixes": "D",
@@ -540,6 +547,7 @@ class TestMotogenePromotionEngine(TransactionCase):
             "date_start": fields.Date.today() - timedelta(days=1),
             "date_end": fields.Date.today() + timedelta(days=1),
             "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60),
             "minimum_amount": 888,
             "scratch_package_line_ids": [(0, 0, {
                 "product_tmpl_id": self.koragene_box.product_tmpl_id.id,

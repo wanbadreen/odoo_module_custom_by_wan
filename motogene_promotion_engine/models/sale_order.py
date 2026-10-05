@@ -87,6 +87,8 @@ class SaleOrder(models.Model):
             order.scratch_card_line_ids.filtered(
                 lambda c: c.state == "reserved" and c.picking_id.state == "cancel"
             ).write({"state": "released"})
+            if order.scratch_total_cards and not order.scratch_program_id.scratch_redemption_expiry_date:
+                raise UserError(_("Set Card Redemption Expiry Date in the scratch promotion before allocating cards."))
             expected = Counter(order._scratch_order_types())
             cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
             # Keep dispatched cards; release any excess unshipped allocation.
@@ -184,6 +186,7 @@ class SaleOrder(models.Model):
                 reward_lines = order.order_line.filtered(
                     lambda line: line.is_motogene_promo_reward
                     and line.promotion_program_id == program
+                    and not line.scratch_redemption_id
                 )
 
                 if expected_qty <= 0:

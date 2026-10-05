@@ -100,6 +100,7 @@ class ScratchPickingCard(models.Model):
     returned_by_id = fields.Many2one(
         "res.users", string="Card Received By", readonly=True, copy=False,
     )
+    expiry_date = fields.Date(string="Card Redemption Expiry", readonly=True, copy=False, index=True)
     redemption_id = fields.Many2one(
         "motogene.scratch.redemption", string="Card Redemption", readonly=True,
         ondelete="restrict", copy=False, index=True,
@@ -109,17 +110,23 @@ class ScratchPickingCard(models.Model):
     def create(self, vals_list):
         if any(v.get("state") == "redeemed" or v.get("redemption_id") for v in vals_list):
             raise UserError(_("Use Confirm Redemption to redeem a scratch card."))
+        for vals in vals_list:
+            if not vals.get("expiry_date"):
+                program = self.env["motogene.promotion.program"].browse(vals.get("program_id"))
+                vals["expiry_date"] = program.scratch_redemption_expiry_date
         return super().create(vals_list)
 
     def write(self, vals):
-        identity = {"state", "serial_number", "sale_id", "picking_id", "program_id", "prefix", "redemption_id"}
+        identity = {"state", "serial_number", "sale_id", "picking_id", "program_id", "prefix", "redemption_id", "expiry_date"}
         if set(vals) & identity and self.ids:
-            self.flush_recordset(["state"])
+            self.flush_recordset(["state", "expiry_date"])
             self.env.cr.execute(
                 "SELECT id FROM motogene_scratch_picking_card WHERE id IN %s ORDER BY id FOR UPDATE",
                 [tuple(sorted(self.ids))],
             )
-            self.invalidate_recordset(["state"])
+            self.invalidate_recordset(["state", "expiry_date"])
+        if "expiry_date" in vals and any(c.expiry_date for c in self):
+            raise UserError(_("An allocated card's expiry cannot be changed."))
         if "redemption_id" in vals or vals.get("state") == "redeemed":
             raise UserError(_("Use Confirm Redemption to redeem a scratch card."))
         if any(c.state == "redeemed" for c in self) and set(vals) & {
@@ -137,6 +144,12 @@ class ScratchPickingCard(models.Model):
         return super(ScratchPickingCard, self).write({
             "state": "redeemed", "redemption_id": redemption.id,
         })
+
+    def _restore_after_redemption_cancel(self, redemption):
+        self.ensure_one()
+        if self.state != "redeemed" or self.redemption_id != redemption or redemption.state != "cancelled":
+            raise UserError(_("Only the matching cancelled redemption can restore this card."))
+        return super(ScratchPickingCard, self).write({"state": "sent", "redemption_id": False})
 
     def init(self):
         self.env.cr.execute("""

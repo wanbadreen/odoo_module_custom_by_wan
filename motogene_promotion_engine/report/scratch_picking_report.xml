@@ -16,12 +16,14 @@
                     <tr>
                         <th style="border: 1px solid black; padding: 6px;">Card Type</th>
                         <th style="border: 1px solid black; padding: 6px;">Serial Number</th>
+                        <th style="border: 1px solid black; padding: 6px;">Redemption Expiry</th>
                     </tr>
                 </thead>
                 <tbody>
                     <tr t-foreach="cards_to_pack" t-as="card">
                         <td style="border: 1px solid black; padding: 6px;"><span t-field="card.prefix"/></td>
                         <td style="border: 1px solid black; padding: 6px;"><strong t-field="card.serial_number"/></td>
+                        <td style="border: 1px solid black; padding: 6px;"><span t-field="card.expiry_date"/></td>
                     </tr>
                 </tbody>
             </table>

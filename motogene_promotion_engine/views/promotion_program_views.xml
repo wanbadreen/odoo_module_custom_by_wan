@@ -184,18 +184,45 @@
                         </page>
                         <page string="Scratch Card Serial Pools" invisible="reward_type != 'scratch_cards'">
                             <group>
+                                <field name="scratch_redemption_expiry_date"/>
                                 <field name="scratch_vip_prefix"/>
                                 <field name="scratch_extra_prefix"/>
                             </group>
-                            <p class="text-muted">Set the printed serial ranges for each card type. The next number is reserved when Operation prepares a delivery.</p>
+                            <p class="text-muted">Set the fixed redemption expiry and the printed serial ranges. Serial numbers are allocated when the Sales Order is confirmed. Open each prefix to configure its reward. Saving a fixed expiry fills legacy cards without a date; existing dates stay unchanged.</p>
                             <field name="scratch_serial_pool_ids">
-                                <list editable="bottom">
+                                <list>
                                     <field name="prefix"/>
-                                    <field name="prize_description" placeholder="Gift or rebate printed on this card type"/>
+                                    <field name="prize_description"/>
+                                    <field name="redemption_reward_type"/>
                                     <field name="first_number"/>
                                     <field name="last_number"/>
                                     <field name="next_number" readonly="1"/>
                                 </list>
+                                <form string="Card Prefix and Redemption Reward">
+                                    <group>
+                                        <group string="Serial Range">
+                                            <field name="prefix"/>
+                                            <field name="first_number"/>
+                                            <field name="last_number"/>
+                                            <field name="next_number" readonly="1"/>
+                                        </group>
+                                        <group string="Redemption Reward">
+                                            <field name="prize_description"/>
+                                            <field name="redemption_reward_type"/>
+                                            <field name="rebate_amount" invisible="redemption_reward_type != 'rebate'"/>
+                                            <field name="rebate_product_id" invisible="redemption_reward_type != 'rebate'"/>
+                                            <field name="mystery_quantity" invisible="redemption_reward_type != 'mystery'"/>
+                                        </group>
+                                    </group>
+                                    <group string="Free Products" invisible="redemption_reward_type != 'products'">
+                                        <field name="reward_product_line_ids" nolabel="1">
+                                            <list editable="bottom">
+                                                <field name="product_id"/>
+                                                <field name="quantity"/>
+                                            </list>
+                                        </field>
+                                    </group>
+                                </form>
                             </field>
                         </page>
 

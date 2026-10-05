@@ -6,6 +6,10 @@
         <field name="inherit_id" ref="sale.view_order_form"/>
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
+                <field name="scratch_redeem_available" invisible="1"/>
+                <button name="action_redeem_scratch_card" type="object" string="Redeem Scratch Card"
+                        class="btn-primary" groups="sales_team.group_sale_salesman"
+                        invisible="state not in ('draft', 'sent') or not scratch_redeem_available"/>
                 <button name="action_recompute_motogene_promotions"
                         type="object"
                         string="Recompute Promotions"
@@ -33,6 +37,7 @@
                         <list create="0" delete="0" edit="0">
                             <field name="prefix"/>
                             <field name="serial_number"/>
+                            <field name="expiry_date"/>
                             <field name="state"/>
                             <field name="picking_id"/>
                             <field name="return_picking_id"/>
@@ -43,7 +48,7 @@
                 </page>
                 <page string="Scratch Card Redemptions" invisible="not scratch_redemption_ids"
                       groups="sales_team.group_sale_salesman,stock.group_stock_user">
-                    <p class="text-muted">Redemption records only. CS must manually add the gift or rebate to this order.</p>
+                    <p class="text-muted">Rewards are added automatically on redemption. Cancelling an undelivered, uninvoiced order reverses redemption; the original card expiry still applies.</p>
                     <field name="scratch_redemption_ids" readonly="1">
                         <list create="0" delete="0" edit="0">
                             <field name="card_id"/>
