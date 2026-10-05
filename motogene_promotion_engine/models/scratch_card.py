@@ -31,6 +31,41 @@ class ScratchSerialPool(models.Model):
                 vals["next_number"] = vals.get("first_number", 8001)
         return super().create(vals_list)
 
+    def _has_serial_history(self):
+        self.ensure_one()
+        return bool(self.env["motogene.scratch.picking.card"].search_count([
+            ("program_id", "=", self.program_id.id), ("prefix", "=", self.prefix),
+        ]))
+
+    @api.onchange("first_number")
+    def _onchange_first_number(self):
+        original = self._origin
+        if not original.id or (original.next_number == original.first_number and not original._has_serial_history()):
+            self.next_number = self.first_number
+
+    def write(self, vals):
+        if not set(vals) & {"first_number", "last_number", "next_number", "prefix", "program_id"}:
+            return super().write(vals)
+        # Match the allocation lock: no range or cursor edits while serials are reserved.
+        for pool in self.sorted("id"):
+            pool.flush_recordset()
+            self.env.cr.execute("SELECT id FROM motogene_scratch_serial_pool WHERE id = %s FOR UPDATE", [pool.id])
+            pool.invalidate_recordset()
+            values = dict(vals)
+            used = pool.next_number != pool.first_number or pool._has_serial_history()
+            if used:
+                for field in ("first_number", "prefix", "program_id", "next_number"):
+                    current = pool[field].id if field == "program_id" else pool[field]
+                    if field in values and values[field] != current:
+                        raise UserError(_("This serial pool has already been used. Its starting number, prefix, promotion and counter cannot be changed. Create a separate pool in the destination promotion."))
+                if "last_number" in values and values["last_number"] < pool.next_number - 1:
+                    raise UserError(_("The ending number cannot exclude serials already allocated."))
+            elif "first_number" in values:
+                # Onchange values for readonly fields may not be submitted by the client.
+                values["next_number"] = values["first_number"]
+            super(ScratchSerialPool, pool).write(values)
+        return True
+
     @api.constrains("prefix", "first_number", "last_number", "next_number")
     def _check_pool(self):
         for pool in self:

@@ -304,3 +304,24 @@ class TestScratchRedemption(TransactionCase):
             wizard.action_import()
         self.assertEqual(self.card.state, "sent")
         self.assertEqual(self.card.expiry_date, self.today)
+
+
+    def test_unused_pool_start_change_moves_counter(self):
+        pool = self.env["motogene.scratch.serial.pool"].create({
+            "program_id": self.program.id, "prefix": "B", "first_number": 8001, "last_number": 8150,
+        })
+        pool.first_number = 8100
+        self.assertEqual(pool.next_number, 8100)
+        self.assertEqual(pool.reserve_serial(), "B8100")
+        self.assertEqual(pool.next_number, 8101)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            pool.first_number = 8102
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            pool.next_number = 8100
+        pool.last_number = 8100
+        self.assertEqual(pool.next_number, 8101)
+
+    def test_pool_with_card_history_cannot_change_start(self):
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.pool.write({"first_number": 2})
+        self.assertEqual(self.pool.first_number, 1)
