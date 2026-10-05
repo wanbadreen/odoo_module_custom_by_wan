@@ -8,3 +8,4 @@ from . import scratch_shortage_wizard
 from . import scratch_redemption
 from . import scratch_redemption_setup
 from . import scratch_redemption_wizard
+from . import scratch_setup_transfer

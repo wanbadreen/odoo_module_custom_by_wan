@@ -246,3 +246,61 @@ class TestScratchRedemption(TransactionCase):
         self.assertFalse(copied.order_line.scratch_redemption_id)
         self.assertEqual(len(copied.order_line), 1)
         self.assertEqual(self.card.state, "redeemed")
+
+    def _setup_transfer_file(self, destination):
+        import json
+        self.program.write({
+            "scratch_extra_prefix": "A",
+            "scratch_package_line_ids": [Command.create({
+                "product_tmpl_id": self.product.product_tmpl_id.id,
+                "advertised_cards": 1, "card_prefixes": "A",
+            })],
+        })
+        return self.env["motogene.scratch.setup.transfer"].create({
+            "program_id": destination.id, "mode": "import",
+            "file_data": base64.b64encode(json.dumps(self.program._scratch_setup_payload()).encode()),
+        })
+
+    def _transfer_destination(self):
+        return self.env["motogene.promotion.program"].create({
+            "name": "Destination Promotion", "reward_type": "scratch_cards",
+            "minimum_amount": 100, "date_start": self.today, "date_end": self.today,
+        })
+
+    def test_setup_transfer_roundtrip_without_history_or_counter(self):
+        destination = self._transfer_destination()
+        wizard = self._setup_transfer_file(destination)
+        payload = self.program._scratch_setup_payload()
+        self.assertNotIn("next_number", payload["pools"][0])
+        self.assertNotIn("cards", payload)
+        wizard.action_import()
+        self.assertEqual(destination.state, "draft")
+        self.assertEqual(destination.scratch_redemption_expiry_date, self.today)
+        self.assertEqual(destination.scratch_package_line_ids.product_tmpl_id, self.product.product_tmpl_id)
+        self.assertEqual(destination.scratch_serial_pool_ids.reward_product_line_ids.product_id, self.product)
+        self.assertEqual(destination.scratch_serial_pool_ids.reward_product_line_ids.quantity, 2)
+        self.assertEqual(destination.scratch_serial_pool_ids.next_number, 1)
+        # Reimport updates the same prefix, not duplicate serial pools or products.
+        wizard.action_import()
+        self.assertEqual(len(destination.scratch_serial_pool_ids), 1)
+        self.assertEqual(len(destination.scratch_package_line_ids), 1)
+
+    def test_setup_transfer_missing_product_leaves_destination_unchanged(self):
+        import json
+        destination = self._transfer_destination()
+        wizard = self._setup_transfer_file(destination)
+        payload = json.loads(base64.b64decode(wizard.file_data))
+        payload["pools"][0]["products"][0]["product"] = {"name": "DOES-NOT-EXIST-IMPORT-TEST", "code": "NO-SUCH-SKU", "xmlid": None}
+        wizard.file_data = base64.b64encode(json.dumps(payload).encode())
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_import()
+        self.assertFalse(destination.scratch_serial_pool_ids)
+        self.assertFalse(destination.scratch_package_line_ids)
+        self.assertFalse(destination.scratch_redemption_expiry_date)
+
+    def test_setup_transfer_used_promotion_cannot_be_overwritten(self):
+        wizard = self._setup_transfer_file(self.program)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_import()
+        self.assertEqual(self.card.state, "sent")
+        self.assertEqual(self.card.expiry_date, self.today)
