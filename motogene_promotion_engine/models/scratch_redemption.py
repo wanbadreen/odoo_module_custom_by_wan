@@ -1,6 +1,27 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.osv import expression
+
+
+def scratch_pool_search_domain(env, operator, value):
+    """Search the live promo/prefix match, including cards with no pool."""
+    if operator not in ("=", "!=", "in", "not in"):
+        raise UserError(_("Unsupported scratch pool search operator: %s") % operator)
+    values = list(value) if operator in ("in", "not in") else [value]
+    Pool = env["motogene.scratch.serial.pool"]
+    pools = Pool.browse([v for v in values if v]).exists()
+    def matches(records):
+        return expression.OR([
+            [("card_id.program_id", "=", p.program_id.id),
+             ("card_id.prefix", "=", p.prefix)]
+            for p in records
+        ])
+    domains = [matches(pools)]
+    if any(not v for v in values):
+        domains.append(["!"] + matches(Pool.search([])))
+    domain = expression.OR(domains)
+    return ["!"] + domain if operator in ("!=", "not in") else domain
 
 
 class ScratchRedemption(models.Model):
@@ -48,7 +69,7 @@ class ScratchRedemption(models.Model):
     reward_line_ids = fields.One2many("sale.order.line", "scratch_redemption_id", string="Redemption Reward Lines", readonly=True)
     mystery_product_id = fields.Many2one("product.product", string="Mystery Gift Product", domain=[("sale_ok", "=", True)])
     reward_type = fields.Selection(related="pool_id.redemption_reward_type")
-    pool_id = fields.Many2one("motogene.scratch.serial.pool", compute="_compute_pool")
+    pool_id = fields.Many2one("motogene.scratch.serial.pool", compute="_compute_pool", search="_search_pool")
     cancelled_at = fields.Datetime(readonly=True, copy=False)
     cancelled_by_id = fields.Many2one("res.users", readonly=True, copy=False)
 
@@ -56,6 +77,10 @@ class ScratchRedemption(models.Model):
     def _compute_pool(self):
         for record in self:
             record.pool_id = record.card_id.program_id.scratch_serial_pool_ids.filtered(lambda p: p.prefix == record.card_id.prefix)[:1]
+
+    @api.model
+    def _search_pool(self, operator, value):
+        return scratch_pool_search_domain(self.env, operator, value)
 
     def init(self):
         self.env.cr.execute("""

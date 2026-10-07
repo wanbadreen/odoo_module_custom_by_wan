@@ -325,3 +325,23 @@ class TestScratchRedemption(TransactionCase):
         with self.assertRaises(UserError), self.env.cr.savepoint():
             self.pool.write({"first_number": 2})
         self.assertEqual(self.pool.first_number, 1)
+
+    def test_live_pool_search_and_reward_dependency(self):
+        record = self._redemption()
+        Model = self.env["motogene.scratch.redemption"]
+        self.assertEqual(record.pool_id, self.pool)
+        self.assertEqual(Model.search([("id", "=", record.id), ("pool_id", "=", self.pool.id)]), record)
+        self.assertFalse(Model.search([("id", "=", record.id), ("pool_id", "=", False)]))
+        self.assertFalse(Model.search([("id", "=", record.id), ("pool_id", "not in", self.pool.ids)]))
+        self.pool.write({"redemption_reward_type": "mystery"})
+        self.assertEqual(record.reward_type, "mystery")
+        # A pool created later must become the live match without a stored stale link.
+        self.card.write({"prefix": "B"})
+        self.assertFalse(record.pool_id)
+        self.assertEqual(Model.search([("id", "=", record.id), ("pool_id", "=", False)]), record)
+        pool = self.env["motogene.scratch.serial.pool"].create({
+            "program_id": self.program.id, "prefix": "B", "first_number": 900001,
+            "last_number": 900010, "redemption_reward_type": "mystery"})
+        self.assertEqual(record.pool_id, pool)
+        self.assertEqual(Model.search([("id", "=", record.id), ("pool_id", "in", pool.ids)]), record)
+        self.assertEqual(record.reward_type, "mystery")

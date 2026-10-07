@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
+from .scratch_redemption import scratch_pool_search_domain
 
 
 class ScratchRedemptionWizard(models.TransientModel):
@@ -11,7 +12,7 @@ class ScratchRedemptionWizard(models.TransientModel):
     available_card_ids = fields.Many2many("motogene.scratch.picking.card", compute="_compute_available_cards")
     card_id = fields.Many2one("motogene.scratch.picking.card", required=True, string="Card Serial")
     expiry_date = fields.Date(related="card_id.expiry_date", string="Card Redemption Expiry")
-    pool_id = fields.Many2one("motogene.scratch.serial.pool", compute="_compute_pool")
+    pool_id = fields.Many2one("motogene.scratch.serial.pool", compute="_compute_pool", search="_search_pool")
     reward_type = fields.Selection(related="pool_id.redemption_reward_type")
     prize_description = fields.Char(related="pool_id.prize_description", string="Prize")
     mystery_product_id = fields.Many2one("product.product", string="Mystery Gift Product", domain=[("sale_ok", "=", True)])
@@ -24,10 +25,14 @@ class ScratchRedemptionWizard(models.TransientModel):
         for wizard in self:
             wizard.available_card_ids = wizard.sale_id._redeemable_scratch_cards() if wizard.sale_id else False
 
-    @api.depends("card_id")
+    @api.depends("card_id", "card_id.prefix", "card_id.program_id.scratch_serial_pool_ids.prefix")
     def _compute_pool(self):
         for wizard in self:
             wizard.pool_id = wizard.card_id.program_id.scratch_serial_pool_ids.filtered(lambda p: p.prefix == wizard.card_id.prefix)[:1]
+
+    @api.model
+    def _search_pool(self, operator, value):
+        return scratch_pool_search_domain(self.env, operator, value)
 
     @api.onchange("card_id")
     def _onchange_card(self):
