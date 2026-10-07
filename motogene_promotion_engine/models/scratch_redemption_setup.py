@@ -50,8 +50,7 @@ class ScratchRewardPool(models.Model):
             raise UserError(_("Configure a positive rebate and a saleable service product for prefix %s.") % self.prefix)
         if self.redemption_reward_type == "mystery" and self.mystery_quantity <= 0:
             raise UserError(_("Mystery gift quantity must be positive."))
-        if any(not r.product_id.sale_ok or r.quantity <= 0 for r in self.reward_product_line_ids):
-            raise UserError(_("Free gifts require saleable products and positive quantities."))
+        self.reward_product_line_ids._validate_gift_setup()
 
 
 class ScratchRewardProduct(models.Model):
@@ -59,7 +58,7 @@ class ScratchRewardProduct(models.Model):
     _description = "Scratch Card Reward Product"
 
     pool_id = fields.Many2one("motogene.scratch.serial.pool", required=True, ondelete="cascade")
-    product_id = fields.Many2one("product.product", required=True, domain=[("sale_ok", "=", True)], ondelete="restrict")
+    product_id = fields.Many2one("product.product", domain=[("sale_ok", "=", True)], ondelete="restrict")
     quantity = fields.Float(required=True, default=1)
 
     @api.constrains("quantity")
@@ -188,3 +187,4 @@ class ScratchRedemptionSaleLine(models.Model):
         if any(not l.scratch_redemption_id or l.scratch_redemption_id.state != "cancelled" or l.order_id.state != "cancel" for l in self):
             raise UserError(_("Only cancelled redemption rewards can be removed."))
         return super(ScratchRedemptionSaleLine, self.with_context(motogene_skip_promotion_engine=True)).unlink()
+

@@ -11,3 +11,5 @@ from . import scratch_redemption_wizard
 from . import scratch_setup_transfer
 
 from . import scratch_alternative
+
+from . import scratch_gift_variant

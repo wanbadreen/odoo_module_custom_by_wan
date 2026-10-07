@@ -4,3 +4,5 @@ from . import test_scratch_returns
 from . import test_scratch_redemption
 
 from . import test_scratch_alternative
+
+from . import test_scratch_gift_variants

@@ -20,7 +20,7 @@ class ScratchSetupTransferProgram(models.Model):
         if self.reward_type != "scratch_cards":
             raise UserError(_("Select a Scratch & Win promotion."))
         return {
-            "format": "motogene-scratch-setup", "version": 1,
+            "format": "motogene-scratch-setup", "version": 2,
             "source_name": self.name,
             "currency": (self.company_id or self.env.company).currency_id.name,
             "settings": {
@@ -44,8 +44,12 @@ class ScratchSetupTransferProgram(models.Model):
                 "rebate_amount": p.rebate_amount,
                 "rebate_product": self._scratch_setup_reference(p.rebate_product_id) if p.rebate_product_id else None,
                 "mystery_quantity": p.mystery_quantity,
-                "products": [{"product": self._scratch_setup_reference(line.product_id), "quantity": line.quantity}
-                             for line in p.reward_product_line_ids],
+                "products": [{
+                    "variant_mode": line.variant_mode,
+                    "product": self._scratch_setup_reference(line.product_id) if line.variant_mode == "fixed" else None,
+                    "template": self._scratch_setup_reference(line.product_tmpl_id) if line.variant_mode == "choose" else None,
+                    "quantity": line.quantity,
+                } for line in p.reward_product_line_ids],
             } for p in self.scratch_serial_pool_ids],
         }
 
@@ -105,6 +109,19 @@ class ScratchSetupTransfer(models.TransientModel):
                 return products
         raise UserError(_("Product %s was not found. Create it in the destination database with the same Internal Reference, then import again.") % reference["name"])
 
+    def _resolve_gift_setup(self, entry):
+        mode = entry.get("variant_mode", "fixed")
+        if mode not in ("fixed", "choose"):
+            raise UserError(_("Unknown gift variant selection mode."))
+        vals = {"variant_mode": mode, "quantity": entry["quantity"]}
+        if mode == "choose":
+            vals["product_tmpl_id"] = self._resolve_product(entry["template"], "product.template").id
+            vals["product_id"] = False
+        else:
+            vals["product_id"] = self._resolve_product(entry["product"], "product.product").id
+            vals["product_tmpl_id"] = False
+        return vals
+
     def action_import(self):
         self.ensure_one()
         if self.mode != "import":
@@ -133,7 +150,7 @@ class ScratchSetupTransfer(models.TransientModel):
             if len(raw) > 2 * 1024 * 1024:
                 raise ValueError("file too large")
             data = json.loads(raw.decode("utf-8"))
-            if not isinstance(data, dict) or data.get("format") != "motogene-scratch-setup" or data.get("version") != 1:
+            if not isinstance(data, dict) or data.get("format") != "motogene-scratch-setup" or data.get("version") not in (1, 2):
                 raise ValueError("unsupported format")
             settings = data["settings"]
             if not isinstance(settings, dict):
@@ -170,7 +187,7 @@ class ScratchSetupTransfer(models.TransientModel):
                     raise ValueError("non-finite number")
                 vals["rebate_product_id"] = self._resolve_product(pool["rebate_product"], "product.product").id if pool.get("rebate_product") else False
                 vals["reward_product_line_ids"] = [Command.clear()] + [Command.create({
-                    "product_id": self._resolve_product(p["product"], "product.product").id, "quantity": p["quantity"],
+                    **self._resolve_gift_setup(p),
                 }) for p in pool["products"]]
                 if any(not math.isfinite(float(p["quantity"])) for p in pool["products"]):
                     raise ValueError("non-finite gift quantity")
@@ -214,4 +231,5 @@ class ScratchSetupTransfer(models.TransientModel):
             "title": _("Setup imported"), "message": _("Packages, serial ranges, prizes and expiry imported. Promotion remains Draft; review before activating."),
             "type": "success", "sticky": True, "next": {"type": "ir.actions.act_window_close"},
         }}
+
 

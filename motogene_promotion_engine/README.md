@@ -88,3 +88,14 @@ Each replacement stores its original prefix, actual printed serial, staff user a
 Export/import includes replacement policy and allowed-prefix lists. Older setup JSON files default to Any Available Type.
 
 Tests: Odoo post-install class TestScratchAlternative plus existing promotion, return and redemption suites. For a rollback-only staging allocation check, run tools/staging_check_scratch_alternatives.py in the Odoo.sh Python webshell. This isolated check does not replace UI/DO/print/redemption tests.
+
+### Gift colour / variant choices (18.0.1.14.0)
+
+Each Free Products row defaults to Fixed Variant (existing settings retain their product and behaviour). Customer Chooses Variant instead selects a product template. CS chooses one active, saleable variant per configured gift row in the SO redemption wizard; that variant applies to the row's full configured quantity. Different rows may mix fixed and selectable gifts. The variant must belong to the configured template and be shared or belong to the redemption order company. Choice is not an automatic stock reservation or a promise of stock availability.
+
+The standard redemption form also supports variant choices; Reload Gift Choices refreshes a draft after setup changes. Confirmation revalidates the exact setup rows and variant selection before adding zero-price SO reward lines. The selected variant is used by the generated stock move/DO and recorded in the immutable prize snapshot. Choice records are locked after confirmation/cancellation; cancelling an undelivered/uninvoiced redemption order retains choice history while reversing the reward and card state as before.
+
+Export format 2 includes variant selection mode and template references. Older format 1 files import gifts as Fixed Variant. No existing redemption reward lines or confirmed snapshots are rewritten on upgrade.
+
+Validation: TestScratchGiftVariants covers variant/fixed gifts, missing/wrong/archived selection, changed setup, wizard flow, cancellation history, import compatibility, DO product and company restrictions. Run with Odoo post-install tests in staging.
+

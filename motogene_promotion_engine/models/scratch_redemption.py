@@ -200,7 +200,7 @@ class ScratchRedemption(models.Model):
                 raise UserError(_("Total scratch card rebates cannot exceed the paid purchase amount."))
             rewards = [(pool.rebate_product_id, 1, -pool.rebate_amount)]
         elif pool.redemption_reward_type == "products":
-            rewards = [(r.product_id, r.quantity, 0) for r in pool.reward_product_line_ids]
+            rewards = self._selected_free_product_rewards(pool)
         else:
             if not self.mystery_product_id or not self.mystery_product_id.sale_ok:
                 raise UserError(_("Choose a saleable mystery gift product before confirming."))
@@ -238,3 +238,4 @@ class ScratchRedemption(models.Model):
             record.reward_line_ids._unlink_cancelled_scratch_rewards()
             card._restore_after_redemption_cancel(record)
             record.message_post(body=_("Redemption reversed because its Sales Order was cancelled. The card is Dispatched again; its original expiry still applies."))
+

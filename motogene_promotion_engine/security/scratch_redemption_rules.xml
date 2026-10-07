@@ -5,4 +5,10 @@
         <field name="model_id" ref="model_motogene_scratch_redemption"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
     </record>
+    <record id="rule_scratch_gift_choice_company" model="ir.rule">
+        <field name="name">Scratch gift choices allowed companies</field>
+        <field name="model_id" ref="model_motogene_scratch_gift_choice"/>
+        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
+    </record>
 </odoo>
+

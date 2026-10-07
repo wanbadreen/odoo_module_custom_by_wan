@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-from odoo import api, fields, models, _
+from odoo import api, fields, models, Command, _
 from odoo.exceptions import UserError
 from .scratch_redemption import scratch_pool_search_domain
 
@@ -50,6 +50,10 @@ class ScratchRedemptionWizard(models.TransientModel):
             "card_id": self.card_id.id, "target_sale_id": self.sale_id.id,
             "card_photo": self.card_photo, "photo_filename": self.photo_filename,
             "notes": self.notes, "mystery_product_id": self.mystery_product_id.id,
+            "gift_choice_ids": [Command.create({
+                "reward_line_id": line.reward_line_id.id, "product_id": line.product_id.id,
+            }) for line in self.gift_choice_ids],
         })
         record.action_confirm_redemption()
         return {"type": "ir.actions.act_window_close"}
+
