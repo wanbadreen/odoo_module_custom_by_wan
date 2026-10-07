@@ -30,6 +30,7 @@ class ScratchSetupTransferProgram(models.Model):
                 "minimum_amount": self.minimum_amount,
                 "scratch_vip_prefix": self.scratch_vip_prefix,
                 "scratch_extra_prefix": self.scratch_extra_prefix,
+                "scratch_replacement_policy": self.scratch_replacement_policy,
             },
             "packages": [{
                 "product": self._scratch_setup_reference(p.product_tmpl_id),
@@ -38,6 +39,7 @@ class ScratchSetupTransferProgram(models.Model):
             "pools": [{
                 "prefix": p.prefix, "first_number": p.first_number, "last_number": p.last_number,
                 "prize_description": p.prize_description or "",
+                "allowed_replacement_prefixes": p.allowed_replacement_pool_ids.mapped("prefix"),
                 "redemption_reward_type": p.redemption_reward_type or False,
                 "rebate_amount": p.rebate_amount,
                 "rebate_product": self._scratch_setup_reference(p.rebate_product_id) if p.rebate_product_id else None,
@@ -134,7 +136,12 @@ class ScratchSetupTransfer(models.TransientModel):
             if not isinstance(data, dict) or data.get("format") != "motogene-scratch-setup" or data.get("version") != 1:
                 raise ValueError("unsupported format")
             settings = data["settings"]
-            setting_keys = {"date_start", "date_end", "scratch_redemption_expiry_date", "minimum_amount", "scratch_vip_prefix", "scratch_extra_prefix"}
+            if not isinstance(settings, dict):
+                raise ValueError("invalid settings")
+            settings.setdefault("scratch_replacement_policy", "any")
+            if settings["scratch_replacement_policy"] not in ("any", "allowed", "none"):
+                raise ValueError("invalid replacement policy")
+            setting_keys = {"date_start", "date_end", "scratch_redemption_expiry_date", "minimum_amount", "scratch_vip_prefix", "scratch_extra_prefix", "scratch_replacement_policy"}
             if not isinstance(settings, dict) or set(settings) != setting_keys:
                 raise ValueError("invalid settings")
             if not isinstance(data["packages"], list) or not isinstance(data["pools"], list):
@@ -178,6 +185,10 @@ class ScratchSetupTransfer(models.TransientModel):
                 needed.update(t.strip().upper() for t in p["card_prefixes"].split(",") if t.strip())
             if not needed.issubset(prefixes):
                 raise ValueError("missing serial pools for package, VIP or extra-spend prefixes")
+            replacement_map = {p["prefix"]: p.get("allowed_replacement_prefixes", []) for p in data["pools"]}
+            for prefix, targets in replacement_map.items():
+                if not isinstance(targets, list) or any(not isinstance(t, str) or t not in prefixes or t == prefix for t in targets):
+                    raise ValueError("invalid allowed replacement prefixes")
             with self.env.cr.savepoint():
                 program.write(dict(settings, scratch_package_line_ids=[Command.clear()] + [Command.create(p) for p in package_vals]))
                 for vals in pool_vals:
@@ -191,6 +202,10 @@ class ScratchSetupTransfer(models.TransientModel):
                     else:
                         pool = self.env["motogene.scratch.serial.pool"].create(dict(vals, program_id=program.id))
                     pool._validate_redemption_reward()
+                for pool in program.scratch_serial_pool_ids:
+                    pool.write({"allowed_replacement_pool_ids": [Command.set(
+                        program.scratch_serial_pool_ids.filtered(lambda p: p.prefix in replacement_map[pool.prefix]).ids
+                    )]})
                 if not program.scratch_package_line_ids or not program.scratch_serial_pool_ids:
                     raise UserError(_("Setup needs eligible packages and serial pools."))
         except (ValueError, TypeError, KeyError) as exc:
@@ -199,3 +214,4 @@ class ScratchSetupTransfer(models.TransientModel):
             "title": _("Setup imported"), "message": _("Packages, serial ranges, prizes and expiry imported. Promotion remains Draft; review before activating."),
             "type": "success", "sticky": True, "next": {"type": "ir.actions.act_window_close"},
         }}
+

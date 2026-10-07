@@ -9,3 +9,5 @@ from . import scratch_redemption
 from . import scratch_redemption_setup
 from . import scratch_redemption_wizard
 from . import scratch_setup_transfer
+
+from . import scratch_alternative

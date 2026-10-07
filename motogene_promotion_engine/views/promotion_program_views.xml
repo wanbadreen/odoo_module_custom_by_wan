@@ -187,6 +187,7 @@
                                 <field name="scratch_redemption_expiry_date"/>
                                 <field name="scratch_vip_prefix"/>
                                 <field name="scratch_extra_prefix"/>
+                                <field name="scratch_replacement_policy"/>
                             </group>
                             <p class="text-muted">Set the fixed redemption expiry and the printed serial ranges. Serial numbers are allocated when the Sales Order is confirmed. Open each prefix to configure its reward. Saving a fixed expiry fills legacy cards without a date; existing dates stay unchanged.</p>
                             <field name="scratch_serial_pool_ids">
@@ -214,6 +215,11 @@
                                             <field name="mystery_quantity" invisible="redemption_reward_type != 'mystery'"/>
                                         </group>
                                     </group>
+                                    <group string="Replacement Rules">
+                                        <field name="program_id" invisible="1"/>
+                                        <field name="replacement_policy" invisible="1"/>
+                                        <field name="allowed_replacement_pool_ids" widget="many2many_tags" domain="[('program_id', '=', program_id), ('prefix', '!=', prefix)]" invisible="replacement_policy != 'allowed'"/>
+                                    </group>
                                     <group string="Free Products" invisible="redemption_reward_type != 'products'">
                                         <field name="reward_product_line_ids" nolabel="1">
                                             <list editable="bottom">
@@ -227,6 +233,7 @@
                         </page>
 
                         <page string="Notes">
+                            <field name="scratch_replacement_history" readonly="1" invisible="reward_type != 'scratch_cards'"/>
                             <field name="notes" placeholder="Internal notes / business rule explanation..."/>
                         </page>
                     </notebook>
@@ -253,3 +260,4 @@
               sequence="10"/>
 
 </odoo>
+

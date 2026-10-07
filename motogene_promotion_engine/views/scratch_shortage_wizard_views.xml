@@ -9,6 +9,7 @@
                 <field name="message" nolabel="1" readonly="1"/>
                 <p>Choose whether to allocate no cards or allocate the available serial numbers. Any remaining entitlement will appear as pending on the SO, DO and Picking Operations printout.</p>
                 <footer>
+                    <button name="action_alternative_cards" type="object" string="Proceed With Alternative Cards" class="btn-secondary"/>
                     <button name="action_proceed_with_available_cards" type="object" string="Proceed With Available Cards" class="btn-primary"/>
                     <button name="action_proceed_without_cards" type="object" string="Proceed Without Cards" class="btn-secondary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
@@ -17,3 +18,4 @@
         </field>
     </record>
 </odoo>
+

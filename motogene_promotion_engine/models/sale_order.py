@@ -92,13 +92,13 @@ class SaleOrder(models.Model):
             expected = Counter(order._scratch_order_types())
             cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
             # Keep dispatched cards; release any excess unshipped allocation.
-            for prefix in set(cards.mapped("prefix")):
-                matching = cards.filtered(lambda c: c.prefix == prefix)
+            for prefix in set(c.original_prefix or c.prefix for c in cards):
+                matching = cards.filtered(lambda c: (c.original_prefix or c.prefix) == prefix)
                 excess = max(0, len(matching) - expected[prefix])
                 reserved = matching.filtered(lambda c: c.state == "reserved").sorted("id", reverse=True)
                 reserved[:excess].write({"state": "released"})
             cards = order.scratch_card_line_ids.filtered(lambda c: c.state != "released")
-            current = Counter(cards.mapped("prefix"))
+            current = Counter(c.original_prefix or c.prefix for c in cards)
             pools = {p.prefix: p for p in order.scratch_program_id.scratch_serial_pool_ids}
             # Validate every type before reserving anything. Exhaustion in an
             # earlier pool must not hide a missing range for another type.
@@ -292,8 +292,10 @@ class SaleOrder(models.Model):
             except ScratchSerialShortage:
                 if not self.env.context.get("motogene_allow_scratch_shortage"):
                     raise
-                if self.env.context.get("motogene_scratch_shortage_mode") == "available":
+                if self.env.context.get("motogene_scratch_shortage_mode") in ("available", "alternative"):
                     order._allocate_scratch_cards(allow_partial=True)
+                    if self.env.context.get("motogene_scratch_shortage_mode") == "alternative":
+                        order._allocate_scratch_alternatives(self.env.context.get("motogene_scratch_replacements", []))
                     active = len(order.scratch_card_line_ids.filtered(lambda c: c.state != "released"))
                     pending = max(0, order.scratch_total_cards - active)
                     order.with_context(**{SKIP_CTX: True}).write({"scratch_allocation_deferred": bool(pending)})
@@ -359,3 +361,4 @@ class SaleOrderLine(models.Model):
         if not self.env.context.get(SKIP_CTX):
             orders.filtered(lambda o: o.exists() and o.state in ("draft", "sent"))._apply_motogene_promotions()
         return res
+
