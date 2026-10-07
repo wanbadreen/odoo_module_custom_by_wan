@@ -80,7 +80,10 @@ class ScratchReplacementPool(models.Model):
               AND NOT EXISTS (SELECT 1 FROM motogene_scratch_picking_card active
                 WHERE active.serial_number = released.serial_number AND active.state != 'released')
         ''', [self.program_id.id, self.prefix])
-        return max(0, self.last_number - self.next_number + 1) + self.env.cr.fetchone()[0]
+        # Consume the SQL result before reading ORM fields: a cache miss can
+        # execute another query on the same cursor and replace this result.
+        reusable_count = self.env.cr.fetchone()[0]
+        return max(0, self.last_number - self.next_number + 1) + reusable_count
 
     def _replacement_allowed(self, replacement):
         self.ensure_one()

@@ -184,3 +184,12 @@ class TestScratchAlternative(TransactionCase):
         wizard.action_import()
         self.assertEqual(destination.scratch_replacement_policy, 'any')
         self.assertFalse(pool.allowed_replacement_pool_ids)
+
+    def test_available_count_with_cold_orm_cache(self):
+        pool = self.pools['B']
+        pool.flush_recordset()
+        pool.invalidate_recordset(['next_number', 'last_number'])
+        self.assertEqual(pool._scratch_available_count(), 3)
+        pool.reserve_serial()
+        pool.invalidate_recordset(['next_number', 'last_number'])
+        self.assertEqual(pool._scratch_available_count(), 2)
