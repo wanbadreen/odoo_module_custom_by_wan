@@ -41,6 +41,30 @@ class MotogenePromotionProgram(models.Model):
         required=True,
     )
 
+    lifecycle_state = fields.Selection(
+        [("draft", "Draft"), ("scheduled", "Scheduled"),
+         ("running", "Running"), ("ended", "Ended"),
+         ("archived", "Archived")],
+        string="State", compute="_compute_lifecycle_state",
+        help="Current calendar status. Eligibility still uses the Sales Order date.",
+    )
+
+    @api.depends("state", "active", "date_start", "date_end")
+    @api.depends_context("tz")
+    def _compute_lifecycle_state(self):
+        today = fields.Date.context_today(self)
+        for program in self:
+            if program.state == "archived" or not program.active:
+                program.lifecycle_state = "archived"
+            elif program.state == "draft":
+                program.lifecycle_state = "draft"
+            elif program.date_start and today < program.date_start:
+                program.lifecycle_state = "scheduled"
+            elif program.date_end and today > program.date_end:
+                program.lifecycle_state = "ended"
+            else:
+                program.lifecycle_state = "running"
+
     priority = fields.Integer(
         default=10,
         help="Lower number is evaluated first.",
@@ -894,3 +918,4 @@ class MotogenePromotionEligibility(models.Model):
             "This product is already configured for the promotion.",
         ),
     ]
+

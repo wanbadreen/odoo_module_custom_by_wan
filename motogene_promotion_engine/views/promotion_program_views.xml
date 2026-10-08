@@ -8,7 +8,7 @@
             <list>
                 <field name="priority" widget="handle"/>
                 <field name="name"/>
-                <field name="state"/>
+                <field name="lifecycle_state"/>
                 <field name="date_start"/>
                 <field name="date_end"/>
                 <field name="rule_type"/>
@@ -27,7 +27,8 @@
                     <button name="action_activate" type="object" string="Activate" class="btn-primary" invisible="state == 'active'"/>
                     <button name="action_set_draft" type="object" string="Set to Draft" invisible="state == 'draft'"/>
                     <button name="action_archive_program" type="object" string="Archive" invisible="state == 'archived'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,active,archived"/>
+                    <field name="state" invisible="1"/>
+                    <field name="lifecycle_state" widget="statusbar" statusbar_visible="draft,scheduled,running,ended,archived"/>
                 </header>
 
                 <sheet>
@@ -262,5 +263,6 @@
               sequence="10"/>
 
 </odoo>
+
 
 
