@@ -9,3 +9,5 @@ from . import test_scratch_gift_variants
 
 
 from . import test_promotion_lifecycle
+
+from . import test_scratch_topup
