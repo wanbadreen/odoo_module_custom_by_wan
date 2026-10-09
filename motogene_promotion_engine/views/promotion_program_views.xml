@@ -186,9 +186,9 @@
                         <page string="Scratch Card Serial Pools" invisible="reward_type != 'scratch_cards'">
                             <group>
                                 <field name="scratch_redemption_expiry_date"/>
-                                <field name="scratch_vip_prefix"/>
-                                <field name="scratch_extra_prefix" string="Default Extra Spend Card Type"/>
-                                <field name="scratch_extra_allowed_prefixes" placeholder="D,B,G"/>
+                                <field name="scratch_vip_pool_id" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="scratch_extra_pool_id" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="scratch_extra_allowed_pool_ids" widget="many2many_tags" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
                                 <field name="scratch_replacement_policy"/>
                             </group>
                             <p class="text-muted">Set the fixed redemption expiry and the printed serial ranges. Serial numbers are allocated when the Sales Order is confirmed. Open each prefix to configure its reward. Saving a fixed expiry fills legacy cards without a date; existing dates stay unchanged.</p>

@@ -31,3 +31,20 @@ class TestScratchTopup(TestScratchAlternative):
             'sale_id': self.order.id, 'program_id': self.program.id,
             'extra_quantity': 3, 'vip_quantity': 1})
         self.assertEqual(wizard._available(self.pools['B']), 2)
+
+    def test_relational_choices_read_existing_settings(self):
+        self.program.write({'scratch_vip_prefix': 'A', 'scratch_extra_prefix': 'D',
+                            'scratch_extra_allowed_prefixes': 'D,B,G'})
+        self.assertEqual(self.program.scratch_vip_pool_id, self.pools['A'])
+        self.assertEqual(self.program.scratch_extra_pool_id, self.pools['D'])
+        self.assertEqual(set(self.program.scratch_extra_allowed_pool_ids.mapped('prefix')), {'D', 'B', 'G'})
+        self.program.scratch_extra_allowed_pool_ids = self.pools['D'] | self.pools['B']
+        self.assertEqual(set(self.program._scratch_topup_prefixes()), {'D', 'B'})
+        self.program.scratch_extra_pool_id = self.pools['B']
+        self.assertEqual(self.program.scratch_extra_prefix, 'B')
+
+    def test_missing_pool_blocks_activation(self):
+        from odoo.exceptions import ValidationError
+        self.program.scratch_vip_prefix = 'Z'
+        with self.assertRaises(ValidationError):
+            self.program._validate_scratch_pool_setup()
