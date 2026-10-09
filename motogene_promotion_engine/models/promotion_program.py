@@ -41,6 +41,30 @@ class MotogenePromotionProgram(models.Model):
         required=True,
     )
 
+    lifecycle_state = fields.Selection(
+        [("draft", "Draft"), ("scheduled", "Scheduled"),
+         ("running", "Running"), ("ended", "Ended"),
+         ("archived", "Archived")],
+        string="State", compute="_compute_lifecycle_state",
+        help="Current calendar status. Eligibility still uses the Sales Order date.",
+    )
+
+    @api.depends("state", "active", "date_start", "date_end")
+    @api.depends_context("tz")
+    def _compute_lifecycle_state(self):
+        today = fields.Date.context_today(self)
+        for program in self:
+            if program.state == "archived" or not program.active:
+                program.lifecycle_state = "archived"
+            elif program.state == "draft":
+                program.lifecycle_state = "draft"
+            elif program.date_start and today < program.date_start:
+                program.lifecycle_state = "scheduled"
+            elif program.date_end and today > program.date_end:
+                program.lifecycle_state = "ended"
+            else:
+                program.lifecycle_state = "running"
+
     priority = fields.Integer(
         default=10,
         help="Lower number is evaluated first.",
@@ -764,6 +788,30 @@ class MotogenePromotionProgram(models.Model):
 
         return 0.0
 
+    def _is_paid_scratch_package_line(self, line):
+        """Count a purchased package once, including zero-priced combo parents."""
+        if self._is_normal_paid_line(line):
+            return True
+        if (
+            line.display_type or not line.product_id
+            or line.product_id.type != "combo"
+            or self._is_combo_child_line(line)
+            or line.is_motogene_promo_reward
+            or self._is_other_reward_line(line)
+            or line.product_uom_qty <= 0
+        ):
+            return False
+        # Prices are allocated to linked combo children. Optional products
+        # and unrelated lines must not make a free combo qualify.
+        children = line._get_linked_lines().filtered(
+            lambda child: self._is_combo_child_line(child)
+            and not child.display_type and child.product_id
+            and not child.is_motogene_promo_reward
+            and not self._is_other_reward_line(child)
+            and child.product_uom_qty > 0
+        )
+        return sum(children.mapped("price_subtotal")) > 0
+
     def _scratch_package_units_for_order(self, order):
         """Count purchased configured packages; one VIP card per package unit."""
         self.ensure_one()
@@ -772,7 +820,7 @@ class MotogenePromotionProgram(models.Model):
             math.floor(float(line.product_uom_qty or 0.0) + 1e-9)
             for line in order.order_line
             if line.product_id.product_tmpl_id.id in template_ids
-            and self._is_normal_paid_line(line)
+            and self._is_paid_scratch_package_line(line)
         )
 
     def _is_scratch_vip_customer(self, order):
@@ -870,3 +918,4 @@ class MotogenePromotionEligibility(models.Model):
             "This product is already configured for the promotion.",
         ),
     ]
+

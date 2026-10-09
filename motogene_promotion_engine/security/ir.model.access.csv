@@ -4,3 +4,22 @@ access_motogene_promotion_eligibility_user,motogene.promotion.eligibility user,m
 access_motogene_scratch_package_user,motogene.scratch.package user,model_motogene_scratch_package,base.group_user,1,1,1,1
 access_motogene_scratch_serial_pool_user,motogene.scratch.serial.pool user,model_motogene_scratch_serial_pool,base.group_user,1,1,1,0
 access_motogene_scratch_picking_card_user,motogene.scratch.picking.card user,model_motogene_scratch_picking_card,base.group_user,1,1,1,0
+access_motogene_scratch_shortage_wizard_user,motogene.scratch.shortage.wizard user,model_motogene_scratch_shortage_wizard,sales_team.group_sale_salesman,1,1,1,1
+access_motogene_scratch_redemption_cs,motogene.scratch.redemption CS,model_motogene_scratch_redemption,sales_team.group_sale_salesman,1,1,1,1
+access_motogene_scratch_redemption_stock,motogene.scratch.redemption stock read,model_motogene_scratch_redemption,stock.group_stock_user,1,0,0,0
+access_motogene_scratch_redemption_internal,motogene.scratch.redemption internal read,model_motogene_scratch_redemption,base.group_user,1,0,0,0
+access_motogene_scratch_reward_product_user,motogene.scratch.reward.product user,model_motogene_scratch_reward_product,base.group_user,1,1,1,1
+access_motogene_scratch_redemption_wizard_cs,motogene.scratch.redemption.wizard CS,model_motogene_scratch_redemption_wizard,sales_team.group_sale_salesman,1,1,1,1
+access_motogene_scratch_setup_transfer_user,motogene.scratch.setup.transfer user,model_motogene_scratch_setup_transfer,base.group_user,1,1,1,1
+
+access_scratch_alternative_wizard, scratch alternative wizard,model_motogene_scratch_alternative_wizard,sales_team.group_sale_salesman,1,1,1,1
+access_scratch_alternative_line,scratch alternative line,model_motogene_scratch_alternative_line,sales_team.group_sale_salesman,1,1,1,1
+
+access_scratch_gift_choice_cs,scratch gift choice CS,model_motogene_scratch_gift_choice,sales_team.group_sale_salesman,1,1,1,1
+access_scratch_gift_choice_stock,scratch gift choice stock,model_motogene_scratch_gift_choice,stock.group_stock_user,1,0,0,0
+access_scratch_gift_choice_internal,scratch gift choice read,model_motogene_scratch_gift_choice,base.group_user,1,0,0,0
+access_scratch_gift_choice_wizard_cs,scratch gift variant wizard,model_motogene_scratch_gift_choice_wizard,sales_team.group_sale_salesman,1,1,1,1
+
+
+access_scratch_topup_wizard,scratch topup wizard,model_motogene_scratch_topup_wizard,sales_team.group_sale_salesman,1,1,1,1
+access_scratch_topup_line,scratch topup line,model_motogene_scratch_topup_line,sales_team.group_sale_salesman,1,1,1,1
