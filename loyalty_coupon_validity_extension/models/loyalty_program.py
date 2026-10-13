@@ -7,9 +7,10 @@ class LoyaltyProgram(models.Model):
     _inherit = "loyalty.program"
 
     separate_coupon_validity = fields.Boolean(
-        string="Separate Voucher Issuance and Redemption",
+        string="Enable Separate Coupon Validity",
         default=False,
-        help="Opt in per Next Order Coupon program. Existing programs stay unchanged.",
+        help="Enable a separate issuance window for Next Order Coupons. "
+             "Existing programs are unchanged until enabled.",
     )
     coupon_issuance_start_date = fields.Date(string="Issuance Start Date")
     coupon_issuance_end_date = fields.Date(string="Issuance End Date")
@@ -24,20 +25,25 @@ class LoyaltyProgram(models.Model):
             if not program.separate_coupon_validity:
                 continue
             if program.program_type != "next_order_coupons":
-                raise ValidationError(
-                    _("Separate validity only supports Next Order Coupons.")
-                )
-            issuance_start = program.coupon_issuance_start_date
-            issuance_end = program.coupon_issuance_end_date
-            redemption_start = program.date_from
-            redemption_end = program.date_to
-            if not all((issuance_start, issuance_end, redemption_start, redemption_end)):
-                raise ValidationError(
-                    _("Set both issuance dates and both redemption dates first.")
-                )
-            if issuance_start > issuance_end:
-                raise ValidationError(_("Issuance end must not precede issuance start."))
-            if redemption_start > redemption_end:
-                raise ValidationError(_("Redemption end must not precede redemption start."))
-            if redemption_end < issuance_start:
-                raise ValidationError(_("Redemption cannot expire before issuance begins."))
+                raise ValidationError(_("Separate validity only supports Next Order Coupons."))
+            issue_start = program.coupon_issuance_start_date
+            issue_end = program.coupon_issuance_end_date
+            redeem_start = program.date_from
+            redeem_end = program.date_to
+            if not all((issue_start, issue_end, redeem_start, redeem_end)):
+                raise ValidationError(_("Specify issuance start/end and redemption start/end."))
+            if issue_start > issue_end:
+                raise ValidationError(_("Issuance start must be before or equal to issuance end."))
+            # The standard Odoo 18 program domain checks date_from even when
+            # it is creating new coupons. A later redemption start would make
+            # coupon issuance impossible; reject this unsupported configuration.
+            if redeem_start > issue_start:
+                raise ValidationError(_(
+                    "Redemption Start Date must be on or before Issuance Start Date "
+                    "in this version."
+                ))
+            if redeem_end < redeem_start or redeem_end < issue_end:
+                raise ValidationError(_(
+                    "Redemption End Date must be on or after both the redemption "
+                    "start and issuance end dates."
+                ))
