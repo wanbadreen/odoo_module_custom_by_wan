@@ -16,14 +16,8 @@
                 <field name="coupon_issuance_end_date"
                        invisible="program_type != 'next_order_coupons' or not separate_coupon_validity"
                        required="program_type == 'next_order_coupons' and separate_coupon_validity"/>
-                <separator string="Voucher Redemption"
+                <separator string="Voucher Redemption (Start Date / End Date below)"
                            invisible="program_type != 'next_order_coupons' or not separate_coupon_validity"/>
-            </xpath>
-            <xpath expr="//field[@name='date_from']" position="attributes">
-                <attribute name="string">Redemption Start Date</attribute>
-            </xpath>
-            <xpath expr="//field[@name='date_to']" position="attributes">
-                <attribute name="string">Fixed Redemption Expiry Date</attribute>
             </xpath>
         </field>
     </record>
