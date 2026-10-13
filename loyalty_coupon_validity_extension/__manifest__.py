@@ -1,14 +1,12 @@
 {
-    "name": "Next Order Coupon Validity (Development)",
-    "version": "18.0.0.2.0",
+    "name": "Morimoto Next Order Coupon Validity",
+    "version": "18.0.1.0.0",
     "category": "Sales",
-    "summary": "Separate next-order coupon issuance and fixed redemption validity",
-    "license": "LGPL-3",
+    "summary": "Independent issuance period and fixed redemption expiry for next-order coupons",
     "author": "WanBadreen",
+    "license": "LGPL-3",
     "depends": ["sale_loyalty"],
     "data": ["views/loyalty_program_views.xml"],
-    # Remains disabled until staging installation/regression and delayed
-    # redemption-start handling are signed off.
-    "installable": False,
+    "installable": True,
     "application": False,
 }
