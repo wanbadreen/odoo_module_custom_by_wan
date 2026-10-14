@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_motogene_event_self_service_config_list" model="ir.ui.view">
+        <field name="name">motogene.event.self.service.config.list</field>
+        <field name="model">motogene.event.self.service.config</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="website_id"/>
+                <field name="company_id"/>
+                <field name="enabled"/>
+            </list>
+        </field>
+    </record>
+    <record id="view_motogene_event_self_service_config_form" model="ir.ui.view">
+        <field name="name">motogene.event.self.service.config.form</field>
+        <field name="model">motogene.event.self.service.config</field>
+        <field name="arch" type="xml">
+            <form string="MotoGene Event Self-Service">
+                <sheet>
+                    <div class="oe_title"><h1><field name="name"/></h1></div>
+                    <group>
+                        <group>
+                            <field name="company_id"/>
+                            <field name="website_id" domain="[('company_id', '=', company_id)]"/>
+                            <field name="enabled"/>
+                        </group>
+                        <group string="Customer Experience">
+                            <div class="text-muted">Customers may cancel a free, registered ticket any time strictly before its event start.</div>
+                            <div class="text-muted">Website: /motogene/events/manage (accessible without login after email verification)</div>
+                            <div class="text-muted">Verification link expires after 15 minutes; verified session lasts 30 minutes.</div>
+                            <div class="text-muted">No emails are sent manually by this module. Emails are queued using Odoo.</div>
+                        </group>
+                    </group>
+                    <group string="Staff Cancellation Alert">
+                        <field name="notification_recipient_field"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="action_motogene_event_self_service_config" model="ir.actions.act_window">
+        <field name="name">Event Self-Service Cancellation</field>
+        <field name="res_model">motogene.event.self.service.config</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_motogene_event_self_service_config"
+              name="Event Self-Service Cancellation"
+              parent="event.menu_event_configuration"
+              action="action_motogene_event_self_service_config"
+              groups="base.group_system" sequence="96"/>
+</odoo>

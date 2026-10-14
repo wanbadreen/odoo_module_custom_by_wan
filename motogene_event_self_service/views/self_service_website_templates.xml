@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="disabled" name="Guest Event Management Disabled">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:760px">
+                <h2>Manage My Registration</h2>
+                <div class="alert alert-info">Online event cancellation is not available on this website right now.</div>
+            </div>
+        </t>
+    </template>
+    <template id="request_link" name="Guest Event Email Verification">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:680px">
+                <h2>Manage My Registration</h2>
+                <p>Enter the same email address you used for the event registration. No MotoGene account is required.</p>
+                <div t-if="error" class="alert alert-warning"><t t-out="error"/></div>
+                <form action="/motogene/events/manage/request-link" method="post" class="border rounded p-4">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <label for="motogene_email" class="form-label">Registered email</label>
+                    <input id="motogene_email" name="email" type="email" class="form-control mb-3"
+                           required="required" maxlength="254" autocomplete="email"/>
+                    <button class="btn btn-primary" type="submit">Send Verification Link</button>
+                </form>
+            </div>
+        </t>
+    </template>
+    <template id="request_link_sent" name="Guest Verification Sent">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:680px">
+                <h2>Check your email</h2>
+                <p>If this email is associated with an event registration, a verification link will be sent shortly. The link is valid for 15 minutes.</p>
+                <a href="/motogene/events/manage" class="btn btn-outline-primary">Back</a>
+            </div>
+        </t>
+    </template>
+    <template id="verification_landing" name="Guest Verification Confirm">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:680px">
+                <h2>Confirm access to your registrations</h2>
+                <p>Continue to verify your email and view your event bookings.</p>
+                <form action="/motogene/events/manage/verify" method="post">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="token" t-att-value="token"/>
+                    <button class="btn btn-primary" type="submit">Continue</button>
+                </form>
+            </div>
+        </t>
+    </template>
+    <template id="verification_invalid" name="Guest Verification Invalid">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:680px">
+                <h2>Verification link unavailable</h2>
+                <p>The link has expired, has already been used or is not valid for this website. Request a new link to continue.</p>
+                <a href="/motogene/events/manage" class="btn btn-primary">Request a new link</a>
+            </div>
+        </t>
+    </template>
+    <template id="my_registrations" name="Guest My Event Registrations">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:900px">
+                <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+                    <h2 class="mb-0">My Event Registrations</h2>
+                    <form action="/motogene/events/manage/logout" method="post">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button class="btn btn-sm btn-outline-secondary" type="submit">End Session</button>
+                    </form>
+                </div>
+                <div t-if="feedback == 'cancelled'" class="alert alert-success">Your event registration has been cancelled. A confirmation email has been queued.</div>
+                <div t-if="feedback == 'unavailable'" class="alert alert-warning">This registration is no longer eligible for online cancellation.</div>
+                <div t-if="not registrations" class="alert alert-info">No event registrations found for the verified email on this website.</div>
+                <div t-foreach="registrations" t-as="reg" class="card mb-3">
+                    <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                        <div>
+                            <h5 class="card-title"><t t-out="reg.event_id.name"/></h5>
+                            <p class="mb-1"><strong>Participant:</strong> <t t-out="reg.name"/></p>
+                            <p class="mb-1"><strong>Start:</strong> <span t-field="reg.event_id.date_begin" t-options="{'widget': 'datetime', 'tz_name': 'Asia/Kuala_Lumpur'}"/></p>
+                            <p class="mb-1"><strong>Ticket:</strong> <t t-out="reg.event_ticket_id.name or 'General'"/></p>
+                            <span t-if="reg.state == 'open'" class="badge text-bg-success">Registered</span>
+                            <span t-elif="reg.state == 'done'" class="badge text-bg-primary">Attended</span>
+                            <span t-elif="reg.state == 'cancel'" class="badge text-bg-secondary">Cancelled</span>
+                            <span t-else="" class="badge text-bg-warning">Unconfirmed</span>
+                        </div>
+                        <a t-if="can_cancel(reg)" class="btn btn-outline-danger"
+                           t-att-href="'/motogene/events/manage/cancel/%s' % reg.id">Cancel Registration</a>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+    <template id="confirm_cancellation" name="Guest Cancel Event Confirmation">
+        <t t-call="website.layout">
+            <div class="container my-5" style="max-width:680px">
+                <h2>Confirm Cancellation</h2>
+                <p>Do you want to cancel your registration for <strong><t t-out="registration.event_id.name"/></strong>?</p>
+                <p><strong>Participant:</strong> <t t-out="registration.name"/></p>
+                <div class="alert alert-warning">Your place will be released. This action cannot be reversed from this page.</div>
+                <div class="d-flex gap-2">
+                    <a href="/motogene/events/manage" class="btn btn-outline-secondary">Keep Registration</a>
+                    <form t-att-action="'/motogene/events/manage/cancel/%s' % registration.id" method="post">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <button class="btn btn-danger" type="submit">Confirm Cancellation</button>
+                    </form>
+                </div>
+            </div>
+        </t>
+    </template>
+    <template id="guest_manage_button_on_event" inherit_id="website_event.event_description_full"
+              name="MotoGene Guest Event Management Entry Point">
+        <xpath expr="//aside[@id='o_wevent_event_main_sidebar']" position="inside">
+            <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
+                 class="border-top pt-3 mt-3">
+                <a href="/motogene/events/manage" class="btn btn-outline-secondary w-100">
+                    Manage My Registration
+                </a>
+                <small class="text-muted d-block mt-1">Cancel a registration before the event begins.</small>
+            </div>
+        </xpath>
+    </template>
+    <template id="guest_manage_button_after_registration" inherit_id="website_event.registration_complete"
+              name="MotoGene Manage Registrations After Checkout">
+        <xpath expr="//div[contains(@class, 'o_wereg_confirmed')]" position="inside">
+            <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
+                 class="alert alert-info mt-4">
+                Need to change your plans? <a href="/motogene/events/manage" class="alert-link">Manage My Registration</a>
+                to securely cancel before the event begins.
+            </div>
+        </xpath>
+    </template>
+</odoo>
