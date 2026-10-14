@@ -7,7 +7,7 @@ from datetime import datetime, time, timedelta
 
 import pytz
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError, ValidationError
+from odoo.exceptions import AccessError, UserError, ValidationError
 from odoo.tools.misc import xlsxwriter
 
 _logger = logging.getLogger(__name__)
@@ -26,10 +26,14 @@ class MotoGeneEventDailyConfig(models.Model):
     website_id = fields.Many2one("website", required=True, ondelete="restrict")
     recipient_ids = fields.Many2many("res.partner", string="Global Staff Recipients",
                                      help="Only these global recipients receive the combined report.")
-    enabled = fields.Boolean(default=False, help="Disabled by default. Enable only after staging QA and send-time approval.")
+    enabled = fields.Boolean(default=False, help="Enable only after approving send time and staging QA.")
+    send_time_confirmed = fields.Boolean(
+        string="Send Time Approved", default=False,
+        help="Must be approved before enabling. Enabling the configuration does not activate the scheduled action.",
+    )
     timezone = fields.Selection([("Asia/Kuala_Lumpur", "Malaysia (Asia/Kuala_Lumpur)")],
                                 default="Asia/Kuala_Lumpur", required=True)
-    send_hour = fields.Integer(default=9, help="Placeholder only; actual cron nextcall must be set after approval.")
+    send_hour = fields.Integer(default=9, help="Proposed Malaysia local hour. Not approved until Send Time Approved is ticked.")
     send_minute = fields.Integer(default=0)
     summary_ids = fields.One2many("motogene.event.daily.summary", "config_id", readonly=True)
 
@@ -44,6 +48,60 @@ class MotoGeneEventDailyConfig(models.Model):
                 raise ValidationError(_("The website must belong to the selected company."))
             if not 0 <= rec.send_hour <= 23 or not 0 <= rec.send_minute <= 59:
                 raise ValidationError(_("The send time must be between 00:00 and 23:59."))
+
+    @api.constrains("enabled", "send_time_confirmed")
+    def _check_approval(self):
+        for rec in self:
+            if rec.enabled and not rec.send_time_confirmed:
+                raise ValidationError(_("Approve the send time before enabling the daily summary."))
+            if rec.enabled and self.search_count([("enabled", "=", True), ("id", "!=", rec.id)]):
+                raise ValidationError(_("Only one daily summary configuration may be enabled at a time."))
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        records = super().create(vals_list)
+        for rec in records.filtered(lambda item: item.enabled and item.send_time_confirmed):
+            rec._sync_cron_nextcall()
+        return records
+
+    def write(self, vals):
+        result = super().write(vals)
+        timing_fields = {"enabled", "send_time_confirmed", "send_hour", "send_minute", "timezone"}
+        if timing_fields.intersection(vals):
+            for rec in self.filtered(lambda item: item.enabled and item.send_time_confirmed):
+                rec._sync_cron_nextcall()
+        return result
+
+    def _next_scheduled_run_utc(self, now_utc=None):
+        """Return the next approved daily execution time as naive UTC."""
+        self.ensure_one()
+        zone = pytz.timezone(self.timezone)
+        now = fields.Datetime.to_datetime(now_utc) if now_utc else datetime.utcnow()
+        if now.tzinfo:
+            now = now.astimezone(pytz.UTC).replace(tzinfo=None)
+        local_now = pytz.UTC.localize(now).astimezone(zone)
+        local_run = zone.localize(datetime.combine(
+            local_now.date(), time(self.send_hour, self.send_minute),
+        ))
+        if local_run <= local_now:
+            local_run = zone.localize(datetime.combine(
+                local_now.date() + timedelta(days=1), time(self.send_hour, self.send_minute),
+            ))
+        return local_run.astimezone(pytz.UTC).replace(tzinfo=None)
+
+    def _sync_cron_nextcall(self):
+        """Adjust nextcall only. Never enable the scheduled action here."""
+        self.ensure_one()
+        if not (self.enabled and self.send_time_confirmed):
+            return
+        cron = self.env.ref(
+            "motogene_event_daily_summary.ir_cron_motogene_event_daily_summary",
+            raise_if_not_found=False,
+        )
+        if cron:
+            cron.sudo().write({
+                "nextcall": fields.Datetime.to_string(self._next_scheduled_run_utc()),
+            })
 
     def _local_yesterday(self):
         self.ensure_one()
@@ -69,10 +127,16 @@ class MotoGeneEventDailyConfig(models.Model):
 
     @api.model
     def _cron_generate(self):
-        # Created inactive; no outgoing email is generated until an admin enables the config AND cron.
-        for config in self.sudo().search([("enabled", "=", True)]):
+        # The ir.cron record remains inactive until separately approved by an administrator.
+        for config in self.sudo().search([
+            ("enabled", "=", True), ("send_time_confirmed", "=", True),
+        ]):
+            local_now = datetime.now(pytz.timezone(config.timezone))
+            if local_now.time().replace(tzinfo=None) < time(config.send_hour, config.send_minute):
+                continue
             try:
-                config._generate_for_date(config._local_yesterday())
+                with self.env.cr.savepoint():
+                    config._generate_for_date(config._local_yesterday())
             except Exception:
                 _logger.exception("MotoGene daily summary failure for config ID %s", config.id)
 
@@ -85,12 +149,24 @@ class MotoGeneEventDailyConfig(models.Model):
     def _generate_for_date(self, report_date):
         self.ensure_one()
         report_date = fields.Date.to_date(report_date)
-        # Prevent concurrent scheduled/manual generation for same config and report date.
-        self.env.cr.execute("SELECT pg_advisory_xact_lock(%s, %s)", (self.id, report_date.toordinal()))
+        # Transaction-scoped lock plus SQL uniqueness keeps a single report per config/date.
+        self.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(%s, %s)", (self.id, report_date.toordinal())
+        )
         Summary = self.env["motogene.event.daily.summary"].sudo()
-        existing = Summary.search([("config_id", "=", self.id), ("report_date", "=", report_date)], limit=1)
-        if existing:
-            return existing
+        summary = Summary.search([
+            ("config_id", "=", self.id), ("report_date", "=", report_date),
+        ], limit=1)
+        if summary and summary.state != "failed":
+            return summary
+        # A legacy partial/failed record with a mail reference must never be requeued.
+        if summary and summary.mail_id:
+            return summary
+
+        if not summary:
+            summary = Summary.create({
+                "config_id": self.id, "report_date": report_date, "state": "generating",
+            })
 
         start, end = self._date_bounds_utc(report_date)
         Registration = self.env["event.registration"].sudo()
@@ -98,63 +174,77 @@ class MotoGeneEventDailyConfig(models.Model):
             ("create_date", ">=", fields.Datetime.to_string(start)),
             ("create_date", "<", fields.Datetime.to_string(end)),
             ("event_id.website_id", "=", self.website_id.id),
+            ("event_id.company_id", "=", self.company_id.id),
         ], order="event_id, id")
-        if not new_registrations:
-            return Summary.create({
-                "config_id": self.id, "report_date": report_date,
-                "state": "skipped", "notes": "No new registrations for this reporting date.",
-            })
 
-        recipients = self._get_recipients()
-        if not recipients:
-            return Summary.create({
-                "config_id": self.id, "report_date": report_date,
-                "state": "failed", "new_count": len(new_registrations),
-                "notes": "No valid global staff recipients. No email queued.",
+        attempts = summary.attempt_count + 1
+        if not new_registrations:
+            summary.write({
+                "state": "skipped", "event_count": 0, "new_count": 0,
+                "active_count": 0, "notes": "No new registrations for this reporting date.",
+                "attempt_count": attempts, "last_attempt_at": fields.Datetime.now(),
             })
+            return summary
 
         events = new_registrations.mapped("event_id")
-        all_registrations = Registration.search([("event_id", "in", events.ids)], order="event_id, id")
+        all_registrations = Registration.search([
+            ("event_id", "in", events.ids),
+            ("event_id.company_id", "=", self.company_id.id),
+        ], order="event_id, id")
         active = all_registrations.filtered(lambda r: r.state in ("open", "done"))
-        summary = Summary.create({
-            "config_id": self.id, "report_date": report_date,
-            "state": "generating", "new_count": len(new_registrations),
-            "active_count": len(active), "event_count": len(events),
+        recipients = self._get_recipients()
+        summary.write({
+            "state": "generating", "event_count": len(events),
+            "new_count": len(new_registrations), "active_count": len(active),
             "recipient_snapshot": ", ".join(recipients),
+            "attempt_count": attempts, "last_attempt_at": fields.Datetime.now(),
+            "notes": False,
         })
+        if not recipients:
+            summary.write({
+                "state": "failed",
+                "notes": "No valid global staff recipients. No email queued.",
+            })
+            return summary
+
         try:
-            xlsx_content = self._build_xlsx(new_registrations, all_registrations)
-            attachment = self.env["ir.attachment"].sudo().create({
-                "name": "MotoGene_Daily_Summary_%s.xlsx" % report_date.isoformat(),
-                "type": "binary",
-                "datas": base64.b64encode(xlsx_content),
-                "res_model": summary._name,
-                "res_id": summary.id,
-                "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            })
-            rows = []
-            for event in events.sorted(lambda e: (e.date_begin or fields.Datetime.now(), e.id)):
-                event_regs = all_registrations.filtered(lambda r: r.event_id == event)
-                new_count = len(new_registrations.filtered(lambda r: r.event_id == event))
-                active_count = len(event_regs.filtered(lambda r: r.state in ("open", "done")))
-                rows.append("<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
-                    __import__("html").escape(event.name or ""), new_count, active_count))
-            body = (
-                "<p>Hi Team,</p><p>Here is the MotoGene event registration summary for %s.</p>"
-                "<p>New registrations: <b>%s</b> | Events: <b>%s</b> | Active attendees: <b>%s</b></p>"
-                "<table border='1' cellpadding='5'><tr><th>Event</th><th>New</th><th>Active</th></tr>%s</table>"
-                "<p>The attached Excel includes New Registrations and Full Attendee List.</p>"
-                "<p>Thank you,<br/>MotoGene Event Registration System</p>"
-            ) % (report_date.isoformat(), len(new_registrations), len(events), len(active), "".join(rows))
-            mail = self.env["mail.mail"].sudo().create({
-                "subject": "MotoGene - Daily Event Registration Summary (%s)" % report_date.isoformat(),
-                "body_html": body,
-                "email_to": ",".join(recipients),
-                "email_from": self.company_id.email or self.env.user.email or "noreply@localhost",
-                "auto_delete": False,
-                "attachment_ids": [(4, attachment.id)],
-            })
-            summary.write({"state": "queued", "attachment_id": attachment.id, "mail_id": mail.id})
+            # Roll back partial attachments / mail records if generation fails midway.
+            with self.env.cr.savepoint():
+                xlsx_content = self._build_xlsx(new_registrations, all_registrations)
+                attachment = self.env["ir.attachment"].sudo().create({
+                    "name": "MotoGene_Daily_Summary_%s.xlsx" % report_date.isoformat(),
+                    "type": "binary",
+                    "datas": base64.b64encode(xlsx_content),
+                    "res_model": summary._name,
+                    "res_id": summary.id,
+                    "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                })
+                rows = []
+                for event in events.sorted(lambda e: (e.date_begin or fields.Datetime.now(), e.id)):
+                    event_regs = all_registrations.filtered(lambda r: r.event_id == event)
+                    new_count = len(new_registrations.filtered(lambda r: r.event_id == event))
+                    active_count = len(event_regs.filtered(lambda r: r.state in ("open", "done")))
+                    rows.append("<tr><td>%s</td><td>%s</td><td>%s</td></tr>" % (
+                        __import__("html").escape(event.name or ""), new_count, active_count))
+                body = (
+                    "<p>Hi Team,</p><p>Here is the MotoGene event registration summary for %s.</p>"
+                    "<p>New registrations: <b>%s</b> | Events: <b>%s</b> | Active attendees: <b>%s</b></p>"
+                    "<table border='1' cellpadding='5'><tr><th>Event</th><th>New</th><th>Active</th></tr>%s</table>"
+                    "<p>The attached Excel includes New Registrations and Full Attendee List.</p>"
+                    "<p>Thank you,<br/>MotoGene Event Registration System</p>"
+                ) % (report_date.isoformat(), len(new_registrations), len(events), len(active), "".join(rows))
+                mail = self.env["mail.mail"].sudo().create({
+                    "subject": "MotoGene - Daily Event Registration Summary (%s)" % report_date.isoformat(),
+                    "body_html": body,
+                    "email_to": ",".join(recipients),
+                    "email_from": self.company_id.email or self.env.user.email or "noreply@localhost",
+                    "auto_delete": False,
+                    "attachment_ids": [(4, attachment.id)],
+                })
+                summary.write({
+                    "state": "queued", "attachment_id": attachment.id,
+                    "mail_id": mail.id, "notes": False,
+                })
         except Exception as exc:
             _logger.exception("Unable to generate MotoGene daily event summary ID %s", summary.id)
             summary.write({"state": "failed", "notes": str(exc)[:1000]})
@@ -224,6 +314,22 @@ class MotoGeneEventDailySummary(models.Model):
     attachment_id = fields.Many2one("ir.attachment", readonly=True)
     mail_id = fields.Many2one("mail.mail", readonly=True)
 
+    attempt_count = fields.Integer(string="Attempts", default=0, readonly=True)
+    last_attempt_at = fields.Datetime(string="Last Attempt", readonly=True)
+
     _sql_constraints = [
         ("unique_report", "unique(config_id, report_date)", "This report has already been generated for the date."),
     ]
+
+    def action_retry_failed(self):
+        """Admin-only explicit retry. Enqueues once; never sends directly."""
+        if not self.env.user.has_group("base.group_system"):
+            raise AccessError(_("Only system administrators can retry event reports."))
+        for summary in self:
+            if summary.state != "failed":
+                raise UserError(_("Only failed reports may be retried."))
+            if summary.mail_id:
+                raise UserError(_("An email already exists for this report; inspect its status before retrying."))
+            summary.config_id.sudo()._generate_for_date(summary.report_date)
+        return {"type": "ir.actions.client", "tag": "reload"}
+

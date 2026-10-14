@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Event Daily Summary",
     "summary": "Daily combined event registrations with a two-sheet XLSX and audit trail",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Marketing/Events",
     "author": "WanBadreen",
     "license": "LGPL-3",

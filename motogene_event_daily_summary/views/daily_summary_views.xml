@@ -25,12 +25,13 @@
                             <field name="company_id"/>
                             <field name="website_id" domain="[('company_id', '=', company_id)]"/>
                             <field name="enabled"/>
+                            <field name="send_time_confirmed"/>
                             <field name="timezone"/>
                         </group>
                         <group string="Proposed Daily Send Time">
                             <field name="send_hour"/>
                             <field name="send_minute"/>
-                            <div class="text-muted">Scheduler remains disabled until timing and deployment are approved.</div>
+                            <div class="text-muted">Approve send time before enabling. Scheduler must be activated separately after QA.</div>
                         </group>
                     </group>
                     <group string="Global Staff Recipients">
@@ -45,6 +46,7 @@
                                     <field name="event_count"/>
                                     <field name="new_count"/>
                                     <field name="active_count"/>
+                                    <field name="attempt_count"/>
                                 </list>
                             </field>
                         </page>
@@ -64,6 +66,7 @@
                 <field name="event_count"/>
                 <field name="new_count"/>
                 <field name="active_count"/>
+                <field name="attempt_count"/>
             </list>
         </field>
     </record>
@@ -72,6 +75,12 @@
         <field name="model">motogene.event.daily.summary</field>
         <field name="arch" type="xml">
             <form create="false" edit="false" delete="false">
+                <header>
+                    <button name="action_retry_failed" type="object"
+                            string="Retry Failed Report (Queue Only)" class="btn-primary"
+                            groups="base.group_system" invisible="state != 'failed'"
+                            confirm="Retry this failed report? This creates an outgoing email in the Odoo queue, but does not send it directly."/>
+                </header>
                 <sheet>
                     <group>
                         <field name="report_date"/>
@@ -80,6 +89,8 @@
                         <field name="event_count"/>
                         <field name="new_count"/>
                         <field name="active_count"/>
+                        <field name="attempt_count"/>
+                        <field name="last_attempt_at"/>
                         <field name="recipient_snapshot"/>
                         <field name="attachment_id"/>
                         <field name="mail_id"/>
