@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="ir_cron_motogene_event_daily_summary" model="ir.cron">
+        <field name="name">MotoGene: Event Daily Registration Summary</field>
+        <field name="model_id" ref="model_motogene_event_daily_config"/>
+        <field name="state">code</field>
+        <field name="code">model._cron_generate()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">days</field>
+        <field name="active" eval="False"/>
+    </record>
+</odoo>
