@@ -30,7 +30,7 @@
                         <group string="Proposed Daily Send Time">
                             <field name="send_hour"/>
                             <field name="send_minute"/>
-                            <label string="Scheduler remains disabled until timing and deployment are approved."/>
+                            <div class="text-muted">Scheduler remains disabled until timing and deployment are approved.</div>
                         </group>
                     </group>
                     <group string="Global Staff Recipients">
