@@ -142,3 +142,26 @@ class TestMotoGeneGuestCancellation(TransactionCase):
             self.assertEqual(self.config._staff_emails(self.event), ["staff-alert@example.com"])
         else:
             self.assertEqual(self.config._staff_emails(self.event), [])
+
+    def test_cancellation_unavailable_reason_after_event_start(self):
+        """Still-registered attendees should see why cancellation is closed."""
+        past = fields.Datetime.to_datetime(fields.Datetime.now()) - timedelta(hours=2)
+        self.event.write({
+            "date_begin": past,
+            "date_end": past + timedelta(hours=1),
+        })
+        self.assertFalse(self.config._eligible_registration(self.registration))
+        self.assertIn(
+            "already started",
+            self.config._cancellation_unavailable_reason(self.registration),
+        )
+
+    def test_upcoming_free_ticket_has_no_cancellation_warning(self):
+        ticket = self.env["event.event.ticket"].create({
+            "name": "QA Free Admission",
+            "event_id": self.event.id,
+            "price": 0.0,
+        })
+        self.registration.event_ticket_id = ticket
+        self.assertEqual(ticket.price, 0.0)
+        self.assertTrue(self.config._eligible_registration(self.registration))

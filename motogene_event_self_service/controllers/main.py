@@ -51,6 +51,7 @@ class MotoGeneGuestRegistration(http.Controller):
         return self._page("motogene_event_self_service.my_registrations", {
             "registrations": regs,
             "can_cancel": lambda reg: config._eligible_registration(reg),
+            "cancellation_reason": lambda reg: config._cancellation_unavailable_reason(reg),
             "feedback": kw.get("status", ""),
         })
 

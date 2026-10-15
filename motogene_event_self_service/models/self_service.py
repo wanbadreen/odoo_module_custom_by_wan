@@ -74,6 +74,25 @@ class MotoGeneEventSelfServiceConfig(models.Model):
                 return False
         return True
 
+    def _cancellation_unavailable_reason(self, registration):
+        """Human-readable explanation; permission checks remain in the cancel method."""
+        self.ensure_one()
+        if registration.state in ("cancel", "done"):
+            return _("This registration is already closed.")
+        if not registration.event_id.date_begin or (
+            fields.Datetime.to_datetime(registration.event_id.date_begin)
+            <= fields.Datetime.to_datetime(fields.Datetime.now())
+        ):
+            return _("Cancellation closed — this event has already started.")
+        if registration.event_ticket_id and "price" in registration.event_ticket_id._fields and registration.event_ticket_id.price > 0:
+            return _("Online cancellation is available for free tickets only.")
+        if any(
+            related in registration._fields and registration[related]
+            for related in ("sale_order_id", "sale_order_line_id")
+        ):
+            return _("Please contact the organiser to manage this order-linked registration.")
+        return _("Online cancellation is unavailable for this registration.")
+
     def _registrations_for_email(self, normalized):
         """Scope by company and website, then enforce exact normalized email equality."""
         self.ensure_one()

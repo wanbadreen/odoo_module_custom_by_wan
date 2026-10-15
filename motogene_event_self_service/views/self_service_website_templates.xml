@@ -62,7 +62,9 @@
                     <h2 class="mb-0">My Event Registrations</h2>
                     <form action="/motogene/events/manage/logout" method="post">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
-                        <button class="btn btn-sm btn-outline-secondary" type="submit">End Session</button>
+                        <button class="btn btn-dark btn-sm px-3 py-2 fw-semibold" type="submit">
+                            <i class="fa fa-sign-out me-1" aria-hidden="true"/> End Session
+                        </button>
                     </form>
                 </div>
                 <div t-if="feedback == 'cancelled'" class="alert alert-success">Your event registration has been cancelled. A confirmation email has been queued.</div>
@@ -80,8 +82,15 @@
                             <span t-elif="reg.state == 'cancel'" class="badge text-bg-secondary">Cancelled</span>
                             <span t-else="" class="badge text-bg-warning">Unconfirmed</span>
                         </div>
-                        <a t-if="can_cancel(reg)" class="btn btn-outline-danger"
-                           t-att-href="'/motogene/events/manage/cancel/%s' % reg.id">Cancel Registration</a>
+                        <div class="d-flex flex-column gap-1 align-items-start">
+                            <a t-if="can_cancel(reg)" class="btn btn-danger fw-semibold"
+                               t-att-href="'/motogene/events/manage/cancel/%s' % reg.id">Cancel Registration</a>
+                            <small t-if="not can_cancel(reg) and reg.state == 'open'"
+                                   class="text-body-secondary" role="status">
+                                <i class="fa fa-info-circle me-1" aria-hidden="true"/>
+                                <t t-out="cancellation_reason(reg)"/>
+                            </small>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -105,14 +114,27 @@
         </t>
     </template>
     <template id="guest_manage_button_on_event" inherit_id="website_event.event_description_full"
-              name="MotoGene Guest Event Management Entry Point">
-        <xpath expr="//aside[@id='o_wevent_event_main_sidebar']" position="inside">
+              name="MotoGene Guest Event Management Directly Below Register">
+        <!-- Desktop CTA: immediately beneath the existing Register / Sold Out block -->
+        <xpath expr="//aside[@id='o_wevent_event_main_sidebar']/div[1]" position="after">
             <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
-                 class="border-top pt-3 mt-3">
-                <a href="/motogene/events/manage" class="btn btn-outline-secondary w-100">
+                 class="d-none d-lg-block mb-3">
+                <a href="/motogene/events/manage" class="btn btn-outline-dark w-100 fw-semibold">
+                    <i class="fa fa-calendar-check-o me-1" aria-hidden="true"/>
                     Manage My Registration
                 </a>
-                <small class="text-muted d-block mt-1">Cancel a registration before the event begins.</small>
+                <small class="text-body-secondary d-block mt-1">Cancel your free registration before the event begins.</small>
+            </div>
+        </xpath>
+        <!-- Mobile CTA lives above event description, not in the desktop sidebar -->
+        <xpath expr="//div[contains(@class, 'o_wevent_event_main_cta_block')]" position="after">
+            <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
+                 class="d-lg-none mb-3">
+                <a href="/motogene/events/manage" class="btn btn-outline-dark w-100 fw-semibold">
+                    <i class="fa fa-calendar-check-o me-1" aria-hidden="true"/>
+                    Manage My Registration
+                </a>
+                <small class="text-body-secondary d-block mt-1">Cancel your free registration before the event begins.</small>
             </div>
         </xpath>
     </template>

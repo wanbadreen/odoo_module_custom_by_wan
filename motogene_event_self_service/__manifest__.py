@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Event Self-Service Cancellation",
     "summary": "Secure guest email verification and free event cancellation before start",
-    "version": "18.0.1.0.0",
+    "version": "18.0.1.1.0",
     "category": "Marketing/Events",
     "author": "WanBadreen",
     "license": "LGPL-3",
