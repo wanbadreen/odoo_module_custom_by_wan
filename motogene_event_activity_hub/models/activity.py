@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """Activity grouping and idempotent creation of standard Odoo Events."""
+import json
+
 import pytz
 
 from odoo import api, fields, models, _
@@ -71,6 +73,36 @@ class MotoGeneEventActivity(models.Model):
             and s.event_id.company_id == self.company_id
             and s.event_id.date_end >= now
         ).sorted(lambda s: (s.event_id.date_begin, s.id))
+
+    def _sync_child_cover(self, event):
+        """Point each child Event cover to its parent image without duplicating files.
+
+        The cover is read from the same website-scoped Activity image endpoint
+        on every request, so replacing the parent image updates all linked
+        child Event banners. Only this activity's linked Events are affected.
+        """
+        self.ensure_one()
+        properties = json.loads(event.cover_properties or "{}")
+        if self.image_1920:
+            properties["background-image"] = (
+                "url('/motogene/activity/%s/cover')" % self.id
+            )
+        else:
+            # Removing the parent image restores the native Odoo event cover.
+            properties["background-image"] = event._default_cover_properties().get(
+                "background-image", "none"
+            )
+        updated = json.dumps(properties)
+        if event.cover_properties != updated:
+            event.write({"cover_properties": updated})
+
+    def write(self, vals):
+        res = super().write(vals)
+        if "image_1920" in vals:
+            for activity in self:
+                for child in activity.session_ids.mapped("event_id"):
+                    activity._sync_child_cover(child)
+        return res
 
     def _event_values(self, session):
         self.ensure_one()
@@ -161,6 +193,7 @@ class MotoGeneEventActivity(models.Model):
                     activity._ensure_questions(event)
                     activity._create_free_ticket(event)
                 activity._sync_recipients(event)
+                activity._sync_child_cover(event)
                 if activity.website_published and not event.website_published:
                     event.write({"website_published": True})
         return {

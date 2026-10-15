@@ -20,9 +20,18 @@ class MotoGeneActivityWebsite(http.Controller):
         activity = self._activity(activity_id)
         if not activity:
             return request.not_found()
+        manage_enabled = False
+        config_model = "motogene.event.self.service.config"
+        if config_model in request.env:
+            # Only show the CTA where the existing cancellation service
+            # is installed and enabled for this exact website.
+            manage_enabled = bool(
+                request.env[config_model].sudo().for_website(request.website)
+            )
         response = request.render("motogene_event_activity_hub.activity_page", {
             "activity": activity,
             "sessions": activity._website_sessions(),
+            "manage_enabled": manage_enabled,
         })
         response.headers["Cache-Control"] = "no-store, max-age=0"
         return response
