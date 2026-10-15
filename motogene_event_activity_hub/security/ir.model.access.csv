@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+motogene_activity_user,motogene.activity.user,model_motogene_event_activity,event.group_event_user,1,1,1,1
+motogene_activity_session_user,motogene.activity.session.user,model_motogene_event_activity_session,event.group_event_user,1,1,1,1
+motogene_activity_create_user,motogene.create.user,model_motogene_event_create_wizard,event.group_event_user,1,1,1,1

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <!-- Extends the existing Odoo /event listing; standard single events remain intact. -->
+  <template id="index_activity_cards" inherit_id="website_event.index" name="MotoGene Activity Hub Listings">
+    <xpath expr="//div[@id='o_wevent_index_main_col']/div[hasclass('row')]" position="before">
+      <t t-if="not searches.get('search') and searches.get('date', 'upcoming') in ('upcoming', 'all') and not searches.get('tags') and searches.get('type', 'all') == 'all' and searches.get('country', 'all') == 'all'">
+        <t t-set="motogene_activities" t-value="request.env['motogene.event.activity']._website_activities(request.website)"/>
+        <div t-if="motogene_activities" class="mb-4">
+          <h3 class="h4 mb-3">Activities</h3>
+          <div class="row g-3">
+            <t t-foreach="motogene_activities" t-as="activity">
+              <div class="col-12 col-md-6 col-xl-4">
+                <a t-att-href="'/motogene/activity/%s' % activity.id"
+                   class="card h-100 text-decoration-none text-reset">
+                  <img t-if="activity.image_1920" t-att-src="'/motogene/activity/%s/cover' % activity.id"
+                       t-att-alt="activity.name" class="card-img-top"
+                       style="height: 180px; object-fit: cover;"/>
+                  <div class="card-body">
+                    <h5 class="card-title" t-out="activity.name"/>
+                    <p t-if="activity.subtitle" class="card-text text-muted" t-out="activity.subtitle"/>
+                    <small class="text-muted">
+                      <t t-out="len(activity._website_sessions())"/> upcoming session(s)
+                    </small>
+                    <div class="mt-3"><span class="btn btn-primary btn-sm">View Sessions</span></div>
+                  </div>
+                </a>
+              </div>
+            </t>
+          </div>
+        </div>
+      </t>
+    </xpath>
+  </template>
+
+  <template id="activity_page" name="MotoGene Activity Sessions">
+    <t t-call="website.layout">
+      <div id="wrap" class="oe_structure">
+        <section class="container py-5">
+          <div class="row gy-4">
+            <div class="col-12 col-lg-9">
+              <img t-if="activity.image_1920" t-att-src="'/motogene/activity/%s/cover' % activity.id"
+                   t-att-alt="activity.name" class="img-fluid rounded mb-4 w-100"
+                   style="max-height: 380px; object-fit: cover;"/>
+              <h1 t-out="activity.name"/>
+              <p t-if="activity.subtitle" class="lead text-muted" t-out="activity.subtitle"/>
+              <div t-if="activity.description" t-field="activity.description" class="mb-4"/>
+              <h2 class="h4 mt-4 mb-3">Available Sessions</h2>
+              <div t-if="not sessions" class="alert alert-info">
+                No upcoming sessions are available.
+              </div>
+              <div t-foreach="sessions" t-as="session" class="card mb-3">
+                <div class="card-body d-flex flex-wrap gap-3 justify-content-between align-items-center">
+                  <div>
+                    <h3 class="h5 mb-1" t-out="session.name"/>
+                    <div class="text-muted">
+                      <span t-field="session.event_id.date_begin"
+                            t-options="{'widget': 'datetime', 'tz_name': activity.date_tz}"/>
+                      <span> – </span>
+                      <span t-field="session.event_id.date_end"
+                            t-options="{'widget': 'datetime', 'tz_name': activity.date_tz}"/>
+                    </div>
+                    <small t-if="session.event_id.address_id" class="text-muted"
+                           t-out="session.event_id.address_id.name"/>
+                    <div class="small mt-1" t-if="session.event_id.seats_limited">
+                      <span t-out="session.event_id.seats_available"/> seat(s) remaining
+                    </div>
+                  </div>
+                  <div>
+                    <a t-if="session.event_id.event_registrations_open"
+                       t-att-href="session.event_id.website_url" class="btn btn-primary">
+                      Register
+                    </a>
+                    <span t-elif="session.event_id.event_registrations_sold_out"
+                          class="badge text-bg-secondary">Sold Out</span>
+                    <span t-else="" class="badge text-bg-secondary">Registration Closed</span>
+                  </div>
+                </div>
+              </div>
+              <a href="/event" class="btn btn-link ps-0 mt-3">Back to Events</a>
+            </div>
+          </div>
+        </section>
+      </div>
+    </t>
+  </template>
+</odoo>

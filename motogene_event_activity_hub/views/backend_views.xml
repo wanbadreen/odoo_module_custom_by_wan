@@ -1,0 +1,158 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_creation_wizard_form" model="ir.ui.view">
+        <field name="name">motogene.event.create.wizard.form</field>
+        <field name="model">motogene.event.create.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Create New Event">
+                <sheet>
+                    <group>
+                        <field name="creation_type" widget="radio"/>
+                    </group>
+                </sheet>
+                <footer>
+                    <button name="action_continue" string="Continue" type="object" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_event_creation_wizard" model="ir.actions.act_window">
+        <field name="name">Create New Event</field>
+        <field name="res_model">motogene.event.create.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_creation_wizard_form"/>
+        <field name="target">new</field>
+    </record>
+
+    <record id="view_activity_list" model="ir.ui.view">
+        <field name="name">motogene.event.activity.list</field>
+        <field name="model">motogene.event.activity</field>
+        <field name="arch" type="xml">
+            <list string="Event Activities">
+                <field name="name"/>
+                <field name="website_id"/>
+                <field name="company_id" groups="base.group_multi_company"/>
+                <field name="state"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_activity_form" model="ir.ui.view">
+        <field name="name">motogene.event.activity.form</field>
+        <field name="model">motogene.event.activity</field>
+        <field name="arch" type="xml">
+            <form string="Multiple Sessions Activity">
+                <header>
+                    <button name="action_prepare_sessions" string="Prepare / Sync Sessions" type="object"
+                            class="btn-secondary"/>
+                    <button name="action_publish" string="Publish Activity" type="object"
+                            class="btn-primary" invisible="website_published"/>
+                    <button name="action_unpublish" string="Unpublish" type="object"
+                            class="btn-secondary" invisible="not website_published"/>
+                    <button name="action_open_website" string="View Website" type="object"
+                            class="btn-secondary" invisible="not website_published"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
+                    <field name="website_published" invisible="1"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="Activity title"/></h1>
+                    </div>
+                    <notebook>
+                        <page string="Activity Information">
+                            <group>
+                                <group>
+                                    <field name="subtitle" placeholder="Short public subtitle"/>
+                                    <field name="company_id" groups="base.group_multi_company"/>
+                                    <field name="website_id"
+                                           domain="['|', ('company_id', '=', False), ('company_id', '=', company_id)]"/>
+                                    <field name="date_tz"/>
+                                </group>
+                                <group>
+                                    <field name="default_venue_id"/>
+                                    <field name="event_type_id"/>
+                                    <field name="image_1920" widget="image"
+                                           options="{'size': [480, 320]}"/>
+                                </group>
+                            </group>
+                            <group><field name="description" widget="html"/></group>
+                        </page>
+
+                        <page string="Sessions">
+                            <field name="session_ids">
+                                <list editable="bottom">
+                                    <field name="name"/>
+                                    <field name="date_begin"/>
+                                    <field name="date_end"/>
+                                    <field name="seats_max"/>
+                                    <field name="venue_id" optional="show"/>
+                                    <field name="event_id" readonly="1" optional="show"/>
+                                </list>
+                                <form string="Session Details">
+                                    <group>
+                                        <field name="name"/>
+                                        <field name="date_begin"/>
+                                        <field name="date_end"/>
+                                        <field name="seats_max"/>
+                                        <field name="venue_id"/>
+                                        <field name="event_id" readonly="1"/>
+                                    </group>
+                                </form>
+                            </field>
+                        </page>
+
+                        <page string="Registration Settings">
+                            <group>
+                                <group>
+                                    <field name="ticket_name"/>
+                                    <field name="phone_required"/>
+                                </group>
+                                <group>
+                                    <field name="notification_partner_ids" widget="many2many_tags"/>
+                                </group>
+                            </group>
+                            <div class="alert alert-info" role="alert">
+                                Each session uses the standard Odoo registration form. Name and email are required
+                                for every attendee. Complimentary tickets are created when sessions are prepared.
+                                Existing mail delivery and scheduled actions are not changed.
+                            </div>
+                        </page>
+
+                        <page string="Review">
+                            <group>
+                                <field name="website_id" readonly="1"/>
+                                <field name="company_id" readonly="1"/>
+                                <field name="state" readonly="1"/>
+                            </group>
+                            <field name="session_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="date_begin"/>
+                                    <field name="date_end"/>
+                                    <field name="seats_max"/>
+                                    <field name="event_id"/>
+                                </list>
+                            </field>
+                            <div class="alert alert-info" role="alert">
+                                Save this activity before preparing sessions. Review the linked events,
+                                tickets and attendee questions before publishing.
+                            </div>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_activity" model="ir.actions.act_window">
+        <field name="name">Event Activities</field>
+        <field name="res_model">motogene.event.activity</field>
+        <field name="view_mode">list,form</field>
+    </record>
+    <menuitem id="menu_activity_configuration" name="Event Activities"
+              parent="event.menu_event_configuration" action="action_activity"
+              sequence="20" groups="event.group_event_user"/>
+</odoo>
