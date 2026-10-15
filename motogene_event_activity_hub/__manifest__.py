@@ -8,6 +8,7 @@
     "depends": ["website_event"],
     "data": [
         "security/ir.model.access.csv",
+        "security/activity_rules.xml",
         "views/backend_views.xml",
         "views/website_templates.xml"
     ],

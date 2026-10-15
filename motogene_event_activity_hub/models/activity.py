@@ -196,6 +196,8 @@ class MotoGeneEventActivity(models.Model):
                 "url": "/motogene/activity/%s" % self.id, "target": "new"}
 
     def unlink(self):
-        if any(a.session_ids.mapped("event_id").filtered(lambda e: e.registration_ids) for a in self):
-            raise UserError(_("An activity with registration history cannot be deleted. Unpublish it instead."))
+        # Database cascades may bypass the session unlink override. Prevent
+        # orphaned linked Odoo Events by keeping prepared activities immutable.
+        if any(a.session_ids.mapped("event_id") for a in self):
+            raise UserError(_("Prepared activities cannot be deleted. Unpublish them instead."))
         return super().unlink()
