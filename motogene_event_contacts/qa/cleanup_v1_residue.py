@@ -61,12 +61,27 @@ require(event.website_id == website and event.company_id == company, "Event scop
 require(not event.motogene_activity_id and not event.motogene_activity_session_id,
         "Event is linked to an Activity or Session")
 require(set(tags.mapped("name")) == TAG_NAMES, "Contact tag labels mismatch")
-require(all(full_name(r.name) == "qa vip existing" and
-            (r.email or "").strip().casefold() == CONTACT_EMAIL
-            and r.event_id == event
-            and r.motogene_attendee_contact_id == partner
-            and not r.motogene_booking_id
-            for r in registrations), "registration identity/ownership mismatch")
+# The read-only audit confirmed the partially committed original V1 test:
+#   ID 45: exact/lowercase email, Attendee Contact 23483, Sync 'matched'.
+#   ID 46: extra spaces/uppercase email, NO Attendee Contact, Sync 'off'.
+# These are two KNOWN states, not a reason to relax other identity checks.
+for registration_id, expected_contact_id, expected_sync in (
+    (45, CONTACT_ID, "matched"),
+    (46, False, "off"),
+):
+    r = registrations.filtered(lambda x: x.id == registration_id)
+    require(len(r) == 1, "registration %s missing" % registration_id)
+    require(
+        full_name(r.name) == "qa vip existing"
+        and (r.email or "").strip().casefold() == CONTACT_EMAIL
+        and r.event_id == event
+        and r.motogene_attendee_contact_id.id == expected_contact_id
+        and r.motogene_contact_sync_status == expected_sync
+        and not r.partner_id
+        and not r.motogene_booking_id
+        and r.state == "open",
+        "registration %s identity/ownership/status mismatch" % registration_id,
+    )
 
 all_event_regs = Reg.search([("event_id", "=", EVENT_ID)])
 require(set(all_event_regs.ids) == REGISTRATION_IDS,
