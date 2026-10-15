@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <template id="website_booking_contact" inherit_id="website_event.registration_attendee_details"
+              name="MotoGene Event Booking Email">
+        <xpath expr="//div[contains(@class,'modal-header')]" position="after">
+            <div t-if="event.motogene_contacts_enabled and request.env['motogene.event.contact.config'].sudo().for_event(event)"
+                 class="modal-body border-bottom">
+                <h5>Booking Contact</h5>
+                <label class="form-label" for="motogene_booking_email">
+                    Booking Email <span class="text-danger">*</span>
+                </label>
+                <input id="motogene_booking_email" name="motogene_booking_email"
+                       class="form-control" type="email" maxlength="254" required="required"
+                       autocomplete="email" placeholder="Email address of the person making this booking"/>
+                <div class="form-text">
+                    This email is used to verify and manage all participants in your booking.
+                    Individual participant emails below are optional.
+                </div>
+            </div>
+        </xpath>
+    </template>
+    <template id="website_optional_attendee_email" inherit_id="website_event.registration_event_question"
+              name="MotoGene Optional Participant Email">
+        <xpath expr="//span[@t-if='question.is_mandatory_answer']" position="attributes">
+            <attribute name="t-if">question.is_mandatory_answer and not (question.question_type == 'email' and event.motogene_contacts_enabled and request.env['motogene.event.contact.config'].sudo().for_event(event))</attribute>
+        </xpath>
+        <xpath expr="//input[@t-att-type='input_type_by_question_type[question.question_type]']" position="attributes">
+            <attribute name="t-att-required">question.is_mandatory_answer and not (question.question_type == 'email' and event.motogene_contacts_enabled and request.env['motogene.event.contact.config'].sudo().for_event(event))</attribute>
+            <attribute name="t-att-value">'' if question.question_type == 'email' and event.motogene_contacts_enabled and request.env['motogene.event.contact.config'].sudo().for_event(event) else (default_first_attendee.get(question.question_type, '') if counter in (0,1) else '')</attribute>
+        </xpath>
+        <xpath expr="//input[@t-att-type='input_type_by_question_type[question.question_type]']" position="after">
+            <small t-if="question.question_type == 'email' and event.motogene_contacts_enabled and request.env['motogene.event.contact.config'].sudo().for_event(event)"
+                   class="form-text text-muted d-block">
+                Optional. We recommend providing each participant's own email for easier
+                communication and individual registration management. You can leave it blank
+                if the participant has no personal email.
+            </small>
+        </xpath>
+    </template>
+</odoo>

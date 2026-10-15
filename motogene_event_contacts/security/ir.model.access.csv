@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_moto_contact_config_admin,motogene.event.contact.config.admin,model_motogene_event_contact_config,base.group_system,1,1,1,0
+access_moto_booking_staff,motogene.event.booking.staff,model_motogene_event_booking,event.group_event_user,1,0,0,0
+access_moto_review_staff,motogene.event.contact.review.staff,model_motogene_event_contact_review,event.group_event_user,1,1,0,0
+access_moto_review_admin,motogene.event.contact.review.admin,model_motogene_event_contact_review,base.group_system,1,1,1,0
