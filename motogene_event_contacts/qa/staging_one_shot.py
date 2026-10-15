@@ -21,7 +21,33 @@ E = env["res.company"].sudo().with_company(company).env
 prefix = "qa-shell-" + uuid.uuid4().hex[:10]
 results, shared = [], {}
 
-def check(label, func):
+# Audit possible artifacts from the previous runner. That older runner allowed
+# native Odoo Event Mail to COMMIT while inside a savepoint, so its final
+# rollback cannot prove that all earlier dummy rows were removed.
+previous_partners = E["res.partner"].sudo().search([
+    ("email", "ilike", "qa-shell-%@example.invalid"),
+], limit=15)
+previous_events = E["event.event"].sudo().search([
+    ("name", "ilike", "qa-shell-%"),
+], limit=15)
+previous_tags = E["res.partner.category"].sudo().search([
+    ("name", "ilike", "qa-shell-%"),
+], limit=15)
+if previous_partners or previous_events or previous_tags:
+    print("WARNING: Possible artifacts from the PREVIOUS QA run (nothing deleted):", flush=True)
+    print("  Contact IDs:", previous_partners.ids, flush=True)
+    print("  Event IDs:", previous_events.ids, flush=True)
+    print("  Tag IDs:", previous_tags.ids, flush=True)
+else:
+    print("PREVIOUS QA ARTIFACT AUDIT: no matching Contacts, Events or Tags.", flush=True)
+
+def check(label, func, requires=()):
+    missing = [key for key in requires if key not in shared]
+    if missing:
+        msg = "Prerequisite case failed: " + ", ".join(missing)
+        results.append((label, "SKIP", msg))
+        print("SKIP %s: %s" % (label, msg), flush=True)
+        return
     try:
         with E.cr.savepoint():
             func()
@@ -33,9 +59,24 @@ def check(label, func):
         print("FAIL %s: %s" % (label, msg), flush=True)
 
 try:
-    # Both delivery paths blocked within this shell process; no cron touched.
+    # Native Odoo 18 event.registration.create() immediately executes Event
+    # Mail schedulers. Those may render PDFs and COMMIT the current cursor.
+    # Patching mail.mail alone does NOT stop that commit. Disable only this
+    # shell's automatic Event Mail processing, and reject any unexpected commit.
+    # Patches are restored at the end of the with-block.
     Mail = type(E["mail.mail"])
-    with patch.object(Mail, "send_after_commit", autospec=True), patch.object(Mail, "send", autospec=True):
+    Registration = type(E["event.registration"])
+    EventMail = type(E["event.mail"])
+    Cursor = type(E.cr)
+    with (
+        patch.object(Mail, "send_after_commit", autospec=True),
+        patch.object(Mail, "send", autospec=True),
+        patch.object(Registration, "_update_mail_schedulers", autospec=True),
+        patch.object(EventMail, "execute", autospec=True),
+        patch.object(Cursor, "commit", side_effect=RuntimeError(
+            "QA SAFETY: unexpected database COMMIT blocked"
+        )),
+    ):
         conf = E["motogene.event.contact.config"].search([
             ("website_id", "=", site.id), ("company_id", "=", company.id)
         ], limit=1)
@@ -142,18 +183,18 @@ try:
             else:
                 raise AssertionError("Unauthorized cancellation allowed")
             assert r.state == "open"
-        check("C15 cross-attendee cancellation denied", wrong_cancellation)
+        check("C15 cross-attendee cancellation denied", wrong_cancellation, requires=("riena", "aina"))
 
         def owner_cancellation():
             service._cancel_for_verified_email(shared["riena"].id, shared["owner"])
             assert shared["riena"].state == "cancel"
             assert shared["farah"].state == "open" and shared["aina"].state == "open"
-        check("C16 booker cancels only selected attendee", owner_cancellation)
+        check("C16 booker cancels only selected attendee", owner_cancellation, requires=("riena", "farah", "aina", "owner"))
 
         def own_cancellation():
             service._cancel_for_verified_email(shared["aina"].id, shared["aina"].email)
             assert shared["aina"].state == "cancel" and shared["farah"].state == "open"
-        check("C17 attendee email cancels only own", own_cancellation)
+        check("C17 attendee email cancels only own", own_cancellation, requires=("aina", "farah"))
 
         def disabled_integration():
             conf.enabled = False
@@ -217,13 +258,28 @@ try:
             unused.name = "WhatsApp"
             activity._sync_questions(child)
             assert "WhatsApp" in question.answer_ids.mapped("name")
-        check("C20 used-answer label immutable; unused option editable", historical_answers)
+        check("C20 used-answer label immutable; unused option editable", historical_answers, requires=("activity", "child"))
 finally:
-    E.cr.rollback()  # No test data, no settings changes, no emails persisted.
-    print("\nROLLBACK COMPLETE — all QA writes discarded.", flush=True)
+    # This time all event email schedulers AND cursor.commit are blocked.
+    # Roll back regardless of failed tests or errors in test setup.
+    E.cr.rollback()
+    E.cr.execute("SELECT count(*) FROM res_partner WHERE email ILIKE %s", [prefix + "%"])
+    new_partners = E.cr.fetchone()[0]
+    E.cr.execute("SELECT count(*) FROM event_event WHERE name ILIKE %s", [prefix + "%"])
+    new_events = E.cr.fetchone()[0]
+    if new_partners or new_events:
+        print("WARNING: QA rollback audit found new rows: Contacts=%s, Events=%s" % (
+            new_partners, new_events,
+        ), flush=True)
+    else:
+        print("\nROLLBACK VERIFIED: no rows from this QA run remain.", flush=True)
 
 passed = sum(status == "PASS" for _, status, _ in results)
-print("\n===== MotoGene Backend QA: %s/%s PASS =====" % (passed, len(results)))
+skipped = sum(status == "SKIP" for _, status, _ in results)
+failed = sum(status == "FAIL" for _, status, _ in results)
+print("\n===== MotoGene Backend QA: %s/%s PASS, %s FAIL, %s SKIP =====" % (
+    passed, len(results), failed, skipped,
+))
 for label, status, issue in results:
     print("%s | %s %s" % (status, label, issue))
 print("Scope: backend logic only; website UI and actual email delivery not tested.")
