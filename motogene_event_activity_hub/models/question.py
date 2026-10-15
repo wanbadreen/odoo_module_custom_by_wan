@@ -101,6 +101,42 @@ class EventQuestionAnswer(models.Model):
         help="Original Activity option copied to this session answer.",
     )
 
+    def write(self, vals):
+        """Keep historical selection labels stable across parent/child edits.
+
+        Odoo stores an attendee's Selection answer as a pointer to the
+        event.question.answer row. Renaming that row changes the display
+        of all past answers. Protect only centrally managed Activity options,
+        leaving independent Single Events and unused options editable.
+        """
+        if "name" in vals:
+            modified = self.filtered(
+                lambda answer: answer.name != vals["name"]
+                and (
+                    answer.question_id.motogene_activity_id
+                    or answer.motogene_activity_source_answer_id
+                )
+            )
+            if modified:
+                # Include every linked child option for Activity parent answers;
+                # check direct child changes against their own saved responses.
+                parents = modified.filtered("question_id.motogene_activity_id")
+                related_children = self.search([
+                    ("motogene_activity_source_answer_id", "in", parents.ids),
+                ]) if parents else self.browse()
+                options = modified | related_children
+                already_selected = self.env["event.registration.answer"].search_count([
+                    ("value_answer_id", "in", options.ids),
+                ])
+                if already_selected:
+                    raise UserError(_(
+                        "This answer option has already been selected by an "
+                        "attendee. Its text cannot be changed because this "
+                        "would alter historical registration answers. "
+                        "Add a new answer option instead."
+                    ))
+        return super().write(vals)
+
     def unlink(self):
         source_answers = self.filtered(lambda a: bool(a.question_id.motogene_activity_id))
         if source_answers:
