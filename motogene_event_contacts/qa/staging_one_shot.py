@@ -263,16 +263,22 @@ finally:
     # This time all event email schedulers AND cursor.commit are blocked.
     # Roll back regardless of failed tests or errors in test setup.
     E.cr.rollback()
-    E.cr.execute("SELECT count(*) FROM res_partner WHERE email ILIKE %s", [prefix + "%"])
-    new_partners = E.cr.fetchone()[0]
-    E.cr.execute("SELECT count(*) FROM event_event WHERE name ILIKE %s", [prefix + "%"])
-    new_events = E.cr.fetchone()[0]
-    if new_partners or new_events:
-        print("WARNING: QA rollback audit found new rows: Contacts=%s, Events=%s" % (
-            new_partners, new_events,
-        ), flush=True)
+    audit_queries = {
+        "Contacts": "SELECT count(*) FROM res_partner WHERE email ILIKE %s",
+        "Events": "SELECT count(*) FROM event_event WHERE name ILIKE %s",
+        "Tags": "SELECT count(*) FROM res_partner_category WHERE name ILIKE %s",
+        "Bookings": "SELECT count(*) FROM motogene_event_booking WHERE owner_email ILIKE %s",
+        "Registrations": "SELECT count(*) FROM event_registration WHERE email ILIKE %s",
+    }
+    remaining = {}
+    for table_name, query in audit_queries.items():
+        E.cr.execute(query, [prefix + "%"])
+        remaining[table_name] = E.cr.fetchone()[0]
+    if any(remaining.values()):
+        print("WARNING: QA rollback audit found new rows: %s" % remaining, flush=True)
     else:
-        print("\nROLLBACK VERIFIED: no rows from this QA run remain.", flush=True)
+        print("\nROLLBACK VERIFIED: no Contacts, Events, Tags, Bookings or "
+              "Registrations from this QA run remain.", flush=True)
 
 passed = sum(status == "PASS" for _, status, _ in results)
 skipped = sum(status == "SKIP" for _, status, _ in results)
