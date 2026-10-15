@@ -127,7 +127,7 @@
             </div>
         </xpath>
         <!-- Mobile CTA lives above event description, not in the desktop sidebar -->
-        <xpath expr="//div[contains(@class, 'o_wevent_event_main_cta_block')]" position="after">
+        <xpath expr="//div[hasclass('o_wevent_event_main_cta_block')]" position="after">
             <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
                  class="d-lg-none mb-3">
                 <a href="/motogene/events/manage" class="btn btn-outline-dark w-100 fw-semibold">
@@ -140,7 +140,7 @@
     </template>
     <template id="guest_manage_button_after_registration" inherit_id="website_event.registration_complete"
               name="MotoGene Manage Registrations After Checkout">
-        <xpath expr="//div[contains(@class, 'o_wereg_confirmed')]" position="inside">
+        <xpath expr="//div[hasclass('o_wereg_confirmed')]" position="inside">
             <div t-if="request.env['motogene.event.self.service.config'].sudo().for_website(request.website)"
                  class="alert alert-info mt-4">
                 Need to change your plans? <a href="/motogene/events/manage" class="alert-link">Manage My Registration</a>
