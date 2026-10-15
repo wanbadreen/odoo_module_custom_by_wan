@@ -7,6 +7,7 @@ No cron is enabled and no outbound email is sent.
 """
 import os
 import re
+from email.utils import getaddresses
 from unittest.mock import patch
 
 PREFIX = "qa-shell-965ba2aabd"
@@ -117,13 +118,25 @@ require(not other_booker and not other_attendee, "Contact linked to registration
 require(not partner.child_ids and not partner.parent_id, "Contact has parent/child hierarchy")
 
 # Only delete outbound mail whose subject identifies this exact dummy Event
-# and whose recipients identify only the dummy test email.
+# and whose To/Cc/partner recipients identify ONLY the dummy test contact.
+# Odoo stores RFC 5322 formatted To addresses, e.g.
+# '"QA VIP Existing" <qa-shell-...-vip@example.invalid>'.
+# Never split on commas without parsing the mailbox/display-name format.
 mails = Mail.search([("subject", "ilike", EVENT_NAME)])
 for mail in mails:
-    to = (mail.email_to or "").strip().casefold()
-    recipients = [x.strip() for x in re.split(r"[,;]", to) if x.strip()]
-    require(recipients and all(x == CONTACT_EMAIL for x in recipients),
-            "mail %s has unexpected recipient(s): %s" % (mail.id, to))
+    recipient_strings = [mail.email_to or "", mail.email_cc or ""]
+    parsed_to = getaddresses([recipient_strings[0]]) if recipient_strings[0].strip() else []
+    parsed_cc = getaddresses([recipient_strings[1]]) if recipient_strings[1].strip() else []
+    addresses = [(email or "").strip().casefold() for _, email in (parsed_to + parsed_cc)]
+    require(bool(addresses) or bool(mail.recipient_ids),
+            "mail %s has no identifiable recipient" % mail.id)
+    require(all(address == CONTACT_EMAIL for address in addresses),
+            "mail %s has unexpected To/Cc address(es): %s" %
+            (mail.id, addresses))
+    require(all(p.id == CONTACT_ID and (p.email or "").strip().casefold() == CONTACT_EMAIL
+                for p in mail.recipient_ids),
+            "mail %s has unexpected linked recipient Contact IDs: %s" %
+            (mail.id, mail.recipient_ids.ids))
 
 messages = (
     Message.search([("model", "=", "event.event"), ("res_id", "=", EVENT_ID)])
