@@ -144,7 +144,7 @@ class MotoGeneEventSelfServiceConfig(models.Model):
         title = escape(event.name or "Event")
         attendee = escape(registration.name or "Participant")
         sender = self.company_id.email or self.env.user.email or "noreply@localhost"
-        self.env["mail.mail"].sudo().create({
+        customer_mail = self.env["mail.mail"].sudo().create({
             "subject": "MotoGene Event Cancellation - %s" % event.name,
             "body_html": (
                 "<p>Hi %s,</p><p>Your registration for <b>%s</b> has been cancelled.</p>"
@@ -155,9 +155,10 @@ class MotoGeneEventSelfServiceConfig(models.Model):
             "email_from": sender,
             "auto_delete": False,
         })
+        cancellation_mails = customer_mail
         staff = self._staff_emails(event)
         if staff:
-            self.env["mail.mail"].sudo().create({
+            staff_mail = self.env["mail.mail"].sudo().create({
                 "subject": "MotoGene - Participant Cancelled - %s" % event.name,
                 "body_html": (
                     "<p>A participant cancelled their MotoGene event registration.</p>"
@@ -168,6 +169,10 @@ class MotoGeneEventSelfServiceConfig(models.Model):
                 "email_from": sender,
                 "auto_delete": False,
             })
+            cancellation_mails |= staff_mail
+        # Send only the newly created cancellation mails after the transaction
+        # commits. This leaves historical outgoing queue messages untouched.
+        cancellation_mails.send_after_commit()
         return registration
 
 

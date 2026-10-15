@@ -72,7 +72,7 @@ class MotoGeneGuestRegistration(http.Controller):
             base = request.httprequest.url_root.rstrip("/")
             link = base + ROOT + "/verify?token=" + quote(token)
             sender = config.company_id.email or request.env.user.email or "noreply@localhost"
-            request.env["mail.mail"].sudo().create({
+            verification_mail = request.env["mail.mail"].sudo().create({
                 "subject": "MotoGene - Manage Your Event Registrations",
                 "body_html": (
                     "<p>Use the secure link below to access your MotoGene registrations.</p>"
@@ -83,6 +83,9 @@ class MotoGeneGuestRegistration(http.Controller):
                 "email_from": sender,
                 "auto_delete": False,
             })
+            # Odoo 18 native post-commit delivery: only this newly created mail.
+            # No global queue processing; no mail if the HTTP request rolls back.
+            verification_mail.send_after_commit()
         return self._page("motogene_event_self_service.request_link_sent")
 
     @http.route(ROOT + "/verify", auth="public", website=True, sitemap=False, methods=["GET"])

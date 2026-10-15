@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from datetime import timedelta
+from unittest.mock import patch
 
 from odoo import fields
 from odoo.exceptions import AccessError, UserError
@@ -95,7 +96,18 @@ class TestMotoGeneGuestCancellation(TransactionCase):
             ("subject", "like", "MotoGene Event Cancellation - Guest Cancellation Test Yoga"),
         ])
         self.assertTrue(self.config._eligible_registration(self.registration))
-        self.config._cancel_for_verified_email(self.registration.id, "customer.example@example.com")
+        # Never connect to SMTP during module unit tests. Assert that the
+        # native Odoo post-commit sender is scheduled for this exact batch.
+        mail_model = type(self.env["mail.mail"])
+        with patch.object(mail_model, "send_after_commit", autospec=True) as send_after_commit:
+            self.config._cancel_for_verified_email(self.registration.id, "customer.example@example.com")
+            send_after_commit.assert_called_once()
+            queued_mails = send_after_commit.call_args.args[0]
+            self.assertEqual(
+                len(queued_mails),
+                2 if "x_studio_event_notification_recipients" in self.event._fields else 1,
+            )
+            self.assertTrue(all(mail.state == "outgoing" for mail in queued_mails))
         self.assertEqual(self.registration.state, "cancel")
         after = self.env["mail.mail"].search_count([
             ("subject", "like", "MotoGene Event Cancellation - Guest Cancellation Test Yoga"),
@@ -165,3 +177,19 @@ class TestMotoGeneGuestCancellation(TransactionCase):
         self.registration.event_ticket_id = ticket
         self.assertEqual(ticket.price, 0.0)
         self.assertTrue(self.config._eligible_registration(self.registration))
+
+    def test_verification_mail_is_scheduled_after_commit_without_cron(self):
+        """The same helper used by HTTP routes dispatches a specific mail only."""
+        mail_model = type(self.env["mail.mail"])
+        with patch.object(mail_model, "send_after_commit", autospec=True) as send_after_commit:
+            mail = self.env["mail.mail"].create({
+                "subject": "MotoGene - Manage Your Event Registrations",
+                "body_html": "<p>Test</p>",
+                "email_to": "customer.example@example.com",
+                "email_from": "noreply@example.com",
+                "auto_delete": False,
+            })
+            mail.send_after_commit()
+            send_after_commit.assert_called_once()
+            self.assertEqual(send_after_commit.call_args.args[0].ids, mail.ids)
+            self.assertEqual(mail.state, "outgoing")
