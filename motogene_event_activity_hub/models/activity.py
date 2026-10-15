@@ -31,7 +31,15 @@ class MotoGeneEventActivity(models.Model):
         help="Timezone used to display session dates and times.")
     ticket_name = fields.Char(default="Free Registration", required=True,
         help="Name of the complimentary registration ticket created for each session.")
-    phone_required = fields.Boolean(help="Require a phone number from every participant.")
+    question_ids = fields.One2many(
+        "event.question", "motogene_activity_id", string="Questions",
+        default=lambda self: self._default_activity_questions(),
+        copy=True,
+        help="Questions copied to the registration form of every linked session.",
+    )
+    # Retained for compatibility with V1.1 activities. Mandatory phone is now
+    # configured on the native Odoo Questions tab instead.
+    phone_required = fields.Boolean(help="Legacy setting for phone requirements.")
     notification_partner_ids = fields.Many2many(
         "res.partner", "motogene_activity_notification_partner_rel", "activity_id", "partner_id",
         string="Staff Notification Recipients",
@@ -42,6 +50,73 @@ class MotoGeneEventActivity(models.Model):
         help="Whether the activity is accessible on its public website.")
     state = fields.Selection([("draft", "Draft"), ("published", "Published")], default="draft",
         required=True, readonly=True, copy=False, help="Current publication state.")
+
+    @api.model
+    def _default_activity_questions(self):
+        return [
+            (0, 0, {
+                "title": _("Full Name (as per IC)"),
+                "question_type": "name",
+                "is_mandatory_answer": True,
+                "once_per_order": False,
+            }),
+            (0, 0, {
+                "title": _("Email"),
+                "question_type": "email",
+                "is_mandatory_answer": True,
+                "once_per_order": False,
+            }),
+            (0, 0, {
+                "title": _("Phone"),
+                "question_type": "phone",
+                "is_mandatory_answer": False,
+                "once_per_order": False,
+            }),
+        ]
+
+    def _ensure_activity_questions(self):
+        """Upgrade existing V1.1 records without replacing session answers."""
+        self.ensure_one()
+        if self.question_ids:
+            return
+        existing = self.session_ids.mapped("event_id").filtered(
+            lambda e: bool(e.question_ids)
+        )[:1]
+        if existing:
+            for question in existing.question_ids.sorted(
+                lambda q: (q.sequence, q.id)
+            ):
+                question.copy({
+                    "event_id": False,
+                    "event_type_id": False,
+                    "motogene_activity_id": self.id,
+                    "motogene_activity_source_id": False,
+                })
+        else:
+            for _, _, vals in self._default_activity_questions():
+                self.env["event.question"].create(dict(
+                    vals, motogene_activity_id=self.id
+                ))
+
+    def _validate_activity_questions(self):
+        self.ensure_one()
+        questions = self.question_ids
+        for kind in ("name", "email"):
+            found = questions.filtered(lambda q: q.question_type == kind)
+            if len(found) != 1 or not found.is_mandatory_answer or found.once_per_order:
+                raise ValidationError(_(
+                    "Exactly one required Name question and one required Email "
+                    "question must be asked separately for every attendee."
+                ))
+        for kind in ("phone", "company_name"):
+            if len(questions.filtered(lambda q: q.question_type == kind)) > 1:
+                raise ValidationError(_(
+                    "Only one Phone and one Company question may be used."
+                ))
+        if any(q.question_type == "simple_choice" and not q.answer_ids for q in questions):
+            raise ValidationError(_(
+                "Selection questions must have at least one answer option."
+            ))
 
     @api.constrains("company_id", "website_id")
     def _validate_website(self):
@@ -108,6 +183,8 @@ class MotoGeneEventActivity(models.Model):
         self.ensure_one()
         vals = {
             "name": "%s - %s" % (self.name, session.name),
+            "subtitle": self.subtitle or False,
+            "description": self.description or False,
             "company_id": self.company_id.id,
             "website_id": self.website_id.id,
             "website_visibility": "link",
@@ -129,19 +206,61 @@ class MotoGeneEventActivity(models.Model):
             vals["organizer_id"] = self.company_id.partner_id.id
         return vals
 
-    def _ensure_questions(self, event):
-        question_model = self.env["event.question"]
-        for q_type, label, required in [
-            ("name", "Full Name (as per IC)", True),
-            ("email", "Email", True),
-            ("phone", "Phone", self.phone_required),
-        ]:
-            existing = event.question_ids.filtered(lambda q: q.question_type == q_type)[:1]
-            vals = {"title": label, "is_mandatory_answer": required, "once_per_order": False}
-            if existing:
-                existing.write(vals)
+    def _sync_question_answers(self, source, dest):
+        """Track native answer-option identities across edits and repeated Sync."""
+        self.ensure_one()
+        answers = self.env["event.question.answer"]
+        for original in source.answer_ids.sorted(lambda a: (a.sequence, a.id)):
+            linked = dest.answer_ids.filtered(
+                lambda a: a.motogene_activity_source_answer_id == original
+            )[:1]
+            if not linked:
+                candidates = dest.answer_ids.filtered(
+                    lambda a: not a.motogene_activity_source_answer_id
+                    and a.name == original.name
+                )
+                linked = candidates[:1]
+            vals = {"name": original.name, "sequence": original.sequence,
+                    "motogene_activity_source_answer_id": original.id}
+            if linked:
+                linked.write(vals)
             else:
-                question_model.create(dict(vals, event_id=event.id, question_type=q_type))
+                answers.create(dict(vals, question_id=dest.id))
+
+    def _sync_questions(self, event):
+        """Use exact Odoo event.question behavior and keep answered IDs stable."""
+        self.ensure_one()
+        question_model = self.env["event.question"]
+        for source in self.question_ids.sorted(lambda q: (q.sequence, q.id)):
+            linked = event.question_ids.filtered(
+                lambda q: q.motogene_activity_source_id == source
+            )[:1]
+            if not linked:
+                # Attach questions created by the prior V1.1 setup to the
+                # centralized source instead of duplicating them.
+                candidates = event.question_ids.filtered(
+                    lambda q: not q.motogene_activity_source_id
+                    and q.question_type == source.question_type
+                    and (q.title == source.title
+                         or source.question_type in ("name", "email", "phone"))
+                )
+                linked = candidates[:1]
+            vals = {
+                "title": source.title,
+                "question_type": source.question_type,
+                "sequence": source.sequence,
+                "is_mandatory_answer": source.is_mandatory_answer,
+                "once_per_order": source.once_per_order,
+                "motogene_activity_source_id": source.id,
+            }
+            if linked:
+                linked.write(vals)
+            else:
+                linked = question_model.create(dict(
+                    vals, event_id=event.id
+                ))
+            if source.question_type == "simple_choice":
+                self._sync_question_answers(source, linked)
 
     def _create_free_ticket(self, event):
         # Newly created sessions have no registrations; remove tickets cloned
@@ -164,6 +283,8 @@ class MotoGeneEventActivity(models.Model):
             activity._validate_website()
             if not activity.session_ids:
                 raise UserError(_("Add at least one session before preparing events."))
+            activity._ensure_activity_questions()
+            activity._validate_activity_questions()
             for session in activity.session_ids.sorted(lambda s: (s.date_begin, s.id)):
                 vals = activity._event_values(session)
                 event = session.event_id
@@ -190,9 +311,9 @@ class MotoGeneEventActivity(models.Model):
                 else:
                     event = self.env["event.event"].create(vals)
                     session.event_id = event.id
-                    activity._ensure_questions(event)
                     activity._create_free_ticket(event)
                 activity._sync_recipients(event)
+                activity._sync_questions(event)
                 activity._sync_child_cover(event)
                 if activity.website_published and not event.website_published:
                     event.write({"website_published": True})

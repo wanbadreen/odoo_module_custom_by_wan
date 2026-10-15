@@ -104,11 +104,61 @@
                             </field>
                         </page>
 
+                        <!-- Native Odoo event.question editing, matching Single Event Questions. -->
+                        <page string="Questions" name="questions">
+                            <field name="question_ids" string="Question" nolabel="1">
+                                <list>
+                                    <field name="sequence" widget="handle"/>
+                                    <field name="title"/>
+                                    <field name="is_mandatory_answer" string="Mandatory"/>
+                                    <field name="once_per_order" string="Once per Order"/>
+                                    <field name="question_type" string="Type"/>
+                                    <field name="answer_ids" widget="many2many_tags"
+                                           invisible="question_type != 'simple_choice'"/>
+                                    <button name="action_view_question_answers" type="object"
+                                            class="p-0" icon="fa-bar-chart pe-1" string="Stats"
+                                            title="Answer Breakdown"
+                                            invisible="question_type not in ['simple_choice', 'text_box']"/>
+                                </list>
+                                <form string="Question">
+                                    <sheet>
+                                        <h1 class="d-flex">
+                                            <field name="title" placeholder="Question title" class="flex-grow-1"/>
+                                        </h1>
+                                        <group>
+                                            <group>
+                                                <field name="is_mandatory_answer"/>
+                                                <field name="question_type" widget="radio"/>
+                                            </group>
+                                            <group>
+                                                <field name="once_per_order"/>
+                                            </group>
+                                        </group>
+                                        <notebook invisible="question_type != 'simple_choice'">
+                                            <page string="Answers" name="answers">
+                                                <field name="answer_ids">
+                                                    <list editable="bottom">
+                                                        <field name="display_name" column_invisible="True"/>
+                                                        <field name="sequence" widget="handle"/>
+                                                        <field name="name"/>
+                                                    </list>
+                                                </field>
+                                            </page>
+                                        </notebook>
+                                    </sheet>
+                                </form>
+                            </field>
+                            <div class="alert alert-info" role="alert">
+                                Questions are synchronized to every linked session when
+                                Prepare / Sync Sessions is run. Questions and answer options
+                                that have already received responses cannot be removed.
+                            </div>
+                        </page>
+
                         <page string="Registration Settings">
                             <group>
                                 <group>
                                     <field name="ticket_name"/>
-                                    <field name="phone_required"/>
                                 </group>
                                 <group>
                                     <field name="notification_partner_ids" widget="many2many_tags"/>
@@ -116,7 +166,7 @@
                             </group>
                             <div class="alert alert-info" role="alert">
                                 Each session uses the standard Odoo registration form. Name and email are required
-                                for every attendee. Complimentary tickets are created when sessions are prepared.
+                                for every attendee. Configure question requirements on the Questions tab. Complimentary tickets are created when sessions are prepared.
                                 Existing mail delivery and scheduled actions are not changed.
                             </div>
                         </page>
