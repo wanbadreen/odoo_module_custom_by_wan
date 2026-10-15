@@ -104,7 +104,7 @@
                 <p><strong>Participant:</strong> <t t-out="registration.name"/></p>
                 <div class="alert alert-warning">Your place will be released. This action cannot be reversed from this page.</div>
                 <div class="d-flex gap-2">
-                    <a href="/motogene/events/manage" class="btn btn-outline-secondary">Keep Registration</a>
+                    <a href="/motogene/events/manage" class="btn btn-outline-dark border-2 fw-semibold px-4 py-2">Keep Registration</a>
                     <form t-att-action="'/motogene/events/manage/cancel/%s' % registration.id" method="post">
                         <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <button class="btn btn-danger" type="submit">Confirm Cancellation</button>
