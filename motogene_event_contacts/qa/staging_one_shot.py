@@ -263,22 +263,30 @@ finally:
     # This time all event email schedulers AND cursor.commit are blocked.
     # Roll back regardless of failed tests or errors in test setup.
     E.cr.rollback()
-    audit_queries = {
-        "Contacts": "SELECT count(*) FROM res_partner WHERE email ILIKE %s",
-        "Events": "SELECT count(*) FROM event_event WHERE name ILIKE %s",
-        "Tags": "SELECT count(*) FROM res_partner_category WHERE name ILIKE %s",
-        "Bookings": "SELECT count(*) FROM motogene_event_booking WHERE owner_email ILIKE %s",
-        "Registrations": "SELECT count(*) FROM event_registration WHERE email ILIKE %s",
-    }
-    remaining = {}
-    for table_name, query in audit_queries.items():
-        E.cr.execute(query, [prefix + "%"])
-        remaining[table_name] = E.cr.fetchone()[0]
-    if any(remaining.values()):
-        print("WARNING: QA rollback audit found new rows: %s" % remaining, flush=True)
-    else:
-        print("\nROLLBACK VERIFIED: no Contacts, Events, Tags, Bookings or "
-              "Registrations from this QA run remain.", flush=True)
+    # Odoo 18 stores translated Event/Activity names in JSONB; raw SQL
+    # ILIKE on that column raises UndefinedFunction. ORM ilike is correct.
+    # This verification is separate from test PASS/FAIL and is read-only.
+    try:
+        audit_models = {
+            "Contacts": ("res.partner", "email"),
+            "Events": ("event.event", "name"),
+            "Activities": ("motogene.event.activity", "name"),
+            "Tags": ("res.partner.category", "name"),
+            "Bookings": ("motogene.event.booking", "owner_email"),
+            "Registrations by Email": ("event.registration", "email"),
+            "Registrations by Name": ("event.registration", "name"),
+        }
+        remaining = {
+            label: E[model].sudo().search_count([(field, "=ilike", prefix + "%")])
+            for label, (model, field) in audit_models.items()
+        }
+        if any(remaining.values()):
+            print("WARNING: QA rollback audit found new rows: %s" % remaining, flush=True)
+        else:
+            print("\nROLLBACK VERIFIED: no Contacts, Events, Activities, Tags, "
+                  "Bookings or Registrations from this QA run remain.", flush=True)
+    except Exception as exc:
+        print("ROLLBACK AUDIT ERROR: %s: %s" % (type(exc).__name__, exc), flush=True)
 
 passed = sum(status == "PASS" for _, status, _ in results)
 skipped = sum(status == "SKIP" for _, status, _ in results)
