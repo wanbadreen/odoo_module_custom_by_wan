@@ -46,6 +46,13 @@ class TestMotoGeneOperationsBundle(TransactionCase):
                 "partner_id": False,
             })
 
+    def _ops_todos(self, registration, summary):
+        return self.env["mail.activity"].sudo().search([
+            ("res_model_id", "=", self.env["ir.model"]._get_id("event.registration")),
+            ("res_id", "=", registration.id),
+            ("summary", "=", summary),
+        ])
+
     def test_manual_export_without_email(self):
         r = self._register("QA Export", "qa-export@example.invalid")
         wizard = self.env["motogene.event.export.wizard"].create({
@@ -88,31 +95,33 @@ class TestMotoGeneOperationsBundle(TransactionCase):
         ))
 
     def test_staff_new_registration_todo_once(self):
+        staff_user = self.env.ref("base.user_admin")
+        self.assertTrue(staff_user.active)
         self.event.write({
             "motogene_ops_notify_new": True,
-            "motogene_ops_activity_user_id": self.env.user.id,
+            "motogene_ops_activity_user_id": staff_user.id,
         })
         r = self._register("QA New ToDo", "qa-todo@example.invalid")
-        scheduled = r.activity_ids.filtered(
-            lambda a: a.summary == "MotoGene Event — New Registration"
-        )
-        self.assertEqual(len(scheduled), 1)
+        summary = "MotoGene Event — New Registration"
+        scheduled = self._ops_todos(r, summary)
+        self.assertEqual(len(scheduled), 1, "Missing To Do after registration create")
+        self.assertEqual(scheduled.user_id, staff_user)
         r._motogene_staff_activity("new")
-        self.assertEqual(len(r.activity_ids.filtered(
-            lambda a: a.summary == "MotoGene Event — New Registration"
-        )), 1)
+        self.assertEqual(len(self._ops_todos(r, summary)), 1)
 
     def test_cancellation_todo_is_opt_in(self):
+        staff_user = self.env.ref("base.user_admin")
+        self.assertTrue(staff_user.active)
         self.event.write({
             "motogene_ops_notify_cancel": True,
-            "motogene_ops_activity_user_id": self.env.user.id,
+            "motogene_ops_activity_user_id": staff_user.id,
         })
         r = self._register("QA Cancel ToDo")
         r.action_cancel()
         self.assertEqual(r.state, "cancel")
-        self.assertEqual(len(r.activity_ids.filtered(
-            lambda a: a.summary == "MotoGene Event — Cancellation"
-        )), 1)
+        scheduled = self._ops_todos(r, "MotoGene Event — Cancellation")
+        self.assertEqual(len(scheduled), 1, "Missing cancellation To Do")
+        self.assertEqual(scheduled.user_id, staff_user)
 
     def test_native_email_readiness_does_not_send(self):
         self._register("QA No Email")
@@ -126,7 +135,7 @@ class TestMotoGeneOperationsBundle(TransactionCase):
 
     def test_staff_recipients_union(self):
         self.event.motogene_ops_staff_ids = [(4, self.staff.id)]
-        config = self.env["motogene.event.self_service.config"].create({
+        config = self.env["motogene.event.self.service.config"].create({
             "name": "Ops Recipient QA",
             "website_id": self.website.id,
             "company_id": self.env.company.id,

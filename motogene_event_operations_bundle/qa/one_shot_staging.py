@@ -79,6 +79,21 @@ try:
                 "name": name, "email": email or False,
             })
 
+        # Real assigned employee, not the technical Odoo shell/root user.
+        root_user = E.ref("base.user_root", raise_if_not_found=False)
+        staff_user = E["res.users"].sudo().search([
+            ("active", "=", True), ("share", "=", False),
+            ("company_ids", "in", [website.company_id.id]),
+            ("id", "!=", root_user.id if root_user else 0),
+        ], limit=1)
+
+        def pending_ops_todo(registration, summary):
+            return E["mail.activity"].sudo().search([
+                ("res_model_id", "=", E["ir.model"]._get_id("event.registration")),
+                ("res_id", "=", registration.id),
+                ("summary", "=", summary),
+            ])
+
         def c01():
             w = E["motogene.event.export.wizard"].create({
                 "scope": "event", "event_id": event.id,
@@ -118,32 +133,64 @@ try:
         case("OPS03 staff To Do off by default", c03)
 
         def c04():
+            if not staff_user:
+                raise AssertionError("No active internal Operations user available for test.")
             event.write({
                 "motogene_ops_notify_new": True,
-                "motogene_ops_activity_user_id": E.user.id,
+                "motogene_ops_activity_user_id": staff_user.id,
             })
             r = reg("QA To Do New", prefix + "-new@example.invalid")
-            assert len(r.activity_ids.filtered(lambda a: a.summary == "MotoGene Event — New Registration")) == 1
+            summary = "MotoGene Event — New Registration"
+            scheduled = pending_ops_todo(r, summary)
+            if len(scheduled) != 1:
+                related = E["mail.activity"].sudo().search([
+                    ("res_model_id", "=", E["ir.model"]._get_id("event.registration")),
+                    ("res_id", "=", r.id),
+                ])
+                raise AssertionError(
+                    "Expected one new-registration To Do; found %s. "
+                    "User=%s active=%s state=%s toggle=%s "
+                    "context_skip=%s related=%s" % (
+                        len(scheduled), staff_user.id, staff_user.active,
+                        r.state, event.motogene_ops_notify_new,
+                        E.context.get("mail_activity_automation_skip"),
+                        [(a.id, a.summary, a.user_id.id) for a in related],
+                    )
+                )
+            if scheduled.user_id != staff_user:
+                raise AssertionError("To Do assigned to wrong employee")
             r._motogene_staff_activity("new")
-            assert len(r.activity_ids.filtered(lambda a: a.summary == "MotoGene Event — New Registration")) == 1
-            shared["reg"] = r
+            if len(pending_ops_todo(r, summary)) != 1:
+                raise AssertionError("Duplicate To Do created on retry")
         case("OPS04 opt-in new registration To Do + dedupe", c04)
 
         def c05():
-            event.write({"motogene_ops_notify_cancel": True})
-            r = shared["reg"]
+            if not staff_user:
+                raise AssertionError("No active internal Operations user available for test.")
+            event.write({
+                "motogene_ops_notify_cancel": True,
+                "motogene_ops_activity_user_id": staff_user.id,
+            })
+            r = reg("QA Cancel To Do", prefix + "-cancel@example.invalid")
             r.action_cancel()
-            assert r.state == "cancel"
-            assert len(r.activity_ids.filtered(lambda a: a.summary == "MotoGene Event — Cancellation")) == 1
-        case("OPS05 opt-in cancellation To Do", c05, ("reg",))
+            summary = "MotoGene Event — Cancellation"
+            scheduled = pending_ops_todo(r, summary)
+            if r.state != "cancel" or len(scheduled) != 1:
+                raise AssertionError(
+                    "Cancellation To Do missing: state=%s, found=%s, staff=%s" %
+                    (r.state, len(scheduled), staff_user.id)
+                )
+            if scheduled.user_id != staff_user:
+                raise AssertionError("Cancellation To Do assigned to wrong employee")
+        case("OPS05 opt-in cancellation To Do", c05)
 
         def c06():
             event.motogene_ops_staff_ids = [(4, contact.id)]
-            config = E["motogene.event.self_service.config"].search([
+            config = E["motogene.event.self.service.config"].search([
                 ("website_id", "=", website.id), ("company_id", "=", website.company_id.id),
             ], limit=1)
             if not config:
-                config = E["motogene.event.self_service.config"].create({
+                config = E["motogene.event.self.service.config"].create({
                     "name": prefix + " Config",
                     "website_id": website.id, "company_id": website.company_id.id,
                 })
