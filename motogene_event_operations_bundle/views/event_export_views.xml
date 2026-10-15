@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_motogene_event_export_wizard" model="ir.ui.view">
+        <field name="name">motogene.event.export.wizard.form</field>
+        <field name="model">motogene.event.export.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Export Event Registrations to Excel">
+                <sheet>
+                    <group>
+                        <field name="scope" widget="radio"/>
+                        <field name="event_id" invisible="scope != 'event'"
+                               required="scope == 'event'"/>
+                        <field name="activity_id" invisible="scope != 'activity'"
+                               required="scope == 'activity'"/>
+                    </group>
+                    <group string="New Registrations Date Filter (Optional)">
+                        <field name="date_from"/>
+                        <field name="date_to"/>
+                        <field name="include_cancelled"/>
+                    </group>
+                    <div class="alert alert-info" role="alert">
+                        Generates a two-sheet Excel workbook: New Registrations (filtered
+                        by date when selected) and Full Attendee List for this Event or
+                        Activity. Includes the Booking Email, Session, and custom Questions.
+                        No confirmation email is sent.
+                    </div>
+                    <field name="file_data" invisible="1"/>
+                    <field name="file_name" invisible="1"/>
+                </sheet>
+                <footer>
+                    <button name="action_export_xlsx" type="object"
+                            string="Download Excel" class="btn-primary"/>
+                    <button special="cancel" string="Close" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+    <record id="action_motogene_event_export_wizard" model="ir.actions.act_window">
+        <field name="name">Attendee Excel Export</field>
+        <field name="res_model">motogene.event.export.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="view_id" ref="view_motogene_event_export_wizard"/>
+        <field name="target">new</field>
+    </record>
+    <menuitem id="menu_motogene_event_export"
+              name="Attendee Excel Export"
+              parent="event.event_main_menu"
+              action="action_motogene_event_export_wizard"
+              groups="event.group_event_user" sequence="85"/>
+</odoo>

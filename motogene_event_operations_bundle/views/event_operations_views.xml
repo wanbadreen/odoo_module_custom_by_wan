@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_motogene_ops_event_form" model="ir.ui.view">
+        <field name="name">event.event.motogene.operations</field>
+        <field name="model">event.event</field>
+        <field name="inherit_id" ref="event.view_event_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//notebook" position="inside">
+                <page name="motogene_ops_communications" string="MotoGene Operations">
+                    <group string="Staff Notification Contacts">
+                        <field name="motogene_ops_staff_ids" widget="many2many_tags"
+                               options="{'no_create': True}"/>
+                        <div class="text-muted">
+                            These Contacts can receive existing self-service cancellation alerts.
+                            Adding a Contact does not send an email.
+                        </div>
+                    </group>
+                    <group string="Optional Internal Odoo Activities">
+                        <field name="motogene_ops_activity_user_id"/>
+                        <field name="motogene_ops_notify_new"/>
+                        <field name="motogene_ops_notify_cancel"/>
+                        <div class="alert alert-info" role="alert">
+                            Internal To Do notifications are disabled by default.
+                            Enable only after assigning an internal user.
+                        </div>
+                    </group>
+                    <group string="Booking Owner Confirmation (Opt-in)">
+                        <field name="motogene_ops_booking_confirmation_enabled"/>
+                        <div class="alert alert-warning" role="alert">
+                            Disabled by default. When enabled, the booking owner receives
+                            one summary email after each completed group registration.
+                            Existing native per-attendee emails remain separate.
+                        </div>
+                    </group>
+                    <group string="Email Readiness — Diagnostic Only">
+                        <field name="motogene_ops_email_audit" readonly="1"
+                               widget="text"/>
+                        <button name="action_motogene_ops_email_check" type="object"
+                                string="Check Email Readiness" class="btn-secondary"/>
+                        <div class="alert alert-warning" role="alert">
+                            Native Odoo confirmation schedules and templates remain unchanged.
+                            This check does not activate/deactivate or send emails.
+                            Review outgoing mail, SMTP and guest access before production.
+                        </div>
+                    </group>
+                </page>
+            </xpath>
+            <xpath expr="//sheet/div[@name='button_box']" position="inside">
+                <button name="action_motogene_export_attendees"
+                        type="object" class="oe_stat_button" icon="fa-file-excel-o"
+                        string="Export Attendees"/>
+            </xpath>
+        </field>
+    </record>
+    <record id="view_motogene_ops_activity_form" model="ir.ui.view">
+        <field name="name">motogene.event.activity.operations</field>
+        <field name="model">motogene.event.activity</field>
+        <field name="inherit_id" ref="motogene_event_activity_hub.view_activity_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form/sheet/notebook" position="inside">
+                <page name="motogene_ops_activity_email" string="Booking Confirmation">
+                    <group>
+                        <field name="motogene_ops_booking_confirmation_enabled"/>
+                    </group>
+                    <div class="alert alert-warning" role="alert">
+                        Optional booking owner summary email for all linked sessions.
+                        Leave disabled until email testing has been approved.
+                        Changes are applied on Prepare / Sync Sessions.
+                    </div>
+                </page>
+            </xpath>
+            <xpath expr="//form/header" position="inside">
+                <button name="action_motogene_export_attendees" type="object"
+                        string="Export Attendees (Excel)" class="btn-secondary"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

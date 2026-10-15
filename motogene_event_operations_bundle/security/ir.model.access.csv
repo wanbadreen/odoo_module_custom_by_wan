@@ -1,0 +1,2 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_motogene_event_export_user,motogene.event.export.wizard.user,model_motogene_event_export_wizard,event.group_event_user,1,1,1,1
