@@ -14,8 +14,6 @@
                     <field name="expiry_date"/>
                     <field name="reward_type" invisible="1"/>
                     <field name="mystery_product_id" invisible="reward_type != 'mystery'" required="reward_type == 'mystery'"/>
-                    <field name="photo_filename" invisible="1"/>
-                    <field name="card_photo" filename="photo_filename"/>
                     <field name="notes"/>
                 </group>
                 <group string="Choose Gift Colours / Variants" invisible="not gift_choice_ids">
@@ -36,7 +34,7 @@
                         </list>
                     </field>
                 </group>
-                <p>The configured gift or rebate will be added to this quotation automatically.</p>
+                <p>Gifts can be redeemed without a paid purchase. Rebates require a purchase covering the rebate amount. The configured reward will be added automatically.</p>
                 <footer>
                     <button name="action_confirm" type="object" string="Confirm Redemption" class="btn-primary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
@@ -45,4 +43,5 @@
         </field>
     </record>
 </odoo>
+
 

@@ -49,7 +49,7 @@
                             <field name="prize_preview" invisible="state == 'confirmed'"/>
                             <field name="prize_snapshot" invisible="state != 'confirmed'"/>
                         </group>
-                        <group string="Next Purchase and Card Evidence">
+                        <group string="Redemption Quotation">
                             <field name="target_sale_id" readonly="state != 'draft'"
                                    domain="[('state', 'in', ['draft', 'sent']), ('company_id', '=', company_id), ('partner_id.commercial_partner_id', '=', commercial_partner_id)]"
                                    options="{'no_create': True, 'no_create_edit': True}"/>
@@ -57,7 +57,7 @@
                             <field name="reward_type" invisible="1"/>
                             <field name="mystery_product_id" invisible="reward_type != 'mystery'" required="reward_type == 'mystery'" readonly="state != 'draft'"/>
                             <field name="photo_filename" invisible="1"/>
-                            <field name="card_photo" filename="photo_filename" required="1" readonly="state != 'draft'"/>
+                            <field name="card_photo" filename="photo_filename" readonly="1" invisible="not card_photo"/>
                             <field name="redeemed_at" invisible="state != 'confirmed'"/>
                             <field name="redeemed_by_id" invisible="state != 'confirmed'"/>
                         </group>
@@ -112,4 +112,5 @@
               parent="menu_motogene_promotions_root" action="action_scratch_redemption"
               groups="sales_team.group_sale_salesman,stock.group_stock_user" sequence="30"/>
 </odoo>
+
 

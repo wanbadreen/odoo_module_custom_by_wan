@@ -128,7 +128,7 @@ class ScratchRedemption(models.Model):
             if not record.card_id or not order:
                 continue
             if order == record.source_sale_id:
-                raise ValidationError(_("Select a separate Sales Order for the next purchase."))
+                raise ValidationError(_("Select a separate quotation for card redemption."))
             if order.date_order and record.source_sale_id.date_order and order.date_order < record.source_sale_id.date_order:
                 raise ValidationError(_("The redemption quotation cannot be dated before the original purchase."))
             if order.company_id != record.company_id:
@@ -164,13 +164,10 @@ class ScratchRedemption(models.Model):
         self._check_redemption_order()
         if order.state not in ("draft", "sent"):
             raise UserError(_("Redeem on a draft quotation before Sales Order confirmation."))
-        if not any(line.product_id and not line.display_type and not line.is_motogene_promo_reward
-                   and line.product_uom_qty > 0 and line.price_subtotal > 0 for line in order.order_line):
-            raise UserError(_("The redemption quotation must contain a paid purchase."))
+        # Gifts may be redeemed immediately on an empty walk-in quotation.
+        # Rebate coverage is enforced separately when adding the rebate reward.
         if not self.expiry_date or self.expiry_date < fields.Date.context_today(self):
             raise UserError(_("The card redemption expiry has passed or is missing. Set the fixed expiry in the promotion for legacy cards."))
-        if not self.card_photo:
-            raise UserError(_("Attach a photo showing the scratched prize and serial number."))
         if not self.prize_preview:
             raise UserError(_("Configure Redemption Prize for card type %s in the promotion's Serial Pools.") % card.prefix)
         snapshot = self._add_reward_to_order()
@@ -238,4 +235,5 @@ class ScratchRedemption(models.Model):
             record.reward_line_ids._unlink_cancelled_scratch_rewards()
             card._restore_after_redemption_cancel(record)
             record.message_post(body=_("Redemption reversed because its Sales Order was cancelled. The card is Dispatched again; its original expiry still applies."))
+
 

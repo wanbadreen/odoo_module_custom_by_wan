@@ -16,7 +16,8 @@ class ScratchRedemptionWizard(models.TransientModel):
     reward_type = fields.Selection(related="pool_id.redemption_reward_type")
     prize_description = fields.Char(related="pool_id.prize_description", string="Prize")
     mystery_product_id = fields.Many2one("product.product", string="Mystery Gift Product", domain=[("sale_ok", "=", True)])
-    card_photo = fields.Binary(required=True, string="Scratched Card Photo")
+    # Retained for compatibility with historical records and integrations.
+    card_photo = fields.Binary(string="Scratched Card Photo")
     photo_filename = fields.Char()
     notes = fields.Text(string="CS Verification Notes")
 
@@ -56,4 +57,5 @@ class ScratchRedemptionWizard(models.TransientModel):
         })
         record.action_confirm_redemption()
         return {"type": "ir.actions.act_window_close"}
+
 

@@ -113,8 +113,11 @@ class ScratchRedemptionSaleOrder(models.Model):
                 record._check_redemption_order()
             paid = sum(l.price_subtotal for l in order.order_line if l.product_uom_qty > 0 and not l.display_type and not l.is_motogene_promo_reward)
             rebates = -sum(l.price_subtotal for l in order.order_line if l.scratch_redemption_id and l.price_subtotal < 0)
-            if paid <= 0 or rebates > paid:
-                raise UserError(_("A redeemed quotation must retain a paid purchase covering its rebates. Cancel the quotation to reverse redemption."))
+            # Product and mystery gifts do not require another paid purchase.
+            # Inspect actual reward lines so later pool edits cannot waive an
+            # already-applied rebate's purchase coverage.
+            if rebates > 0 and (paid <= 0 or rebates > paid):
+                raise UserError(_("A quotation with scratch rebates must retain a paid purchase covering those rebates. Cancel the quotation to reverse redemption."))
 
     def write(self, vals):
         # Serialize customer/amount/state changes with redemption confirmation.
@@ -187,4 +190,5 @@ class ScratchRedemptionSaleLine(models.Model):
         if any(not l.scratch_redemption_id or l.scratch_redemption_id.state != "cancelled" or l.order_id.state != "cancel" for l in self):
             raise UserError(_("Only cancelled redemption rewards can be removed."))
         return super(ScratchRedemptionSaleLine, self.with_context(motogene_skip_promotion_engine=True)).unlink()
+
 

@@ -110,10 +110,10 @@ class TestScratchRedemption(TransactionCase):
         self.card.modified(["expiry_date"])
         record.invalidate_recordset()
         record.card_photo = False
-        with self.assertRaises(UserError), self.env.cr.savepoint():
-            record.action_confirm_redemption()
+        record.action_confirm_redemption()
+        self.assertEqual(self.card.state, "redeemed")
 
-    def test_wrong_customer_original_order_and_empty_purchase(self):
+    def test_wrong_customer_original_order_and_empty_gift_redemption(self):
         with self.assertRaises(ValidationError), self.env.cr.savepoint():
             self._redemption(target_sale_id=self.source_order.id)
         other_partner = self.env["res.partner"].create({"name": "Different customer"})
@@ -121,9 +121,13 @@ class TestScratchRedemption(TransactionCase):
         with self.assertRaises(ValidationError), self.env.cr.savepoint():
             self._redemption(target_sale_id=other.id)
         empty = self.env["sale.order"].create({"partner_id": self.partner.id})
-        record = self._redemption(target_sale_id=empty.id)
-        with self.assertRaises(UserError), self.env.cr.savepoint():
-            record.action_confirm_redemption()
+        record = self._redemption(target_sale_id=empty.id, card_photo=False)
+        record.action_confirm_redemption()
+        self.assertEqual(empty.order_line, record.reward_line_ids)
+        self.assertEqual(empty.amount_total, 0)
+        empty.action_confirm()
+        self.assertEqual(empty.state, "sale")
+        self.assertEqual(self.card.state, "redeemed")
 
     def test_confirmed_record_and_card_cannot_be_reset(self):
         record = self._redemption()
@@ -182,7 +186,7 @@ class TestScratchRedemption(TransactionCase):
         self.assertEqual(self.card.redemption_id, second)
         self.assertEqual(record.state, "cancelled")
 
-    def test_reward_edit_and_paid_purchase_removal_blocked(self):
+    def test_gift_reward_protected_but_paid_purchase_removal_allowed(self):
         paid = self.target_order.order_line
         record = self._redemption()
         record.action_confirm_redemption()
@@ -190,10 +194,10 @@ class TestScratchRedemption(TransactionCase):
             record.reward_line_ids.unlink()
         with self.assertRaises(UserError), self.env.cr.savepoint():
             record.reward_line_ids.price_unit = 1
-        with self.assertRaises(UserError), self.env.cr.savepoint():
-            paid.unlink()
-        with self.assertRaises(UserError), self.env.cr.savepoint():
-            paid.price_unit = 0
+        paid.price_unit = 0
+        paid.unlink()
+        self.assertEqual(self.target_order.order_line, record.reward_line_ids)
+        self.target_order._check_scratch_redemption_purchase()
 
     def test_rebate_and_purchase_cap(self):
         rebate_product = self.env["product.product"].create({"name": "Scratch Rebate", "type": "service"})
@@ -204,6 +208,46 @@ class TestScratchRedemption(TransactionCase):
         self.assertEqual(record.reward_line_ids.product_id, rebate_product)
         with self.assertRaises(UserError), self.env.cr.savepoint():
             self.target_order.order_line.filtered(lambda l: not l.is_motogene_promo_reward).price_unit = 5
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.target_order.order_line.filtered(lambda l: not l.is_motogene_promo_reward).unlink()
+
+    def test_rebate_on_empty_quotation_stays_blocked_without_photo(self):
+        rebate_product = self.env["product.product"].create({"name": "Walk-in Rebate", "type": "service"})
+        self.pool.write({"redemption_reward_type": "rebate", "rebate_product_id": rebate_product.id, "rebate_amount": 10})
+        empty = self.env["sale.order"].create({"partner_id": self.partner.id})
+        record = self._redemption(target_sale_id=empty.id, card_photo=False)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            record.action_confirm_redemption()
+        self.assertEqual(record.state, "draft")
+        self.assertEqual(self.card.state, "sent")
+        self.assertFalse(empty.order_line)
+
+    def test_empty_walkin_wizard_without_photo_and_cancel(self):
+        empty = self.env["sale.order"].create({"partner_id": self.partner.id})
+        wizard = self.env["motogene.scratch.redemption.wizard"].create({
+            "sale_id": empty.id, "card_id": self.card.id,
+        })
+        wizard.action_confirm()
+        record = empty.scratch_redemption_ids
+        self.assertEqual(record.state, "confirmed")
+        self.assertFalse(record.card_photo)
+        self.assertEqual(empty.order_line, record.reward_line_ids)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        empty.action_cancel()
+        self.assertEqual(record.state, "cancelled")
+        self.assertEqual(self.card.state, "sent")
+        self.assertFalse(empty.order_line)
+
+    def test_mystery_gift_on_empty_walkin_quotation(self):
+        self.pool.redemption_reward_type = "mystery"
+        empty = self.env["sale.order"].create({"partner_id": self.partner.id})
+        record = self._redemption(target_sale_id=empty.id, card_photo=False, mystery_product_id=self.product.id)
+        record.action_confirm_redemption()
+        empty.action_confirm()
+        self.assertEqual(empty.state, "sale")
+        self.assertEqual(record.reward_line_ids.product_id, self.product)
+        self.assertEqual(empty.amount_total, 0)
 
     def test_missing_reward_configuration_rolls_back(self):
         self.pool.reward_product_line_ids.unlink()
@@ -345,3 +389,4 @@ class TestScratchRedemption(TransactionCase):
         self.assertEqual(record.pool_id, pool)
         self.assertEqual(Model.search([("id", "=", record.id), ("pool_id", "in", pool.ids)]), record)
         self.assertEqual(record.reward_type, "mystery")
+
