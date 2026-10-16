@@ -1,10 +1,8 @@
 # -*- coding: utf-8 -*-
-import math
 import logging
-from collections import Counter
 
 from odoo import api, fields, models, _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -62,6 +60,8 @@ class StockPicking(models.Model):
     lucky_draw_program_id = fields.Many2one(
         related="sale_id.lucky_draw_program_id", readonly=True,
     )
+    scratch_allocation_deferred = fields.Boolean(related="sale_id.scratch_allocation_deferred", string="Card Allocation Deferred", readonly=True)
+    scratch_pending_cards = fields.Integer(related="sale_id.scratch_pending_cards", readonly=True)
     scratch_program_id = fields.Many2one(related="sale_id.scratch_program_id", readonly=True)
     scratch_base_cards = fields.Integer(related="sale_id.scratch_base_cards", readonly=True)
     scratch_vip_cards = fields.Integer(related="sale_id.scratch_vip_cards", readonly=True)
@@ -72,85 +72,136 @@ class StockPicking(models.Model):
     )
     scratch_card_line_ids = fields.One2many(
         "motogene.scratch.picking.card", "picking_id", string="Scratch & Win Cards to Pack",
-        copy=False,
+        copy=False, domain=[("state", "!=", "released")],
     )
 
-    def _scratch_expected_types(self):
-        """Cards on this delivery; unmatched spend cards go to the first delivery."""
-        self.ensure_one()
-        program = self.sale_id.scratch_program_id
-        if not program or not self.sale_id.scratch_total_cards or self.picking_type_code != "outgoing":
-            return []
-        packages = {line.product_tmpl_id.id: line for line in program.scratch_package_line_ids}
-        types = []
-        # Keep the VIP decision taken when the Sales Order was confirmed.
-        vip = bool(self.sale_id.scratch_vip_cards)
-        for move in self.move_ids.filtered(lambda m: m.state != "cancel"):
-            package = packages.get(move.product_id.product_tmpl_id.id)
-            if not package:
-                continue
-            unit_count = math.floor(float(move.product_uom_qty or 0) + 1e-9)
-            configured = [p.strip().upper() for p in (package.card_prefixes or "").split(",") if p.strip()]
-            if not configured and package.advertised_cards:
-                raise UserError(_("Set the card types for package %s in the promotion first.") % package.product_tmpl_id.display_name)
-            if len(configured) != package.advertised_cards:
-                raise UserError(_("Card types and Included Cards disagree for package %s.") % package.product_tmpl_id.display_name)
-            types.extend(configured * unit_count)
-            if vip:
-                types.extend([program.scratch_vip_prefix] * unit_count)
+    scratch_return_source_id = fields.Many2one(
+        "stock.picking", string="Original Scratch Card Delivery",
+        compute="_compute_scratch_return_source", store=True, index=True, recursive=True,
+    )
+    scratch_return_available_card_ids = fields.Many2many(
+        "motogene.scratch.picking.card", string="Original Delivery Card History",
+        compute="_compute_scratch_return_available_cards",
+    )
+    scratch_return_card_ids = fields.Many2many(
+        "motogene.scratch.picking.card", "motogene_scratch_return_card_rel",
+        "return_picking_id", "card_id", string="Physical Cards Received",
+        copy=False,
+        help="Select only physical cards received back. Product returns alone do not void cards.",
+    )
 
-        # The advertised package cards are already included in spend-based entitlement.
-        # Allocate any balance from other spending exactly once across deliveries.
-        included = sum(
-            len([p for p in (package.card_prefixes or "").split(",") if p.strip()])
-            * math.floor(float(line.product_uom_qty or 0) + 1e-9)
-            for line in self.sale_id.order_line
-            for package in [packages.get(line.product_id.product_tmpl_id.id)]
-            if package and line.product_uom_qty > 0 and program._is_normal_paid_line(line)
-        )
-        extra = self.sale_id.scratch_base_cards - included
-        if extra < 0:
-            raise UserError(_("Package card allocations exceed the order's spend-based card entitlement."))
-        if extra:
-            earlier = self.sale_id.picking_ids.filtered(
-                lambda p: p.id != self.id and p.picking_type_code == "outgoing"
-                and p.state != "cancel" and p.scratch_card_line_ids
+    @api.depends("return_id", "return_id.state", "return_id.location_dest_id.usage",
+                 "backorder_id", "backorder_id.scratch_return_source_id", "location_id.usage", "location_dest_id.usage")
+    def _compute_scratch_return_source(self):
+        for picking in self:
+            source = self.env["stock.picking"]
+            ancestor = picking
+            while ancestor:
+                if ancestor.return_id:
+                    source = ancestor.return_id
+                    break
+                ancestor = ancestor.backorder_id
+            # A return can reuse an outgoing operation type in standard Odoo.
+            # Identify customer returns by locations rather than operation code.
+            picking.scratch_return_source_id = source if (
+                source and source.state == "done"
+                and source.location_dest_id.usage == "customer"
+                and picking.location_id.usage == "customer"
+                and picking.location_dest_id.usage != "customer"
+            ) else False
+
+    @api.depends("scratch_return_source_id", "scratch_return_source_id.scratch_card_line_ids.state")
+    def _compute_scratch_return_available_cards(self):
+        for picking in self:
+            picking.scratch_return_available_card_ids = picking.scratch_return_source_id.scratch_card_line_ids
+
+    def write(self, vals):
+        if "scratch_return_card_ids" in vals and any(p.state in ("done", "cancel") for p in self):
+            raise UserError(_("Physical card selections cannot be changed on a completed or cancelled return."))
+        return super().write(vals)
+
+    @api.constrains("scratch_return_card_ids", "return_id", "location_id", "location_dest_id")
+    def _check_scratch_return_selection(self):
+        self._validate_scratch_return_cards()
+
+    def _validate_scratch_return_cards(self):
+        selected = set()
+        for picking in self:
+            for card in picking.scratch_return_card_ids:
+                if card.id in selected:
+                    raise ValidationError(_("Card %s cannot be received on two returns at once.") % card.serial_number)
+                selected.add(card.id)
+                if not picking.scratch_return_source_id or card.picking_id != picking.scratch_return_source_id:
+                    raise ValidationError(_("Card %s does not belong to the original delivery.") % card.serial_number)
+                completed_here = card.state == "void" and card.return_picking_id == picking and picking.state == "done"
+                if card.state != "sent" and not completed_here:
+                    raise ValidationError(_("Card %s is not Dispatched. It may already be returned or redeemed.") % card.serial_number)
+
+    def _lock_scratch_return_cards(self):
+        cards = self.mapped("scratch_return_card_ids").sorted("id")
+        if cards:
+            cards.flush_recordset(["state", "return_picking_id"])
+            self.env.cr.execute(
+                "SELECT id FROM motogene_scratch_picking_card WHERE id IN %s ORDER BY id FOR UPDATE",
+                [tuple(cards.ids)],
             )
-            if not earlier and self.id == min(
-                self.sale_id.picking_ids.filtered(
-                    lambda p: p.picking_type_code == "outgoing" and p.state != "cancel"
-                ).ids or [self.id]
-            ):
-                types.extend([program.scratch_extra_prefix] * extra)
-        return types
+            cards.invalidate_recordset(["state", "return_picking_id"])
+        self._validate_scratch_return_cards()
+
+    def _void_received_scratch_cards(self):
+        self._lock_scratch_return_cards()
+        for picking in self.filtered(lambda p: p.state == "done"):
+            cards = picking.scratch_return_card_ids.filtered(lambda c: c.state == "sent")
+            if cards:
+                cards.write({
+                    "state": "void", "return_picking_id": picking.id,
+                    "returned_at": fields.Datetime.now(), "returned_by_id": self.env.user.id,
+                })
+                picking.message_post(body=_("Physical scratch cards returned and voided: %s") % ", ".join(cards.mapped("serial_number")))
+
+    def _scratch_expected_types(self):
+        self.ensure_one()
+        if self.picking_type_code != "outgoing":
+            return []
+        return self.sale_id._scratch_order_types() if self.sale_id else []
+
+    @api.model_create_multi
+    def create(self, vals_list):
+        if any(vals.get("scratch_return_card_ids") and vals.get("state") in ("done", "cancel") for vals in vals_list):
+            raise UserError(_("Physical card selections must be recorded before validating the return."))
+        pickings = super().create(vals_list)
+        pickings.filtered(lambda p: p.picking_type_code == "outgoing" and not p.scratch_return_source_id).mapped("sale_id")._assign_scratch_cards_to_delivery()
+        return pickings
 
     def action_prepare_scratch_cards(self):
-        for picking in self:
-            if picking.state in ("done", "cancel"):
-                raise UserError(_("Scratch cards can only be prepared before delivery validation."))
-            expected = picking._scratch_expected_types()
-            if picking.scratch_card_line_ids:
-                if Counter(picking.scratch_card_line_ids.mapped("prefix")) != Counter(expected):
-                    raise UserError(_("The delivery changed after cards were assigned. Review the allocation before proceeding."))
-                continue
-            pools = {pool.prefix: pool for pool in picking.sale_id.scratch_program_id.scratch_serial_pool_ids}
-            for prefix in expected:
-                if prefix not in pools:
-                    raise UserError(_("Configure serial range for card type %s first.") % prefix)
-                self.env["motogene.scratch.picking.card"].create({
-                    "picking_id": picking.id,
-                    "program_id": picking.sale_id.scratch_program_id.id,
-                    "prefix": prefix,
-                    "serial_number": pools[prefix].reserve_serial(),
-                })
+        # Compatibility for views from older installed versions during upgrade.
+        self.filtered(lambda p: p.picking_type_code == "outgoing").mapped("sale_id")._allocate_scratch_cards()
         return True
 
+    def action_cancel(self):
+        for order in self.mapped("sale_id").sorted("id"):
+            self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
+        result = super().action_cancel()
+        for picking in self.filtered(lambda p: p.state == "cancel"):
+            cards = self.env["motogene.scratch.picking.card"].search([
+                ("picking_id", "=", picking.id), ("state", "=", "reserved"),
+            ])
+            cards.write({"state": "released"})
+            picking.invalidate_recordset(["scratch_card_line_ids"])
+        return result
+
     def button_validate(self):
-        for picking in self:
-            if picking.state in ("done", "cancel") or picking.picking_type_code != "outgoing":
-                continue
-            expected = picking._scratch_expected_types()
-            lines = picking.scratch_card_line_ids
-            if Counter(lines.mapped("prefix")) != Counter(expected):
-                raise UserError(_("Prepare the Scratch & Win card serial numbers before validating this delivery."))
+        self._validate_scratch_return_cards()
+        outgoing = self.filtered(lambda p: p.picking_type_code == "outgoing" and not p.scratch_return_source_id and p.state not in ("done", "cancel"))
+        outgoing.mapped("sale_id").filtered(lambda order: not order.scratch_allocation_deferred)._allocate_scratch_cards()
         return super().button_validate()
+
+    def _action_done(self):
+        for order in self.mapped("sale_id").sorted("id"):
+            self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
+        self._lock_scratch_return_cards()
+        result = super()._action_done()
+        for picking in self.filtered(lambda p: p.picking_type_code == "outgoing" and not p.scratch_return_source_id and p.state == "done"):
+            picking.scratch_card_line_ids.filtered(lambda c: c.state == "reserved").write({"state": "sent"})
+        self._void_received_scratch_cards()
+        return result
