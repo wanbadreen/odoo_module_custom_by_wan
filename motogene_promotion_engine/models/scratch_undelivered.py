@@ -7,33 +7,40 @@ from odoo.exceptions import UserError
 class ScratchUndeliveredCard(models.Model):
     _inherit = 'motogene.scratch.picking.card'
 
-    undelivered_released_at = fields.Datetime(readonly=True, copy=False, string='Undelivered Card Released At')
-    undelivered_released_by_id = fields.Many2one('res.users', readonly=True, copy=False, string='Undelivered Card Released By')
-    undelivered_release_reason = fields.Text(readonly=True, copy=False, string='Undelivered Release Reason')
+    undelivered_released_at = fields.Datetime(readonly=True, copy=False, string='Card Released for Reuse At')
+    undelivered_released_by_id = fields.Many2one('res.users', readonly=True, copy=False, string='Card Released for Reuse By')
+    undelivered_release_reason = fields.Text(readonly=True, copy=False, string='Card Reuse Release Reason')
+
+    reuse_release_type = fields.Selection([
+        ('before_dispatch', 'Cancelled Before Dispatch'),
+        ('customer_return', 'Returned by Customer'),
+    ], string='Card Release Category', readonly=True, copy=False)
 
     @api.model_create_multi
     def create(self, vals_list):
-        audit = {'undelivered_released_at', 'undelivered_released_by_id', 'undelivered_release_reason'}
+        audit = {'undelivered_released_at', 'undelivered_released_by_id', 'undelivered_release_reason', 'reuse_release_type'}
         if any(set(vals) & audit for vals in vals_list):
-            raise UserError(_('Release audit is created only by Release Undelivered Cards.'))
+            raise UserError(_('Release audit is created only by Release Cards for Reuse.'))
         return super().create(vals_list)
 
     def write(self, vals):
-        if set(vals) & {'undelivered_released_at', 'undelivered_released_by_id', 'undelivered_release_reason'}:
-            raise UserError(_('Use Release Undelivered Cards to record the release audit.'))
+        if set(vals) & {'undelivered_released_at', 'undelivered_released_by_id', 'undelivered_release_reason', 'reuse_release_type'}:
+            raise UserError(_('Use Release Cards for Reuse to record the release audit.'))
         if vals.get('state') == 'released' and any(c.state == 'sent' for c in self):
-            raise UserError(_('Use Release Undelivered Cards for a validated delivery.'))
+            raise UserError(_('Use Release Cards for Reuse for a validated delivery.'))
         if set(vals) & {'state', 'sale_id', 'picking_id', 'serial_number', 'program_id', 'prefix'} and any(c.undelivered_released_at for c in self):
             raise UserError(_('Recovered card history cannot be changed. A new allocation creates a separate history record.'))
         return super().write(vals)
 
-    def _release_undelivered(self, reason):
+    def _release_undelivered(self, reason, release_type):
         # Called only after the wizard has checked access, confirmations and locks.
+        if release_type not in ('before_dispatch', 'customer_return'):
+            raise UserError(_('Select a valid card release category.'))
         if any(c.state != 'sent' or c.redemption_id or c.return_picking_id for c in self):
             raise UserError(_('Only dispatched, unredeemed cards without a physical return can be released.'))
         return super().write({'state': 'released', 'undelivered_released_at': fields.Datetime.now(),
                               'undelivered_released_by_id': self.env.user.id,
-                              'undelivered_release_reason': reason})
+                              'undelivered_release_reason': reason, 'reuse_release_type': release_type})
 
 
 class ScratchUndeliveredSale(models.Model):
@@ -67,7 +74,7 @@ class ScratchUndeliveredPicking(models.Model):
 
     scratch_can_release_undelivered = fields.Boolean(compute='_compute_can_release_undelivered')
     scratch_undelivered_history_ids = fields.One2many(
-        'motogene.scratch.picking.card', 'picking_id', string='Undelivered Card Release History',
+        'motogene.scratch.picking.card', 'picking_id', string='Card Reuse Release History',
         domain=[('undelivered_released_at', '!=', False)], readonly=True)
 
     @api.depends('state', 'picking_type_code', 'scratch_return_source_id', 'scratch_card_line_ids.state')
@@ -85,13 +92,13 @@ class ScratchUndeliveredPicking(models.Model):
         if not self.env.user.has_group('stock.group_stock_user') or not self.scratch_can_release_undelivered:
             raise UserError(_('Release is only available to Operations on a completed outgoing delivery with dispatched cards.'))
         wizard = self.env['motogene.scratch.undelivered.wizard'].create({'picking_id': self.id})
-        return {'type': 'ir.actions.act_window', 'name': _('Release Undelivered Scratch Cards'),
+        return {'type': 'ir.actions.act_window', 'name': _('Release Scratch Cards for Reuse'),
                 'res_model': wizard._name, 'res_id': wizard.id, 'view_mode': 'form', 'target': 'new'}
 
 
 class ScratchUndeliveredWizard(models.TransientModel):
     _name = 'motogene.scratch.undelivered.wizard'
-    _description = 'Release Undelivered Scratch Cards'
+    _description = 'Release Scratch Cards for Reuse'
 
     picking_id = fields.Many2one('stock.picking', required=True, readonly=True, string='Delivery Order')
     partner_id = fields.Many2one(related='picking_id.partner_id', string='Customer')
@@ -101,9 +108,13 @@ class ScratchUndeliveredWizard(models.TransientModel):
     card_ids = fields.Many2many(
         'motogene.scratch.picking.card', 'mg_scratch_release_selected_rel',
         'wizard_id', 'card_id', string='Physical Cards Recovered')
+    release_type = fields.Selection([
+        ('before_dispatch', 'Cancelled Before Dispatch'),
+        ('customer_return', 'Returned by Customer'),
+    ], string='Release Category')
     reason = fields.Text()
     not_handed_over = fields.Boolean(string='Parcel has not been handed over to the courier or customer')
-    cards_unscratched = fields.Boolean(string='Selected cards are physically recovered and remain unscratched')
+    cards_unscratched = fields.Boolean(string='Selected cards are physically back in the warehouse, unscratched and in good condition')
 
     @api.depends('picking_id', 'picking_id.scratch_card_line_ids.state')
     def _compute_available(self):
@@ -113,15 +124,19 @@ class ScratchUndeliveredWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
         if not self.env.user.has_group('stock.group_stock_user'):
-            raise UserError(_('Only Operations users can release undelivered cards.'))
+            raise UserError(_('Only Operations users can release cards for reuse.'))
         picking = self.picking_id.exists()
         picking.check_access_rights('write')
         picking.check_access_rule('write')
         cards = self.card_ids.exists()
         cards.check_access_rights('write')
         cards.check_access_rule('write')
-        if not cards or not (self.reason or '').strip() or not self.not_handed_over or not self.cards_unscratched:
-            raise UserError(_('Select recovered cards, enter a reason and complete both physical confirmations.'))
+        if not cards or not (self.reason or '').strip() or not self.cards_unscratched:
+            raise UserError(_('Select recovered cards, enter a reason and confirm that the cards are physically back in the warehouse, unscratched and in good condition.'))
+        if self.release_type not in ('before_dispatch', 'customer_return'):
+            raise UserError(_('Select Cancelled Before Dispatch or Returned by Customer.'))
+        if self.release_type == 'before_dispatch' and not self.not_handed_over:
+            raise UserError(_('Confirm the parcel was not handed over to the courier or customer.'))
         orders = cards.mapped('sale_id').sorted('id')
         for order in orders:
             self.env.cr.execute('SELECT id FROM sale_order WHERE id = %s FOR UPDATE', [order.id])
@@ -138,10 +153,11 @@ class ScratchUndeliveredWizard(models.TransientModel):
         pending_returns = self.env['stock.picking'].search_count([
             ('scratch_return_card_ids', 'in', cards.ids), ('state', '!=', 'cancel')])
         if pending_returns:
-            raise UserError(_('A selected card is recorded under Physical Cards Received. Remove it from the pending return before releasing it as undelivered.'))
-        cards._release_undelivered(self.reason.strip())
+            raise UserError(_('A selected card is recorded under Physical Cards Received. Remove it from the pending return before releasing it for reuse.'))
+        cards._release_undelivered(self.reason.strip(), self.release_type)
         orders.invalidate_recordset(['scratch_card_line_ids', 'scratch_pending_cards'])
         picking.invalidate_recordset(['scratch_card_line_ids', 'scratch_can_release_undelivered', 'scratch_undelivered_history_ids'])
-        picking.message_post(body=_('Undelivered scratch cards released: %(serials)s. Reason: %(reason)s. Released by: %(user)s.') % {
-            'serials': ', '.join(cards.mapped('serial_number')), 'reason': self.reason.strip(), 'user': self.env.user.display_name})
+        picking.message_post(body=_('Scratch cards released for reuse: %(serials)s. Category: %(category)s. Reason: %(reason)s. Released by: %(user)s.') % {
+            'serials': ', '.join(cards.mapped('serial_number')),
+            'category': dict(self._fields['release_type'].selection)[self.release_type], 'reason': self.reason.strip(), 'user': self.env.user.display_name})
         return {'type': 'ir.actions.act_window_close'}

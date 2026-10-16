@@ -7,17 +7,17 @@
         <field name="arch" type="xml">
             <xpath expr="//header" position="inside">
                 <field name="scratch_can_release_undelivered" invisible="1"/>
-                <button name="action_release_undelivered_cards" type="object" string="Release Undelivered Cards"
+                <button name="action_release_undelivered_cards" type="object" string="Release Cards for Reuse"
                         groups="stock.group_stock_user" invisible="not scratch_can_release_undelivered"/>
             </xpath>
             <xpath expr="//notebook" position="inside">
-                <page string="Undelivered Card Releases" invisible="not scratch_undelivered_history_ids">
-                    <p>These cards were recovered before courier/customer handover and released for reuse. Original allocation history is retained. This action does not return products or reverse stock movements.</p>
+                <page string="Card Reuse Releases" invisible="not scratch_undelivered_history_ids">
+                    <p>These cards were physically recovered and inspected, then released for reuse. Original allocation history is retained. This action does not return products or reverse stock movements.</p>
                     <field name="scratch_undelivered_history_ids" readonly="1">
                         <list create="0" edit="0" delete="0">
                             <field name="serial_number"/><field name="state"/>
                             <field name="undelivered_released_at"/><field name="undelivered_released_by_id"/>
-                            <field name="undelivered_release_reason"/>
+                            <field name="reuse_release_type"/><field name="undelivered_release_reason"/>
                         </list>
                     </field>
                 </page>
@@ -28,17 +28,18 @@
         <field name="name">motogene.scratch.undelivered.wizard.form</field>
         <field name="model">motogene.scratch.undelivered.wizard</field>
         <field name="arch" type="xml">
-            <form string="Release Undelivered Scratch Cards">
-                <div class="alert alert-warning" role="alert">Use only when the parcel has not been handed over to the courier or customer. Customer returns must use Physical Cards Received on the Return DO. Product stock returns are handled separately through Odoo Return.</div>
+            <form string="Release Scratch Cards for Reuse">
+                <div class="alert alert-warning" role="alert">Select the correct release category. Release only cards physically back in the warehouse, unscratched and in good condition. Damaged or scratched customer-returned cards must use Physical Cards Received on the Return DO to be voided. Return products separately through Odoo Return; do not select already released cards there.</div>
                 <group>
                     <field name="picking_id"/><field name="partner_id"/>
                     <field name="available_card_ids" invisible="1"/>
                     <field name="card_ids" required="1" widget="many2many_tags" domain="[('id', 'in', available_card_ids)]"
                            options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
-                    <field name="reason" required="1" placeholder="Explain why the order was stopped before handover..."/>
+                    <field name="release_type" required="1"/>
+                    <field name="reason" required="1" placeholder="Explain the cancellation or customer return and card inspection..."/>
                 </group>
                 <group string="Required Physical Confirmations">
-                    <field name="not_handed_over"/><field name="cards_unscratched"/>
+                    <field name="not_handed_over" invisible="release_type != 'before_dispatch'"/><field name="cards_unscratched"/>
                 </group>
                 <footer>
                     <button name="action_confirm" type="object" string="Confirm Release" class="btn-primary"/>

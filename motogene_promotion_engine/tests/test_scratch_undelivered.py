@@ -10,7 +10,7 @@ class TestScratchUndelivered(TestScratchCardReturns):
         return self.env['motogene.scratch.undelivered.wizard'].create({
             'picking_id': self.delivery.id,
             'card_ids': [Command.set((cards if cards is not None else self.cards[:1]).ids)],
-            'reason': 'Cancelled before courier collection',
+            'reason': 'Cancelled before courier collection', 'release_type': 'before_dispatch',
             'not_handed_over': True, 'cards_unscratched': True,
         })
 
@@ -60,3 +60,27 @@ class TestScratchUndelivered(TestScratchCardReturns):
         self._wizard().action_confirm()
         self.assertEqual(pool.reserve_serial(), 'A999001')
         self.assertEqual(pool.next_number, 999006)
+
+    def test_customer_return_release_after_product_only_return(self):
+        returned = self._picking(return_of=self.delivery)
+        returned._action_done()
+        wizard = self._wizard()
+        wizard.write({'release_type': 'customer_return', 'not_handed_over': False,
+                      'reason': 'Customer returned sealed card; physically inspected'})
+        wizard.action_confirm()
+        self.assertEqual(self.cards[0].state, 'released')
+        self.assertEqual(self.cards[0].reuse_release_type, 'customer_return')
+        self.assertEqual(self.cards[1].state, 'sent')
+
+    def test_before_dispatch_requires_handover_confirmation(self):
+        wizard = self._wizard()
+        wizard.not_handed_over = False
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        self.assertEqual(self.cards[0].state, 'sent')
+
+    def test_missing_category_rejected(self):
+        wizard = self._wizard()
+        wizard.release_type = False
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
