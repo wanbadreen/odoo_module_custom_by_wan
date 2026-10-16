@@ -135,6 +135,35 @@ class ScratchVariantWizard(models.TransientModel):
 
     gift_choice_ids = fields.One2many('motogene.scratch.gift.choice.wizard', 'wizard_id', string='Choose Gift Variants')
 
+
+    gift_variant_count = fields.Integer(compute='_compute_single_gift_variant')
+    selected_variant_id = fields.Many2one(
+        'product.product', string='Selected Variant',
+        compute='_compute_single_gift_variant', inverse='_inverse_single_gift_variant',
+        readonly=False)
+    single_allowed_variant_ids = fields.Many2many(
+        'product.product', compute='_compute_single_gift_variant')
+
+    @api.depends('gift_choice_ids', 'gift_choice_ids.product_id',
+                 'gift_choice_ids.reward_line_id', 'sale_id.company_id')
+    def _compute_single_gift_variant(self):
+        for wizard in self:
+            wizard.gift_variant_count = len(wizard.gift_choice_ids)
+            choice = wizard.gift_choice_ids[:1] if len(wizard.gift_choice_ids) == 1 else False
+            wizard.selected_variant_id = choice.product_id if choice else False
+            wizard.single_allowed_variant_ids = (
+                choice.reward_line_id._gift_variants(wizard.sale_id.company_id)
+                if choice else False)
+
+    def _inverse_single_gift_variant(self):
+        for wizard in self:
+            if len(wizard.gift_choice_ids) == 1:
+                wizard.gift_choice_ids.product_id = wizard.selected_variant_id
+
+    @api.onchange('selected_variant_id')
+    def _onchange_single_gift_variant(self):
+        self._inverse_single_gift_variant()
+
     @api.onchange('card_id')
     def _onchange_gift_card(self):
         self.gift_choice_ids = choice_commands(self.pool_id)

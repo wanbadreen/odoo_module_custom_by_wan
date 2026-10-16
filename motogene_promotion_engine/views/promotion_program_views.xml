@@ -8,7 +8,7 @@
             <list>
                 <field name="priority" widget="handle"/>
                 <field name="name"/>
-                <field name="state"/>
+                <field name="lifecycle_state"/>
                 <field name="date_start"/>
                 <field name="date_end"/>
                 <field name="rule_type"/>
@@ -27,7 +27,8 @@
                     <button name="action_activate" type="object" string="Activate" class="btn-primary" invisible="state == 'active'"/>
                     <button name="action_set_draft" type="object" string="Set to Draft" invisible="state == 'draft'"/>
                     <button name="action_archive_program" type="object" string="Archive" invisible="state == 'archived'"/>
-                    <field name="state" widget="statusbar" statusbar_visible="draft,active,archived"/>
+                    <field name="state" invisible="1"/>
+                    <field name="lifecycle_state" widget="statusbar" statusbar_visible="draft,scheduled,running,ended,archived"/>
                 </header>
 
                 <sheet>
@@ -185,8 +186,9 @@
                         <page string="Scratch Card Serial Pools" invisible="reward_type != 'scratch_cards'">
                             <group>
                                 <field name="scratch_redemption_expiry_date"/>
-                                <field name="scratch_vip_prefix"/>
-                                <field name="scratch_extra_prefix"/>
+                                <field name="scratch_vip_pool_id" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="scratch_extra_pool_id" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
+                                <field name="scratch_extra_allowed_pool_ids" widget="many2many_tags" domain="[('program_id', '=', id)]" options="{'no_create': True, 'no_open': True}"/>
                                 <field name="scratch_replacement_policy"/>
                             </group>
                             <p class="text-muted">Set the fixed redemption expiry and the printed serial ranges. Serial numbers are allocated when the Sales Order is confirmed. Open each prefix to configure its reward. Saving a fixed expiry fills legacy cards without a date; existing dates stay unchanged.</p>
@@ -262,5 +264,6 @@
               sequence="10"/>
 
 </odoo>
+
 
 

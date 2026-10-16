@@ -30,6 +30,7 @@ class ScratchSetupTransferProgram(models.Model):
                 "minimum_amount": self.minimum_amount,
                 "scratch_vip_prefix": self.scratch_vip_prefix,
                 "scratch_extra_prefix": self.scratch_extra_prefix,
+                "scratch_extra_allowed_prefixes": self.scratch_extra_allowed_prefixes or "",
                 "scratch_replacement_policy": self.scratch_replacement_policy,
             },
             "packages": [{
@@ -155,10 +156,13 @@ class ScratchSetupTransfer(models.TransientModel):
             settings = data["settings"]
             if not isinstance(settings, dict):
                 raise ValueError("invalid settings")
+            settings.setdefault("scratch_extra_allowed_prefixes", "")
+            if not isinstance(settings["scratch_extra_allowed_prefixes"], str):
+                raise ValueError("invalid extra spend card types")
             settings.setdefault("scratch_replacement_policy", "any")
             if settings["scratch_replacement_policy"] not in ("any", "allowed", "none"):
                 raise ValueError("invalid replacement policy")
-            setting_keys = {"date_start", "date_end", "scratch_redemption_expiry_date", "minimum_amount", "scratch_vip_prefix", "scratch_extra_prefix", "scratch_replacement_policy"}
+            setting_keys = {"date_start", "date_end", "scratch_redemption_expiry_date", "minimum_amount", "scratch_vip_prefix", "scratch_extra_prefix", "scratch_replacement_policy", "scratch_extra_allowed_prefixes"}
             if not isinstance(settings, dict) or set(settings) != setting_keys:
                 raise ValueError("invalid settings")
             if not isinstance(data["packages"], list) or not isinstance(data["pools"], list):
@@ -198,6 +202,7 @@ class ScratchSetupTransfer(models.TransientModel):
                 raise ValueError("destination contains prefixes absent from file; use a new draft promotion")
             prefixes = {p["prefix"] for p in pool_vals}
             needed = {settings["scratch_vip_prefix"], settings["scratch_extra_prefix"]}
+            needed.update(p.strip().upper() for p in settings["scratch_extra_allowed_prefixes"].split(",") if p.strip())
             for p in package_vals:
                 needed.update(t.strip().upper() for t in p["card_prefixes"].split(",") if t.strip())
             if not needed.issubset(prefixes):
@@ -231,5 +236,6 @@ class ScratchSetupTransfer(models.TransientModel):
             "title": _("Setup imported"), "message": _("Packages, serial ranges, prizes and expiry imported. Promotion remains Draft; review before activating."),
             "type": "success", "sticky": True, "next": {"type": "ir.actions.act_window_close"},
         }}
+
 
 
