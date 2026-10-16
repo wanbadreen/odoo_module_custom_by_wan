@@ -100,8 +100,8 @@ class ScratchUndeliveredWizard(models.TransientModel):
         'wizard_id', 'card_id', compute='_compute_available')
     card_ids = fields.Many2many(
         'motogene.scratch.picking.card', 'mg_scratch_release_selected_rel',
-        'wizard_id', 'card_id', string='Physical Cards Recovered', required=True)
-    reason = fields.Text(required=True)
+        'wizard_id', 'card_id', string='Physical Cards Recovered')
+    reason = fields.Text()
     not_handed_over = fields.Boolean(string='Parcel has not been handed over to the courier or customer')
     cards_unscratched = fields.Boolean(string='Selected cards are physically recovered and remain unscratched')
 

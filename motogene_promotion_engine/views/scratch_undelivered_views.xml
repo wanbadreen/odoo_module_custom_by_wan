@@ -33,9 +33,9 @@
                 <group>
                     <field name="picking_id"/><field name="partner_id"/>
                     <field name="available_card_ids" invisible="1"/>
-                    <field name="card_ids" widget="many2many_tags" domain="[('id', 'in', available_card_ids)]"
+                    <field name="card_ids" required="1" widget="many2many_tags" domain="[('id', 'in', available_card_ids)]"
                            options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
-                    <field name="reason" placeholder="Explain why the order was stopped before handover..."/>
+                    <field name="reason" required="1" placeholder="Explain why the order was stopped before handover..."/>
                 </group>
                 <group string="Required Physical Confirmations">
                     <field name="not_handed_over"/><field name="cards_unscratched"/>
