@@ -17,6 +17,7 @@
                     <field name="notes"/>
                 </group>
                 <group string="Choose Gift Colours / Variants" invisible="not gift_choice_ids">
+                    <field name="gift_stock_html" widget="html" nolabel="1" colspan="2" readonly="1"/>
                     <field name="gift_variant_count" invisible="1"/>
                     <field name="single_allowed_variant_ids" invisible="1"/>
                     <field name="selected_variant_id"
@@ -43,5 +44,6 @@
         </field>
     </record>
 </odoo>
+
 
 
