@@ -104,3 +104,44 @@ class TestScratchGiftStock(TestScratchGiftVariants):
         with self.assertRaises(UserError), self.env.cr.savepoint():
             record.action_confirm_redemption()
         self.assertEqual(self.card.state, 'sent')
+
+    def test_unsaved_popup_options_and_selection_inverse(self):
+        line, variants = self._stock_variants(blue=2, orange=1)
+        wizard = self.env['motogene.scratch.redemption.wizard'].new({
+            'sale_id': self.target_order.id, 'card_id': self.card.id})
+        wizard._onchange_gift_card()
+        self.assertEqual(wizard.gift_variant_count, 1)
+        self.assertEqual(set(wizard.single_allowed_variant_ids.ids), set(variants.ids))
+        options = wizard.gift_stock_options
+        self.assertEqual(len(options['groups']), 1)
+        group = options['groups'][0]
+        self.assertEqual(group['reward_line_id'], line.id)
+        self.assertEqual(group['quantity'], 1)
+        self.assertEqual(len(group['variants']), 2)
+        self.assertTrue(all(v['available_to_select'] for v in group['variants']))
+        wizard.selected_variant_id = variants[1]
+        wizard._onchange_single_gift_variant()
+        self.assertEqual(wizard.gift_choice_ids.product_id, variants[1])
+
+    def test_picker_selection_is_used_by_redemption(self):
+        line, variants = self._stock_variants(blue=2, orange=1)
+        wizard = self.env['motogene.scratch.redemption.wizard'].create({
+            'sale_id': self.target_order.id, 'card_id': self.card.id})
+        wizard.write({'selected_variant_id': variants[1].id})
+        self.assertEqual(wizard.gift_choice_ids.product_id, variants[1])
+        wizard.action_confirm()
+        self.assertEqual(self.card.redemption_id.reward_line_ids.product_id, variants[1])
+
+    def test_picker_keeps_unavailable_variant_visible_without_selecting_it(self):
+        line, variants = self._stock_variants(blue=1, orange=0)
+        wizard = self.env['motogene.scratch.redemption.wizard'].create({
+            'sale_id': self.target_order.id, 'card_id': self.card.id})
+        options = wizard.gift_stock_options['groups'][0]['variants']
+        self.assertEqual({v['id'] for v in options}, set(variants.ids))
+        unavailable = next(v for v in options if v['id'] == variants[1].id)
+        self.assertFalse(unavailable['available_to_select'])
+        wizard.write({'selected_variant_id': variants[1].id})
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        self.assertEqual(self.card.state, 'sent')
+

@@ -17,21 +17,20 @@
                     <field name="notes"/>
                 </group>
                 <group string="Choose Gift Colours / Variants" invisible="not gift_choice_ids">
-                    <field name="gift_stock_html" widget="html" nolabel="1" colspan="2" readonly="1"/>
+                    <field name="gift_stock_options" widget="scratch_gift_stock_picker" nolabel="1" colspan="2"/>
                     <field name="gift_variant_count" invisible="1"/>
                     <field name="single_allowed_variant_ids" invisible="1"/>
                     <field name="selected_variant_id"
                            invisible="gift_variant_count != 1"
-                           required="gift_variant_count == 1"
-                           domain="[('id', 'in', single_allowed_variant_ids)]"
+                           readonly="1" force_save="1"
                            options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
-                    <field name="gift_choice_ids" nolabel="1" invisible="gift_variant_count == 1">
+                    <field name="gift_choice_ids" nolabel="1" invisible="1">
                         <list editable="bottom" create="0" delete="0">
                             <field name="reward_line_id" column_invisible="1" readonly="1" force_save="1"/>
                             <field name="product_tmpl_id" readonly="1"/>
                             <field name="quantity" readonly="1"/>
                             <field name="allowed_product_ids" column_invisible="1"/>
-                            <field name="product_id" domain="[('id', 'in', allowed_product_ids)]" required="1" options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
+                            <field name="product_id" force_save="1"/>
                         </list>
                     </field>
                 </group>
@@ -44,6 +43,7 @@
         </field>
     </record>
 </odoo>
+
 
 
 

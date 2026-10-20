@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 {
     "name": "MotoGene Promotion Engine",
-    "version": "18.0.1.20.0",
+    "version": "18.0.1.20.1",
     "category": "Sales/Sales",
     "summary": "Configurable conditional promotion engine for MotoGene sales orders.",
     "author": "WanBadreen",
@@ -23,10 +23,17 @@
         "views/scratch_undelivered_views.xml",
         "report/scratch_picking_report.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "motogene_promotion_engine/static/src/fields/scratch_gift_stock_picker.js",
+            "motogene_promotion_engine/static/src/fields/scratch_gift_stock_picker.xml",
+        ],
+    },
     "demo": [],
     "installable": True,
     "application": True,
 }
+
 
 
 

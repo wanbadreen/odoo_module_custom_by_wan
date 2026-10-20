@@ -76,21 +76,24 @@ def gift_stock_markup(order, reward_lines):
     available = order._scratch_gift_stock(products)
     rows = []
     for line, variants in variants_by_line:
+        rows.append(Markup('<tr><td colspan="4"><strong>%s</strong> - %s: %s</td></tr>') % (
+            escape(line.product_tmpl_id.display_name), escape(_('Gift quantity (choose one variant)')),
+            escape('%g' % line.quantity)))
         for product in variants:
             amount = available[product.id]
             enough = amount is None or float_compare(
                 amount, line.quantity, precision_rounding=product.uom_id.rounding) >= 0
             status = _('Not tracked') if amount is None else (_('Available') if enough else _('Insufficient stock'))
-            rows.append(Markup('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>') % (
+            rows.append(Markup('<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td></tr>') % (
                 escape(product.display_name), escape('-' if amount is None else '%g' % amount),
-                escape('%g' % line.quantity), escape(product.uom_id.name), escape(status)))
+                escape(product.uom_id.name), escape(status)))
     if not rows:
         return Markup('<p>%s</p>') % escape(_('No active gift variants are configured for this company.'))
     return Markup('<p><strong>%s:</strong> %s</p><table class="table table-sm"><thead><tr>'
-                  '<th>%s</th><th>%s</th><th>%s</th><th>%s</th><th>%s</th>'
+                  '<th>%s</th><th>%s</th><th>%s</th><th>%s</th>'
                   '</tr></thead><tbody>%s</tbody></table><p>%s</p>') % (
         escape(_('Warehouse')), escape(order.warehouse_id.display_name),
-        escape(_('Gift / Variant')), escape(_('Available')), escape(_('Required')),
+        escape(_('Gift / Variant')), escape(_('Available')),
         escape(_('Unit')), escape(_('Status')), Markup('').join(rows),
         escape(_('Available excludes Odoo reservations and unreserved outstanding scratch gifts. '
                  'Balances are checked again at redemption. Untracked products have no stock limit.')))
@@ -150,6 +153,36 @@ class ScratchGiftStockWizard(models.TransientModel):
     _inherit = 'motogene.scratch.redemption.wizard'
 
     gift_stock_html = fields.Html(compute='_compute_gift_stock_html', string='Gift Stock Availability')
+    gift_stock_options = fields.Json(compute='_compute_gift_stock_options', string='Choose Gift Variant')
+
+    @api.depends('card_id', 'sale_id.warehouse_id', 'gift_choice_ids',
+                 'gift_choice_ids.product_id', 'gift_choice_ids.reward_line_id')
+    def _compute_gift_stock_options(self):
+        for wizard in self:
+            if not wizard.sale_id or not wizard.card_id:
+                wizard.gift_stock_options = False
+                continue
+            groups = []
+            choices = wizard.pool_id.reward_product_line_ids.filtered(lambda line: line.variant_mode == 'choose')
+            for line in choices:
+                products = line._gift_variants(wizard.sale_id.company_id)
+                available = wizard.sale_id._scratch_gift_stock(products)
+                groups.append({
+                    'reward_line_id': line.id,
+                    'product_name': line.product_tmpl_id.display_name,
+                    'quantity': line.quantity,
+                    'variants': [{
+                        'id': product.id, 'name': product.display_name,
+                        'available': available[product.id], 'unit': product.uom_id.name,
+                        'available_to_select': available[product.id] is None or float_compare(
+                            available[product.id], line.quantity,
+                            precision_rounding=product.uom_id.rounding) >= 0,
+                    } for product in products],
+                })
+            wizard.gift_stock_options = {
+                'warehouse': wizard.sale_id.warehouse_id.display_name,
+                'groups': groups,
+            }
 
     @api.depends('card_id', 'sale_id.warehouse_id', 'gift_choice_ids.product_id')
     def _compute_gift_stock_html(self):
@@ -160,12 +193,17 @@ class ScratchGiftStockWizard(models.TransientModel):
     @api.depends('gift_choice_ids', 'gift_choice_ids.product_id',
                  'gift_choice_ids.reward_line_id', 'sale_id.company_id', 'sale_id.warehouse_id')
     def _compute_single_gift_variant(self):
-        super()._compute_single_gift_variant()
         for wizard in self:
-            if len(wizard.gift_choice_ids) == 1:
+            # Rebuild from the gift setup, not a partially computed Many2many.
+            # This also handles unsaved choice rows in card-selection onchange.
+            wizard.gift_variant_count = len(wizard.gift_choice_ids)
+            choice = wizard.gift_choice_ids[:1] if len(wizard.gift_choice_ids) == 1 else False
+            wizard.selected_variant_id = choice.product_id if choice else False
+            wizard.single_allowed_variant_ids = False
+            if choice:
                 wizard.single_allowed_variant_ids = filter_available_variants(
-                    wizard.sale_id, wizard.gift_choice_ids.reward_line_id,
-                    wizard.single_allowed_variant_ids)
+                    wizard.sale_id, choice.reward_line_id,
+                    choice.reward_line_id._gift_variants(wizard.sale_id.company_id))
 
 
 class ScratchGiftStockChoiceWizard(models.TransientModel):
@@ -173,10 +211,11 @@ class ScratchGiftStockChoiceWizard(models.TransientModel):
 
     @api.depends('reward_line_id', 'wizard_id.sale_id.company_id', 'wizard_id.sale_id.warehouse_id')
     def _compute_allowed_products(self):
-        super()._compute_allowed_products()
         for line in self:
             line.allowed_product_ids = filter_available_variants(
-                line.wizard_id.sale_id, line.reward_line_id, line.allowed_product_ids)
+                line.wizard_id.sale_id, line.reward_line_id,
+                line.reward_line_id._gift_variants(line.wizard_id.sale_id.company_id)
+                if line.reward_line_id else self.env['product.product'])
 
 
 class ScratchGiftStockChoice(models.Model):
@@ -185,7 +224,9 @@ class ScratchGiftStockChoice(models.Model):
     @api.depends('reward_line_id', 'redemption_id.target_sale_id.company_id',
                  'redemption_id.target_sale_id.warehouse_id')
     def _compute_allowed_products(self):
-        super()._compute_allowed_products()
         for line in self:
             line.allowed_product_ids = filter_available_variants(
-                line.redemption_id.target_sale_id, line.reward_line_id, line.allowed_product_ids)
+                line.redemption_id.target_sale_id, line.reward_line_id,
+                line.reward_line_id._gift_variants(line.redemption_id.target_sale_id.company_id)
+                if line.reward_line_id else self.env['product.product'])
+

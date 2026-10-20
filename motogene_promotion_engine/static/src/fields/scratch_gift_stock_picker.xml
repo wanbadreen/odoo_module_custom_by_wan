@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="motogene_promotion_engine.ScratchGiftStockPicker">
+        <div class="o_scratch_gift_stock_picker w-100">
+            <p t-if="options.warehouse"><strong>Warehouse:</strong> <t t-esc="options.warehouse"/></p>
+            <div t-foreach="options.groups" t-as="group" t-key="group.reward_line_id" class="mb-3">
+                <div class="mb-2">
+                    <strong t-esc="group.product_name"/>
+                    <div>Gift quantity: <strong t-esc="group.quantity"/> unit(s) - choose one colour / variant.</div>
+                </div>
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Gift / Variant</th><th class="text-end">Available</th><th>Unit</th><th>Status</th><th/></tr></thead>
+                    <tbody>
+                        <tr t-foreach="group.variants" t-as="variant" t-key="variant.id"
+                            t-att-class="selectedId(group) === variant.id ? 'table-active' : ''">
+                            <td t-esc="variant.name"/>
+                            <td class="text-end" t-esc="variant.available === null ? '-' : variant.available"/>
+                            <td t-esc="variant.unit"/>
+                            <td>
+                                <span t-if="variant.available === null">Not tracked</span>
+                                <span t-elif="variant.available_to_select">Available</span>
+                                <span t-else="" class="text-danger">Insufficient stock</span>
+                            </td>
+                            <td class="text-end">
+                                <button type="button" t-att-class="selectedId(group) === variant.id ? 'btn btn-primary btn-sm' : 'btn btn-outline-primary btn-sm'"
+                                        t-att-disabled="state.busy || !variant.available_to_select"
+                                        t-att-aria-pressed="selectedId(group) === variant.id ? 'true' : 'false'"
+                                        t-on-click="() => this.selectVariant(group, variant)">
+                                    <t t-if="selectedId(group) === variant.id">Selected</t><t t-else="">Select</t>
+                                </button>
+                            </td>
+                        </tr>
+                        <tr t-if="!group.variants.length"><td colspan="5">No active variants are configured for this company.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="text-danger" role="alert" t-if="state.error" t-esc="state.error"/>
+            <small class="text-muted">Available excludes Odoo reservations and outstanding scratch gifts. Stock is checked again when redemption is confirmed.</small>
+        </div>
+    </t>
+</templates>
