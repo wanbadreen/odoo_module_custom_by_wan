@@ -160,3 +160,21 @@ class TestScratchCardReplacement(TransactionCase):
         with self.assertRaises(UserError), self.env.cr.savepoint():
             self._wizard().action_confirm()
         self.assertEqual(self.card.serial_number, 'A991001')
+
+    def test_open_empty_popup_then_require_input_at_confirmation(self):
+        action = self.picking.action_replace_scratch_card()
+        wizard = self.env[action['res_model']].browse(action['res_id'])
+        self.assertEqual(wizard.picking_id, self.picking)
+        self.assertFalse(wizard.card_id)
+        self.assertFalse(wizard.reason)
+        self.assertFalse(wizard.notes)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        wizard.card_id = self.card
+        wizard._onchange_card_id()
+        self.assertEqual(wizard.serial_to_replace, self.card.serial_number)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            wizard.action_confirm()
+        wizard.write({'reason': 'damaged', 'notes': 'Already scratched before handover', 'not_handed_over': True})
+        wizard.action_confirm()
+        self.assertEqual(self.card.serial_number, 'A991002')

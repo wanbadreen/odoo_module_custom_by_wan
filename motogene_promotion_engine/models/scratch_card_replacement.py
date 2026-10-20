@@ -279,10 +279,12 @@ class ScratchReplaceWizard(models.TransientModel):
     picking_id = fields.Many2one('stock.picking', required=True, readonly=True, string='Delivery Order')
     available_card_ids = fields.Many2many('motogene.scratch.picking.card',
         'mg_scratch_replace_available_rel', 'wizard_id', 'card_id', compute='_compute_available_cards')
-    card_id = fields.Many2one('motogene.scratch.picking.card', required=True, string='Card to Replace')
+    card_id = fields.Many2one('motogene.scratch.picking.card', string='Card to Replace')
     serial_to_replace = fields.Char(string='Original Serial', readonly=True)
-    reason = fields.Selection(REASONS, required=True)
-    notes = fields.Text(string='Remarks', required=True)
+    # The server creates an empty wizard before the user fills the form.
+    # Required input is enforced by the view and again in action_confirm.
+    reason = fields.Selection(REASONS)
+    notes = fields.Text(string='Remarks')
     not_handed_over = fields.Boolean(string='Parcel has not been handed over to the courier or customer')
 
     @api.depends('picking_id', 'picking_id.scratch_card_line_ids.state')
