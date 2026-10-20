@@ -22,4 +22,6 @@ from . import scratch_pool_choice
 
 from . import scratch_undelivered
 from . import scratch_gift_stock
+from . import scratch_card_replacement
+
 

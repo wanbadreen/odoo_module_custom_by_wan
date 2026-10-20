@@ -15,4 +15,6 @@ from . import test_scratch_topup
 
 from . import test_scratch_undelivered
 from . import test_scratch_gift_stock
+from . import test_scratch_card_replacement
+
 

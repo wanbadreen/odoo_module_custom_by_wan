@@ -26,3 +26,6 @@ access_scratch_topup_line,scratch topup line,model_motogene_scratch_topup_line,s
 
 
 access_scratch_undelivered_wizard,scratch undelivered release wizard,model_motogene_scratch_undelivered_wizard,stock.group_stock_user,1,1,1,1
+access_scratch_replacement_history,scratch card replacement history,model_motogene_scratch_card_replacement,base.group_user,1,0,0,0
+access_scratch_replace_wizard,scratch replace card wizard,model_motogene_scratch_replace_wizard,stock.group_stock_user,1,1,1,1
+
