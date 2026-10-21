@@ -1,17 +1,21 @@
 # Replace Scratch Card
 
-## Courier recall and replacement shipment (18.0.1.22.0)
+## Courier recall and replacement shipment (18.0.1.22.1)
 
 Use the Courier Recall situation when the original DO is completed, the parcel
 is with the courier, recall has been requested and the customer has not received
-it. Select a different, unvalidated outgoing DO under the **same SO and company**.
+it. **Replacement Delivery is optional**: leave it empty to retain the original
+completed DO and update its serial/print; the replacement card remains Dispatched.
+If using a separate delivery, select an unvalidated outgoing DO under the
+**same SO and company**; the replacement card remains Allocated until validation.
 This card workflow does not create a new DO or process product returns/stock.
 For shipments on another SO, do not use this option: entitlement transfer between
 different SOs is outside this workflow.
 
 The original serial becomes **On Hold — Return Pending**, cannot be redeemed and
-cannot be allocated. A same-prefix replacement is moved to the replacement DO
-as Allocated, becoming Dispatched when that DO is validated. The source SO still
+cannot be allocated. A same-prefix replacement stays on the original DO or moves
+to the optionally selected replacement DO. When a separate DO is selected it is
+Allocated, becoming Dispatched when that DO is validated. The source SO still
 has one entitlement for that card, rather than two. Expiry is preserved.
 
 On the original DO or SO, open **Card Replacement History** and use

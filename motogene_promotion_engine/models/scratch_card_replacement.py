@@ -304,26 +304,26 @@ class ScratchReplaceableCard(models.Model):
             self._check_replacement()
             source_picking = self.picking_id
             if mode == 'courier_recall':
-                target = replacement_picking.exists() if replacement_picking else self.env['stock.picking']
+                target = replacement_picking.exists() if replacement_picking else source_picking
                 if len(target) != 1:
-                    raise UserError(_('Select the replacement Delivery Order for the same Sales Order.'))
+                    raise UserError(_('Select a valid replacement Delivery Order for the same Sales Order.'))
                 target.check_access_rights('write')
                 target.check_access_rule('write')
                 self.env.cr.execute('SELECT id FROM stock_picking WHERE id = %s FOR UPDATE', [target.id])
                 target.invalidate_recordset()
                 if (self.state != 'sent' or source_picking.state != 'done'
-                        or target == source_picking or target.sale_id != self.sale_id
+                        or target.sale_id != self.sale_id
                         or target.company_id != source_picking.company_id
                         or target.picking_type_code != 'outgoing' or target.scratch_return_source_id
-                        or target.state in ('done', 'cancel')):
-                    raise UserError(_('Use a completed original delivery and a different, unvalidated outgoing delivery on the same Sales Order and company.'))
+                        or (target != source_picking and target.state in ('done', 'cancel'))):
+                    raise UserError(_('Use the original completed delivery, or a different unvalidated outgoing delivery on the same Sales Order and company.'))
             old_serial = self.serial_number
             replacement = pool.reserve_serial()
             # Bypass only this extension's serial-edit guard, preserving all
             # existing card identity, redemption and reuse checks in the MRO.
             vals = {'serial_number': replacement}
             if mode == 'courier_recall':
-                vals.update({'picking_id': target.id, 'state': 'reserved'})
+                vals.update({'picking_id': target.id, 'state': 'sent' if target == source_picking else 'reserved'})
             super(ScratchReplaceableCard, self).write(vals)
             history = self.env['motogene.scratch.card.replacement']._record(
                 self, old_serial, reason, notes, mode=mode, source_picking=source_picking)
@@ -414,7 +414,8 @@ class ScratchReplaceWizard(models.TransientModel):
         ('courier_recall', 'Courier Recall — Replacement Shipment'),
     ], required=True, default='before_handover', string='Situation')
     sale_id = fields.Many2one(related='picking_id.sale_id')
-    replacement_picking_id = fields.Many2one('stock.picking', string='Replacement Delivery')
+    replacement_picking_id = fields.Many2one('stock.picking', string='Replacement Delivery (Optional)',
+        help='Leave empty to keep the original DO. Select another unvalidated DO on the same SO only when a separate delivery is used.')
     recall_requested = fields.Boolean(string='Courier recall requested; the original parcel has not been delivered to the customer')
 
     @api.depends('picking_id', 'picking_id.scratch_card_line_ids.state')

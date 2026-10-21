@@ -114,8 +114,7 @@ class TestScratchCardReplacement(TransactionCase):
 
     def test_courier_recall_rejects_wrong_target_or_missing_confirmation(self):
         target = self.picking.copy({'sale_id': self.order.id})
-        for overrides in ({'replacement_picking_id': self.picking.id},
-                          {'replacement_picking_id': False}, {'recall_requested': False}):
+        for overrides in ({'recall_requested': False},):
             vals = {'replacement_mode': 'courier_recall', 'replacement_picking_id': target.id,
                     'recall_requested': True, 'not_handed_over': False}
             vals.update(overrides)
@@ -284,3 +283,26 @@ class TestScratchCardReplacement(TransactionCase):
         wizard.action_confirm()
         self.assertEqual(self.card.serial_number, 'A991002')
 
+
+    def test_courier_recall_can_keep_original_delivery(self):
+        for explicit_original in (False, True):
+            with self.env.cr.savepoint():
+                old_serial = self.card.serial_number
+                wizard = self._wizard(
+                    replacement_mode='courier_recall', recall_requested=True,
+                    not_handed_over=False,
+                    replacement_picking_id=self.picking.id if explicit_original else False)
+                wizard.action_confirm()
+                history = self.picking.scratch_replacement_history_ids[:1]
+                self.assertEqual(history.old_serial, old_serial)
+                self.assertEqual(history.original_status, 'pending')
+                self.assertEqual(history.picking_id, self.picking)
+                self.assertEqual(history.replacement_picking_id, self.picking)
+                self.assertEqual(self.card.picking_id, self.picking)
+                self.assertEqual(self.card.state, 'sent')
+                self.assertEqual(self.picking.state, 'done')
+                self.assertNotEqual(self.card.serial_number, old_serial)
+                history._resolve_courier_return('reuse', True, True, 'Original card physically received')
+                self.assertEqual(history.original_status, 'reusable')
+                self.assertEqual(history.recovered_card_id.state, 'released')
+                self.assertEqual(len(self.order.scratch_card_line_ids.filtered(lambda c: c.state != 'released')), 1)
