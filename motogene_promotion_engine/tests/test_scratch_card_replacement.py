@@ -59,6 +59,111 @@ class TestScratchCardReplacement(TransactionCase):
         self.assertEqual(self.pool.next_number, 991003)
         self.assertEqual(self.pool._scratch_available_count(), 8)
 
+    def _recall(self, **overrides):
+        target = self.picking.copy({'sale_id': self.order.id})
+        values = {'replacement_mode': 'courier_recall', 'replacement_picking_id': target.id,
+                  'recall_requested': True, 'not_handed_over': False, 'reason': 'courier'}
+        values.update(overrides)
+        wizard = self._wizard(**values)
+        wizard.action_confirm()
+        return self.picking.scratch_replacement_history_ids[:1], target
+
+    def test_courier_recall_moves_entitlement_and_holds_original(self):
+        history, target = self._recall()
+        self.assertEqual(history.original_status, 'pending')
+        self.assertEqual(history.picking_id, self.picking)
+        self.assertEqual(history.replacement_picking_id, target)
+        self.assertEqual(self.card.picking_id, target)
+        self.assertEqual(self.card.state, 'reserved')
+        self.assertFalse(self.picking.scratch_card_line_ids)
+        self.assertEqual(len(self.order.scratch_card_line_ids.filtered(lambda c: c.state != 'released')), 1)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self.Card.create({'sale_id': self.order.id, 'program_id': self.program.id,
+                              'prefix': 'A', 'serial_number': history.old_serial})
+        target.move_ids.write({'quantity': 1, 'picked': True})
+        target._action_done()
+        self.assertEqual(self.card.state, 'sent')
+
+    def test_courier_original_released_only_after_physical_inspection(self):
+        history, target = self._recall()
+        before = self.pool.next_number
+        for received, unscratched in ((False, False), (True, False), (False, True)):
+            with self.assertRaises(UserError), self.env.cr.savepoint():
+                history._resolve_courier_return('reuse', received, unscratched, 'Inspection')
+        self.assertEqual(history.original_status, 'pending')
+        history._resolve_courier_return('reuse', True, True, 'Courier returned sealed parcel; card inspected')
+        self.assertEqual(history.original_status, 'reusable')
+        self.assertEqual(history.recovered_card_id.state, 'released')
+        self.assertFalse(history.recovered_card_id.undelivered_released_at)
+        self.assertEqual(self.card.picking_id, target)
+        self.assertEqual(self.card.serial_number, 'A991002')
+        self.assertEqual(self.pool.next_number, before)
+        self.assertEqual(self.pool.reserve_serial(), 'A991001')
+        self.assertEqual(self.pool.next_number, before)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            history._resolve_courier_return('reuse', True, True, 'Duplicate click')
+
+    def test_courier_return_bad_or_lost_card_stays_permanently_blocked(self):
+        history, target = self._recall()
+        history._resolve_courier_return('block', True, False, 'Returned card was scratched')
+        self.assertEqual(history.original_status, 'blocked')
+        self.assertFalse(history.recovered_card_id)
+        self.assertEqual(self.pool.reserve_serial(), 'A991003')
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            history._resolve_courier_return('reuse', True, True, 'Cannot undo permanent blocking')
+
+    def test_courier_recall_rejects_wrong_target_or_missing_confirmation(self):
+        target = self.picking.copy({'sale_id': self.order.id})
+        for overrides in ({'replacement_picking_id': self.picking.id},
+                          {'replacement_picking_id': False}, {'recall_requested': False}):
+            vals = {'replacement_mode': 'courier_recall', 'replacement_picking_id': target.id,
+                    'recall_requested': True, 'not_handed_over': False}
+            vals.update(overrides)
+            with self.assertRaises(UserError), self.env.cr.savepoint():
+                self._wizard(**vals).action_confirm()
+        self.assertEqual(self.pool.next_number, 991002)
+        self.assertEqual(self.card.serial_number, 'A991001')
+
+    def test_reissued_original_can_have_new_replacement_history(self):
+        history, target = self._recall()
+        history._resolve_courier_return('reuse', True, True, 'Received in good condition')
+        serial = self.pool.reserve_serial()
+        reused = self.Card.create({'sale_id': self.order.id, 'picking_id': target.id,
+                                  'program_id': self.program.id, 'prefix': 'A',
+                                  'serial_number': serial, 'state': 'reserved'})
+        reused._replace_scratch_card('printing', 'Printing defect discovered later', True, serial)
+        histories = self.env['motogene.scratch.card.replacement'].search([('old_serial', '=', serial)])
+        self.assertEqual(len(histories), 2)
+        self.assertEqual(set(histories.mapped('original_status')), {'reusable', 'blocked'})
+        self.assertEqual(history.original_status, 'reusable')
+
+    def test_receipt_popup_opens_empty_and_permanent_replacements_cannot_be_reused(self):
+        history, target = self._recall()
+        action = history.action_receive_recalled_card()
+        receipt = self.env[action['res_model']].browse(action['res_id'])
+        self.assertEqual(receipt.history_id, history)
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            receipt.action_confirm()
+        receipt.write({'physically_received': True, 'unscratched': True, 'notes': 'Received and checked'})
+        receipt.action_confirm()
+        self.assertEqual(history.original_status, 'reusable')
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            history.action_receive_recalled_card()
+
+    def test_recall_rejects_another_sales_order_delivery(self):
+        other_order = self.env['sale.order'].create({'partner_id': self.partner.id})
+        wrong = self.env['stock.picking'].create({
+            'sale_id': other_order.id, 'partner_id': self.partner.id,
+            'picking_type_id': self.picking.picking_type_id.id,
+            'location_id': self.picking.location_id.id,
+            'location_dest_id': self.picking.location_dest_id.id,
+        })
+        with self.assertRaises(UserError), self.env.cr.savepoint():
+            self._wizard(replacement_mode='courier_recall', replacement_picking_id=wrong.id,
+                         recall_requested=True, not_handed_over=False).action_confirm()
+        self.assertEqual(self.card.picking_id, self.picking)
+        self.assertEqual(self.pool.next_number, 991002)
+
     def test_repeated_popup_rejected_but_new_replacement_allowed(self):
         wizard = self._wizard()
         wizard.action_confirm()
@@ -178,3 +283,4 @@ class TestScratchCardReplacement(TransactionCase):
         wizard.write({'reason': 'damaged', 'notes': 'Already scratched before handover', 'not_handed_over': True})
         wizard.action_confirm()
         self.assertEqual(self.card.serial_number, 'A991002')
+

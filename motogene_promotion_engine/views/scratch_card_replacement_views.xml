@@ -5,22 +5,35 @@
         <field name="model">motogene.scratch.replace.wizard</field>
         <field name="arch" type="xml">
             <form string="Replace Scratch Card">
-                <div class="alert alert-warning" role="alert">
+                <div class="alert alert-warning" role="alert" invisible="replacement_mode != 'before_handover'">
                     Use only before the parcel is handed over to the courier or customer.
                     The original serial will be blocked permanently. A replacement of the same
                     card type will be allocated without increasing the customer's card entitlement.
                 </div>
+                <div class="alert alert-warning" role="alert" invisible="replacement_mode != 'courier_recall'">
+                    The original parcel is with the courier and recall has been requested.
+                    Its original card will be On Hold — Return Pending and cannot be redeemed.
+                    The replacement serial will be assigned to a different, unvalidated Delivery
+                    Order on the same Sales Order. Only release the original serial after physical inspection.
+                </div>
                 <group>
                     <field name="picking_id"/>
+                    <field name="replacement_mode"/>
+                    <field name="sale_id" invisible="1"/>
                     <field name="available_card_ids" invisible="1"/>
                     <field name="card_id" required="1" domain="[('id', 'in', available_card_ids)]"
                            options="{'no_create': True, 'no_create_edit': True, 'no_open': True}"/>
                     <field name="serial_to_replace" force_save="1"/>
                     <field name="reason" required="1"/>
                     <field name="notes" required="1"/>
-                    <field name="not_handed_over"/>
+                    <field name="not_handed_over" invisible="replacement_mode != 'before_handover'"/>
+                    <field name="replacement_picking_id" invisible="replacement_mode != 'courier_recall'"
+                           required="replacement_mode == 'courier_recall'"
+                           domain="[('sale_id', '=', sale_id), ('id', '!=', picking_id), ('picking_type_code', '=', 'outgoing'), ('state', 'not in', ['done', 'cancel']), ('scratch_return_source_id', '=', False)]"
+                           options="{'no_create': True, 'no_create_edit': True}"/>
+                    <field name="recall_requested" invisible="replacement_mode != 'courier_recall'"/>
                 </group>
-                <p class="text-muted">After replacement, refresh and print the updated Picking Operations document. Set aside the original card. A missing card found later must not be used.</p>
+                <p class="text-muted">Print Picking Operations for the delivery that will carry the replacement card. For a courier recall, reconcile the original serial from Card Replacement History when it returns.</p>
                 <footer>
                     <button name="action_confirm" type="object" string="Confirm Replacement" class="btn-primary"/>
                     <button string="Cancel" special="cancel" class="btn-secondary"/>
@@ -39,13 +52,30 @@
                         groups="stock.group_stock_user" invisible="not scratch_can_replace_card"/>
             </xpath>
             <xpath expr="//notebook" position="inside">
+                <page string="Replacement Shipment Cards" invisible="not scratch_incoming_replacement_history_ids">
+                    <field name="scratch_incoming_replacement_history_ids" readonly="1">
+                        <list create="0" edit="0" delete="0">
+                            <field name="picking_id" string="Original Delivery"/>
+                            <field name="old_serial"/><field name="new_serial"/>
+                            <field name="original_status"/><field name="reason"/>
+                            <field name="recovery_notes" optional="hide"/>
+                        </list>
+                    </field>
+                </page>
                 <page string="Card Replacement History" invisible="not scratch_replacement_history_ids">
                     <field name="scratch_replacement_history_ids" readonly="1">
                         <list create="0" edit="0" delete="0">
                             <field name="old_serial"/><field name="new_serial"/>
+                            <field name="original_status"/><field name="replacement_picking_id"/>
+                            <field name="replacement_mode" optional="hide"/>
                             <field name="reason"/><field name="notes"/>
                             <field name="replaced_at"/><field name="replaced_by_id"/>
                             <field name="legacy_entry" optional="hide"/>
+                            <field name="recovery_notes" optional="hide"/>
+                            <field name="received_at" optional="hide"/>
+                            <field name="received_by_id" optional="hide"/>
+                            <button name="action_receive_recalled_card" type="object" string="Receive / Release for Reuse"
+                                    groups="stock.group_stock_user" invisible="original_status != 'pending'"/>
                         </list>
                     </field>
                 </page>
@@ -62,8 +92,13 @@
                     <field name="scratch_replacement_history_ids" readonly="1">
                         <list create="0" edit="0" delete="0">
                             <field name="old_serial"/><field name="new_serial"/>
+                            <field name="original_status"/><field name="replacement_picking_id"/>
                             <field name="picking_id"/><field name="reason"/>
                             <field name="notes"/><field name="replaced_at"/><field name="replaced_by_id"/>
+                            <field name="recovery_notes" optional="hide"/>
+                            <field name="received_at" optional="hide"/>
+                            <button name="action_receive_recalled_card" type="object" string="Receive / Release for Reuse"
+                                    groups="stock.group_stock_user" invisible="original_status != 'pending'"/>
                         </list>
                     </field>
                 </page>
@@ -75,4 +110,32 @@
         <field name="model_id" ref="model_motogene_scratch_card_replacement"/>
         <field name="domain_force">[('company_id', 'in', company_ids)]</field>
     </record>
+    <record id="view_scratch_recall_receipt" model="ir.ui.view">
+        <field name="name">motogene.scratch.recall.receipt.form</field>
+        <field name="model">motogene.scratch.recall.receipt</field>
+        <field name="arch" type="xml">
+            <form string="Receive Recalled Scratch Card">
+                <div class="alert alert-warning" role="alert">
+                    Courier recall alone does not make a card available. Release only after the
+                    original physical card is back in the warehouse, unscratched and in good condition.
+                    If damaged, scratched or never recovered, permanently block the original instead.
+                    This does not change the replacement card or process any product/stock return.
+                </div>
+                <group>
+                    <field name="history_id" invisible="1"/>
+                    <field name="old_serial"/>
+                    <field name="new_serial"/>
+                    <field name="disposition"/>
+                    <field name="physically_received"/>
+                    <field name="unscratched" invisible="disposition != 'reuse'"/>
+                    <field name="notes" required="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Confirm Receipt / Disposition" class="btn-primary"/>
+                    <button string="Cancel" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
 </odoo>
+

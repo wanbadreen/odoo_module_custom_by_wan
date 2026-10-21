@@ -1,5 +1,40 @@
 # Replace Scratch Card
 
+## Courier recall and replacement shipment (18.0.1.22.0)
+
+Use the Courier Recall situation when the original DO is completed, the parcel
+is with the courier, recall has been requested and the customer has not received
+it. Select a different, unvalidated outgoing DO under the **same SO and company**.
+This card workflow does not create a new DO or process product returns/stock.
+For shipments on another SO, do not use this option: entitlement transfer between
+different SOs is outside this workflow.
+
+The original serial becomes **On Hold — Return Pending**, cannot be redeemed and
+cannot be allocated. A same-prefix replacement is moved to the replacement DO
+as Allocated, becoming Dispatched when that DO is validated. The source SO still
+has one entitlement for that card, rather than two. Expiry is preserved.
+
+On the original DO or SO, open **Card Replacement History** and use
+**Receive / Release for Reuse** on the pending original serial. Choose:
+
+- **Release Cards for Reuse** only after the physical original card is back in
+  the warehouse, unscratched and in good condition. A Released history row makes
+  that serial available to the ordinary allocator; Next Number is not rewound.
+- **Permanently Block Original Card** when scratched, damaged or never recovered.
+  Enter the inspection/reason. This cannot be undone through the reuse workflow.
+
+The replacement card is not withdrawn when the original is received. Reconcile
+the products separately through the ordinary inventory return workflow. Pending
+originals are selected from replacement history, not Physical Cards Received:
+they no longer have an active card row on the original delivery.
+
+Staging tests: recall before receipt, replacement DO/print, failed redemption of
+original, receipt without physical confirmations, good-card reuse without cursor
+reset, scratched-card blocking, repeated confirmation, stock exhaustion, wrong
+SO/company/return DO, and ordinary before-handover replacement regression.
+
+## Before parcel handover
+
 Operations can replace one allocated/dispatched card before parcel handover.
 Select the card, reason and remarks, then confirm that the parcel has not been
 handed to the courier/customer. The replacement uses the same actual prefix,
