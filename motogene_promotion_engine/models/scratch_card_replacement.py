@@ -127,6 +127,9 @@ class ScratchCardReplacement(models.Model):
                     'received_at': now if physically_received else False,
                     'received_by_id': self.env.user.id if physically_received else False}
             super(ScratchCardReplacement, self.sudo()).write(vals)
+            # The card create guard reads SQL directly. Publish the ORM status
+            # change before creating the Released history row in this transaction.
+            self.flush_recordset(['original_status'])
             if disposition == 'reuse':
                 # Released rows are history, not new customer entitlement. The
                 # usual allocator creates a fresh allocation when reusing one.
@@ -215,7 +218,7 @@ class ScratchReplaceableCard(models.Model):
     def create(self, vals_list):
         serials = [v.get('serial_number') for v in vals_list if v.get('serial_number')]
         if serials:
-            self.env['motogene.scratch.card.replacement'].flush_model(['old_serial'])
+            self.env['motogene.scratch.card.replacement'].flush_model(['old_serial', 'original_status'])
             self.env.cr.execute("SELECT old_serial FROM motogene_scratch_card_replacement WHERE original_status != 'reusable' AND old_serial IN %s",
                                 [tuple(serials)])
             if self.env.cr.fetchone():
