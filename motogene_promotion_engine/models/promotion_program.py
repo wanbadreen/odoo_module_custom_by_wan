@@ -484,6 +484,7 @@ class MotogenePromotionProgram(models.Model):
             default_code in {
                 "loyalty point redemption",
                 "loyalty points redemption",
+                "loyalty_redeem",
             }
             or product_name in {
                 "loyalty point redemption",
