@@ -36,6 +36,13 @@ class GdexConsignment(models.Model):
     request_reference = fields.Char(readonly=True, copy=False)
     created_by_id = fields.Many2one('res.users', readonly=True)
     pdf_attachment_id = fields.Many2one('ir.attachment', readonly=True, copy=False)
+    pdf_ready = fields.Boolean(string='PDF Ready', compute='_compute_pdf_ready', store=True)
+
+    @api.depends('pdf_attachment_id')
+    def _compute_pdf_ready(self):
+        for rec in self:
+            rec.pdf_ready = bool(rec.pdf_attachment_id)
+
 
     def init(self):
         # Database-level safeguard against concurrent duplicate requests.
@@ -217,22 +224,47 @@ class GdexConsignment(models.Model):
                 'target': 'self'}
 
     def action_print_bulk(self):
+        """Download one PDF for explicitly selected successful consignments.
+
+        Cached labels are reused; missing labels use GetConsignmentNotePDF
+        only. Never call CreateConsignment from this print workflow.
+        """
         self._check_operator()
+        if not self:
+            raise UserError(_('Select at least one GDEX consignment to print.'))
+        invalid = self.filtered(lambda rec: rec.state != 'success' or not rec.awb)
+        if invalid:
+            raise UserError(_('Selection contains %s unconfirmed consignments. Select only successful AWBs.') % len(invalid))
+
         from pypdf import PdfReader, PdfWriter
-        lines = self.filtered(lambda rec: rec.state == 'success')
-        if not lines:
-            raise UserError(_('No successful GDEX AWBs selected.'))
         writer = PdfWriter()
+        lines = self.sorted(key=lambda rec: (rec.picking_id.name or '', rec.id))
         for rec in lines:
-            reader = PdfReader(io.BytesIO(rec._ensure_pdf()))
-            for page in reader.pages:
-                writer.add_page(page)
+            try:
+                label = rec._ensure_pdf()
+                reader = PdfReader(io.BytesIO(label))
+                for page in reader.pages:
+                    writer.add_page(page)
+            except Exception as exc:
+                _logger.exception('GDEX bulk reprint interrupted for consignment %s', rec.id)
+                raise UserError(
+                    _('Could not prepare label for %s (DO %s). No combined PDF was generated. '
+                      'Other saved labels remain available. Error: %s')
+                    % (rec.awb, rec.picking_id.name, str(exc)[:200])
+                ) from exc
+
         stream = io.BytesIO()
         writer.write(stream)
         attachment = self.env['ir.attachment'].sudo().create({
-            'name': 'GDEX_Bulk_AWB_100x150.pdf', 'type': 'binary',
-            'datas': base64.b64encode(stream.getvalue()), 'mimetype': 'application/pdf',
-            'res_model': 'res.users', 'res_id': self.env.uid,
+            'name': 'GDEX_Bulk_Reprint_%s_labels_100x150.pdf' % len(lines),
+            'type': 'binary',
+            'datas': base64.b64encode(stream.getvalue()),
+            'mimetype': 'application/pdf',
+            'res_model': 'res.users',
+            'res_id': self.env.uid,
         })
-        return {'type': 'ir.actions.act_url',
-                'url': '/web/content/%s?download=true' % attachment.id, 'target': 'self'}
+        return {
+            'type': 'ir.actions.act_url',
+            'url': '/web/content/%s?download=true' % attachment.id,
+            'target': 'self',
+        }
