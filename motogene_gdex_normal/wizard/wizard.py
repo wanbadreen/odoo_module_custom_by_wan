@@ -31,14 +31,21 @@ class GdexWizard(models.TransientModel):
         # requests; persist wizard-line edits in the normal Odoo RPC first.
         self.line_ids.flush_recordset()
         for line in self.line_ids:
-            if line.consignment_id and line.consignment_id.state != 'failed':
-                line.result = 'Blocked: already processed or unresolved; check history.'
-                continue
+            if line.consignment_attempt_id:
+                previous = consignments.sudo().browse(
+                    line.consignment_attempt_id
+                ).exists()
+                if previous and previous.state != 'failed':
+                    line.result = (
+                        'Blocked: already processed or unresolved; '
+                        'check GDEX history.'
+                    )
+                    continue
             # Each attempt is independently reserved/finalized in private cursors.
             attempt_id, outcome = consignments.create_from_wizard_line(line)
             self.env.invalidate_all()
             if attempt_id:
-                line.consignment_id = attempt_id
+                line.consignment_attempt_id = attempt_id
             line.result = outcome
         self.results = '\n'.join('%s: %s' % (line.picking_id.name, line.result or '') for line in self.line_ids)
         return {'type': 'ir.actions.act_window', 'res_model': self._name,
@@ -46,7 +53,14 @@ class GdexWizard(models.TransientModel):
 
     def action_print_results(self):
         self.ensure_one()
-        cons = self.line_ids.mapped('consignment_id').filtered(lambda c: c.state == 'success')
+        ids = [
+            line.consignment_attempt_id
+            for line in self.line_ids
+            if line.consignment_attempt_id
+        ]
+        cons = self.env['motogene.gdex.consignment'].browse(
+            ids
+        ).exists().filtered(lambda c: c.state == 'success')
         return cons.action_print_bulk()
 
 
@@ -63,4 +77,8 @@ class GdexWizardLine(models.TransientModel):
     weight = fields.Float(default=1.0)
     pieces = fields.Integer(default=1)
     result = fields.Char(readonly=True)
-    consignment_id = fields.Many2one('motogene.gdex.consignment', readonly=True)
+    consignment_attempt_id = fields.Integer(
+        string='GDEX Attempt ID',
+        readonly=True,
+        copy=False
+    )
