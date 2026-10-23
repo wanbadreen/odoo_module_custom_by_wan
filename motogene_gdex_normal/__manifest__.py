@@ -5,7 +5,7 @@
     'category': 'Inventory/Delivery',
     'author': 'Morimoto Formulas',
     'license': 'LGPL-3',
-    'depends': ['stock', 'delivery'],
+    'depends': ['stock', 'delivery', 'morimoto_inter_company'],
     'data': [
         'security/gdex_groups.xml',
         'security/ir.model.access.csv',
