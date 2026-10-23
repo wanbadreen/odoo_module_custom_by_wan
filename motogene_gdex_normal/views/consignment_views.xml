@@ -1,1 +1,92 @@
-<odoo><record id="gdex_normal_consignment_list" model="ir.ui.view"><field name="name">motogene.gdex.consignment.list</field><field name="model">motogene.gdex.consignment</field><field name="arch" type="xml"><list create="false"><field name="picking_id"/><field name="state"/><field name="api_environment"/><field name="awb"/><field name="error_message"/><field name="created_by_id"/></list></field></record><record id="gdex_normal_consignment_form" model="ir.ui.view"><field name="name">motogene.gdex.consignment.form</field><field name="model">motogene.gdex.consignment</field><field name="arch" type="xml"><form create="false"><header><button name="action_print_single" type="object" string="Print 100x150 PDF" class="btn-primary" invisible="state != 'success'"/></header><sheet><group><field name="picking_id"/><field name="state"/><field name="awb"/><field name="error_message"/><field name="pdf_attachment_id"/></group><group><field name="receiver_name"/><field name="receiver_mobile"/><field name="receiver_address1"/><field name="receiver_postcode"/><field name="weight"/><field name="pieces"/></group></sheet></form></field></record><record id="action_gdex_normal_consignment" model="ir.actions.act_window"><field name="name">GDEX Normal Consignments</field><field name="res_model">motogene.gdex.consignment</field><field name="view_mode">list,form</field></record><menuitem id="menu_gdex_normal_root" name="GDEX Normal" parent="stock.menu_stock_root" sequence="95" groups="motogene_gdex_normal.group_gdex_normal_user"/><menuitem id="menu_gdex_normal_consignment" name="Consignments" parent="menu_gdex_normal_root" action="action_gdex_normal_consignment"/></odoo>
+<odoo>
+    <record id="gdex_normal_consignment_list" model="ir.ui.view">
+        <field name="name">motogene.gdex.consignment.list</field>
+        <field name="model">motogene.gdex.consignment</field>
+        <field name="arch" type="xml">
+            <list create="false">
+                <field name="picking_id"/>
+                <field name="awb"/>
+                <field name="state"/>
+                <field name="api_environment"/>
+                <field name="pdf_ready"/>
+                <field name="created_by_id"/>
+                <field name="create_date"/>
+                <field name="error_message" optional="hide"/>
+            </list>
+        </field>
+    </record>
+    <record id="gdex_normal_consignment_form" model="ir.ui.view">
+        <field name="name">motogene.gdex.consignment.form</field>
+        <field name="model">motogene.gdex.consignment</field>
+        <field name="arch" type="xml">
+            <form create="false">
+                <header>
+                    <button name="action_print_single" type="object"
+                        string="Print 100x150 PDF" class="btn-primary"
+                        invisible="state != 'success'"/>
+                </header>
+                <sheet>
+                    <group>
+                        <field name="picking_id"/>
+                        <field name="state"/>
+                        <field name="api_environment"/>
+                        <field name="awb"/>
+                        <field name="pdf_ready"/>
+                        <field name="error_message"/>
+                        <field name="pdf_attachment_id"/>
+                    </group>
+                    <group>
+                        <field name="receiver_name"/>
+                        <field name="receiver_mobile"/>
+                        <field name="receiver_address1"/>
+                        <field name="receiver_postcode"/>
+                        <field name="weight"/>
+                        <field name="pieces"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+    <record id="gdex_normal_consignment_search" model="ir.ui.view">
+        <field name="name">motogene.gdex.consignment.search</field>
+        <field name="model">motogene.gdex.consignment</field>
+        <field name="arch" type="xml">
+            <search string="GDEX Normal Consignments">
+                <field name="picking_id"/>
+                <field name="awb"/>
+                <field name="created_by_id"/>
+                <filter name="successful" string="Success" domain="[('state','=','success')]"/>
+                <filter name="production" string="Production" domain="[('api_environment','=','production')]"/>
+                <filter name="sandbox" string="Sandbox" domain="[('api_environment','=','sandbox')]"/>
+                <filter name="pdf_ready" string="PDF Ready" domain="[('pdf_ready','=',True)]"/>
+                <filter name="pdf_missing" string="PDF Missing" domain="[('pdf_ready','=',False)]"/>
+                <filter name="created_today" string="Created Today"
+                    domain="[('create_date','&gt;=',context_today().strftime('%Y-%m-%d 00:00:00')),('create_date','&lt;',(context_today()+datetime.timedelta(days=1)).strftime('%Y-%m-%d 00:00:00'))]"/>
+                <group expand="0" string="Group By">
+                    <filter name="by_creator" string="Created By" context="{'group_by':'created_by_id'}"/>
+                    <filter name="by_date" string="Created Date" context="{'group_by':'create_date:day'}"/>
+                    <filter name="by_environment" string="Environment" context="{'group_by':'api_environment'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+    <record id="action_gdex_normal_consignment" model="ir.actions.act_window">
+        <field name="name">GDEX Normal Consignments</field>
+        <field name="res_model">motogene.gdex.consignment</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="gdex_normal_consignment_search"/>
+    </record>
+    <record id="action_gdex_normal_bulk_reprint" model="ir.actions.server">
+        <field name="name">Bulk Reprint AWBs (100x150 PDF)</field>
+        <field name="model_id" ref="model_motogene_gdex_consignment"/>
+        <field name="binding_model_id" ref="model_motogene_gdex_consignment"/>
+        <field name="binding_view_types">list</field>
+        <field name="state">code</field>
+        <field name="code">action = records.action_print_bulk()</field>
+    </record>
+    <menuitem id="menu_gdex_normal_root" name="GDEX Normal"
+        parent="stock.menu_stock_root" sequence="95"
+        groups="motogene_gdex_normal.group_gdex_normal_user"/>
+    <menuitem id="menu_gdex_normal_consignment" name="Consignments"
+        parent="menu_gdex_normal_root" action="action_gdex_normal_consignment"/>
+</odoo>
