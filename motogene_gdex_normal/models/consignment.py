@@ -4,7 +4,8 @@ import logging
 import uuid
 
 import requests
-from odoo import api, fields, models, _, registry
+from odoo import api, fields, models, _
+from odoo.modules.registry import Registry
 from odoo.exceptions import AccessError, UserError
 from .config import DEMO
 from .pdf_labels import convert_to_thermal
@@ -97,7 +98,7 @@ class GdexConsignment(models.Model):
         user_id = self.env.uid
         attempt_id = None
         # Separate cursor prevents manual commits of unrelated Odoo work.
-        with registry(dbname).cursor() as cr:
+        with Registry(dbname).cursor() as cr:
             other = api.Environment(cr, user_id, dict(self.env.context))
             cr.execute('SELECT id FROM stock_picking WHERE id=%s FOR UPDATE', (picking.id,))
             p = other['stock.picking'].browse(picking.id).exists()
@@ -131,7 +132,9 @@ class GdexConsignment(models.Model):
                 data = response.json()
             except ValueError:
                 data = {}
-            awbs = data.get('r') if isinstance(data, dict) else None
+            if not isinstance(data, dict):
+                data = {}
+            awbs = data.get('r')
             if (response.status_code == 200 and data.get('s') == 'success'
                     and isinstance(awbs, list) and len(awbs) == 1 and awbs[0]):
                 outcome = {'state': 'success', 'awb': str(awbs[0]), 'error_message': False}
@@ -146,7 +149,7 @@ class GdexConsignment(models.Model):
         # Finalize in a dedicated transaction so successful AWBs are durable even
         # if a later DO in the wizard fails or the HTTP response to Odoo is lost.
         try:
-            with registry(dbname).cursor() as cr:
+            with Registry(dbname).cursor() as cr:
                 other = api.Environment(cr, user_id, dict(self.env.context))
                 cr.execute('SELECT id FROM stock_picking WHERE id=%s FOR UPDATE', (picking.id,))
                 p = other['stock.picking'].browse(picking.id)
