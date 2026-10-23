@@ -7,7 +7,7 @@ import requests
 from odoo import api, fields, models, _
 from odoo.modules.registry import Registry
 from odoo.exceptions import AccessError, UserError
-from .config import DEMO
+from .config import DEMO, PRODUCTION
 from .pdf_labels import convert_to_thermal
 
 _logger = logging.getLogger(__name__)
@@ -24,6 +24,8 @@ class GdexConsignment(models.Model):
         ('failed', 'Failed'), ('uncertain', 'Unknown - Verify in Portal'),
     ], default='draft', required=True, index=True, readonly=True)
     awb = fields.Char(readonly=True, copy=False)
+    api_environment = fields.Selection([('sandbox', 'Sandbox'), ('production', 'Production')],
+                                       default='sandbox', required=True, readonly=True, index=True)
     receiver_name = fields.Char(readonly=True)
     receiver_mobile = fields.Char(readonly=True)
     receiver_address1 = fields.Char(readonly=True)
@@ -50,20 +52,31 @@ class GdexConsignment(models.Model):
             raise AccessError(_('You are not allowed to create GDEX consignments.'))
 
     @api.model
-    def _credentials(self):
+    def _credentials(self, environment=None, require_creation=False):
         params = self.env['ir.config_parameter'].sudo()
-        if params.get_param('motogene_gdex_normal.environment', 'sandbox') != 'sandbox':
-            raise UserError(_('Production GDEX requests are locked.'))
-        token = params.get_param('motogene_gdex_normal.sandbox_token')
-        key = params.get_param('motogene_gdex_normal.sandbox_key')
+        active = params.get_param('motogene_gdex_normal.environment', 'sandbox')
+        environment = environment or active
+        if environment not in ('sandbox', 'production'):
+            raise UserError(_('Invalid GDEX environment.'))
+        if require_creation and environment != active:
+            raise UserError(_('GDEX environment changed; reload the wizard.'))
+        if environment == 'production':
+            if require_creation and params.get_param('motogene_gdex_normal.production_enabled', 'False') != 'True':
+                raise UserError(_('Production AWB creation is disabled by administrator.'))
+            endpoint = PRODUCTION
+            token = params.get_param('motogene_gdex_normal.production_token')
+            key = params.get_param('motogene_gdex_normal.production_key')
+        else:
+            endpoint = DEMO
+            token = params.get_param('motogene_gdex_normal.sandbox_token')
+            key = params.get_param('motogene_gdex_normal.sandbox_key')
         if not token or not key:
-            raise UserError(_('Configure GDEX Sandbox credentials first.'))
-        return {
-            'ApiToken': token,
-            'Subscription-Key': key,
+            raise UserError(_('Configure GDEX %s credentials first.') % environment)
+        return ({
+            'ApiToken': token, 'Subscription-Key': key,
             'Content-Type': 'application/json-patch+json',
             'Accept': 'application/json',
-        }, params.get_param('motogene_gdex_normal.account_no')
+        }, params.get_param('motogene_gdex_normal.account_no'), endpoint, environment)
 
     @api.model
     def create_from_wizard_line(self, line):
@@ -90,7 +103,7 @@ class GdexConsignment(models.Model):
         if not picking.partner_id.country_id or picking.partner_id.country_id.code != 'MY':
             return False, _('Only Malaysian domestic destinations are supported.')
         try:
-            headers, account = self._credentials()  # Validate before reserving.
+            headers, account, endpoint, environment = self._credentials(require_creation=True)  # Validate before reserving.
         except UserError as exc:
             return False, str(exc)
 
@@ -109,7 +122,7 @@ class GdexConsignment(models.Model):
             attempts = other['motogene.gdex.consignment'].sudo()
             if attempts.search_count([('picking_id','=',p.id), ('state','in',('uncertain','success'))]):
                 return False, _('Blocked: successful or unresolved GDEX request exists.')
-            attempt = attempts.create({**vals,
+            attempt = attempts.create({**vals, 'api_environment': environment,
                 'state': 'uncertain', 'error_message': 'Reserved: check GDEX portal before retry if interrupted.',
                 'request_reference': str(uuid.uuid4()), 'created_by_id': user_id,
             })
@@ -125,7 +138,7 @@ class GdexConsignment(models.Model):
         }]
         outcome = {'state': 'uncertain', 'error_message': 'Response not confirmed; verify in GDEX portal before retry.'}
         try:
-            response = requests.post(DEMO+'/CreateConsignment',
+            response = requests.post(endpoint+'/CreateConsignment',
                 params={'accountNo': account} if account else None,
                 headers=headers, json=payload, timeout=(10, 35))
             try:
@@ -174,9 +187,9 @@ class GdexConsignment(models.Model):
             raise UserError(_('Only successful consignments may be printed.'))
         if self.pdf_attachment_id:
             return base64.b64decode(self.pdf_attachment_id.datas)
-        headers, account = self._credentials()
+        headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
         try:
-            response = requests.get(DEMO+'/GetConsignmentNotePDF',
+            response = requests.get(endpoint+'/GetConsignmentNotePDF',
                 headers=headers, params={'consignmentNo': self.awb, 'paperPrintingSize': 'A6',
                                         **({'accountNo': account} if account else {})}, timeout=(10,35))
         except requests.RequestException as exc:
