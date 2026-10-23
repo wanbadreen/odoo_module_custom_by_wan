@@ -1,0 +1,5 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_gdex_consignment_user,motogene.gdex.consignment user,model_motogene_gdex_consignment,motogene_gdex_normal.group_gdex_normal_user,1,1,1,0
+access_gdex_wizard_user,motogene.gdex.wizard user,model_motogene_gdex_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_wizard_line_user,motogene.gdex.wizard.line user,model_motogene_gdex_wizard_line,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_consignment_admin,motogene.gdex.consignment admin,model_motogene_gdex_consignment,base.group_system,1,1,1,1
