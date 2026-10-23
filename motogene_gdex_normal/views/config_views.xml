@@ -1,1 +1,36 @@
-<odoo><record id="res_config_settings_view_gdex_normal" model="ir.ui.view"><field name="name">res.config.settings.gdex.normal</field><field name="model">res.config.settings</field><field name="inherit_id" ref="base.res_config_settings_view_form"/><field name="arch" type="xml"><xpath expr="//form" position="inside"><app string="GDEX Normal" name="gdex_normal"><block title="GDEX Sandbox"><setting string="Environment"><field name="gdex_normal_environment"/></setting><setting string="Sandbox User Token"><field name="gdex_normal_sandbox_token" password="True"/></setting><setting string="Testing Subscription Key"><field name="gdex_normal_sandbox_key" password="True"/></setting><setting string="Account Number (optional)"><field name="gdex_normal_account"/></setting><button name="action_gdex_normal_test" type="object" string="Test Sandbox Connection" class="btn-primary"/></block></app></xpath></field></record></odoo>
+<odoo>
+    <record id="res_config_settings_view_gdex_normal" model="ir.ui.view">
+        <field name="name">res.config.settings.gdex.normal</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="GDEX Normal" name="gdex_normal">
+                    <block title="GDEX Normal API">
+                        <setting string="Environment" help="Select Sandbox or Production. Production AWB creation remains locked.">
+                            <field name="gdex_normal_environment"/>
+                        </setting>
+                        <setting string="Sandbox User Token">
+                            <field name="gdex_normal_sandbox_token" password="True"/>
+                        </setting>
+                        <setting string="Testing Subscription Key">
+                            <field name="gdex_normal_sandbox_key" password="True"/>
+                        </setting>
+                        <setting string="Production User Token">
+                            <field name="gdex_normal_production_token" password="True"/>
+                        </setting>
+                        <setting string="Production Subscription Key">
+                            <field name="gdex_normal_production_key" password="True"/>
+                        </setting>
+                        <setting string="GDEX Account Number (optional)">
+                            <field name="gdex_normal_account"/>
+                        </setting>
+                        <setting string="Connection Test">
+                            <button name="action_gdex_normal_test" type="object" string="Test Selected API Connection" class="btn-primary"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+</odoo>
