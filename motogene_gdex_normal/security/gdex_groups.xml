@@ -1,0 +1,1 @@
+<odoo><record id="group_gdex_normal_user" model="res.groups"><field name="name">GDEX Normal Operator</field><field name="category_id" ref="base.module_category_inventory_inventory"/></record></odoo>

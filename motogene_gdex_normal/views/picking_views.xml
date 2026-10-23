@@ -1,0 +1,16 @@
+<odoo>
+ <record id="gdex_normal_picking_form" model="ir.ui.view">
+  <field name="name">stock.picking.gdex.normal.form</field>
+  <field name="model">stock.picking</field>
+  <field name="inherit_id" ref="stock.view_picking_form"/>
+  <field name="arch" type="xml">
+   <xpath expr="//header" position="inside">
+    <field name="x_studio_order_type" invisible="1"/>
+    <field name="mori_awb_no" invisible="1"/>
+    <button name="action_gdex_normal_wizard" type="object" string="Create GDEX Normal"
+            class="btn-primary" groups="motogene_gdex_normal.group_gdex_normal_user"
+            invisible="state != 'assigned' or x_studio_order_type != 'Normal' or mori_awb_no"/>
+   </xpath>
+  </field>
+ </record>
+</odoo>
