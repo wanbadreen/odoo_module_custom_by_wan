@@ -10,7 +10,7 @@ class ResConfigSettings(models.TransientModel):
     _inherit = 'res.config.settings'
 
     gdex_normal_environment = fields.Selection(
-        [('sandbox', 'Sandbox'), ('production', 'Production (AWB creation locked)')],
+        [('sandbox', 'Sandbox'), ('production', 'Production')],
         default='sandbox', config_parameter='motogene_gdex_normal.environment',
         required=True,
     )
@@ -30,6 +30,11 @@ class ResConfigSettings(models.TransientModel):
         string='Production Subscription Key',
         config_parameter='motogene_gdex_normal.production_key',
         groups='base.group_system',
+    )
+    gdex_normal_production_enabled = fields.Boolean(
+        string='Enable Production AWB Creation',
+        config_parameter='motogene_gdex_normal.production_enabled',
+        groups='base.group_system', default=False,
     )
     gdex_normal_account = fields.Char(
         string='GDEX Account No (optional)', config_parameter='motogene_gdex_normal.account_no',
@@ -73,7 +78,9 @@ class ResConfigSettings(models.TransientModel):
             'tag': 'display_notification',
             'params': {
                 'title': _('GDEX %s Connected') % environment.title(),
-                'message': _('Account status: Active. Production AWB creation remains locked.'),
+                'message': _('Account status: Active. Production AWB creation switch is %s.') % (
+                    'ON' if params.get_param('motogene_gdex_normal.production_enabled') == 'True' else 'OFF'
+                ),
                 'type': 'success', 'sticky': False,
             },
         }
