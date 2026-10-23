@@ -7,7 +7,7 @@
             <xpath expr="//form" position="inside">
                 <app string="GDEX Normal" name="gdex_normal">
                     <block title="GDEX Normal API">
-                        <setting string="Environment" help="Select Sandbox or Production. Production AWB creation remains locked.">
+                        <setting string="Environment" help="Select Sandbox or Production. AWB creation in Production requires separate administrator enablement.">
                             <field name="gdex_normal_environment"/>
                         </setting>
                         <setting string="Sandbox User Token">
@@ -21,6 +21,9 @@
                         </setting>
                         <setting string="Production Subscription Key">
                             <field name="gdex_normal_production_key" password="True"/>
+                        </setting>
+                        <setting string="Enable Production AWB Creation" help="OFF by default. Enabling permits real chargeable Production consignments; use only after approval and controlled testing.">
+                            <field name="gdex_normal_production_enabled"/>
                         </setting>
                         <setting string="GDEX Account Number (optional)">
                             <field name="gdex_normal_account"/>
