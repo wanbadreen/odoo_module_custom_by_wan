@@ -156,7 +156,9 @@ class GdexPickup(models.Model):
             payload = {
                 'contactName': row.contact_name or '',
                 'contactNumber': row.contact_number or '',
-                'pickupDate': row.pickup_date.isoformat() + 'T00:00:00+08:00',
+                # GDEX may interpret pickupDate in UTC. Midnight MY is the
+                # previous UTC day; noon MY stays on the requested calendar day.
+                'pickupDate': row.pickup_date.isoformat() + 'T12:00:00+08:00',
                 'officeCloseTime': row.close_time,
                 'parcelReadyTime': row.ready_time,
                 'transportation': row.transportation,
@@ -258,28 +260,38 @@ class GdexPickup(models.Model):
                 or data.get('s') != 'success' or not isinstance(data.get('r'), list)):
             raise UserError(_('GDEX did not confirm upcoming pickup details.'))
         total = 0
+        date_changes = []
         for entry in data['r']:
             if not isinstance(entry, dict) or not entry.get('referenceNo'):
                 continue
             reference = str(entry['referenceNo'])
+            # Pickup Date comes from GDEX, which is authoritative for the
+            # actual courier appointment. Treat it as a calendar date, not a
+            # datetime to be converted between time zones.
+            raw_date = str(entry.get('pickupDate') or '')[:10]
+            try:
+                portal_date = fields.Date.to_date(raw_date)
+            except (TypeError, ValueError):
+                continue
+            if not portal_date:
+                continue
             row = self.sudo().search([('pickup_number', '=', reference),
                                       ('api_environment', '=', environment)], limit=1)
             if row:
-                # Existing pending/uncertain requests must never be silently
-                # resolved by a read-only listing; preserve audit state.
                 if row.state in ('confirmed', 'external'):
-                    row.write({'pickup_status': str(entry.get('pickupStatus') or '')[:120],
-                               'last_checked_at': fields.Datetime.now()})
+                    if row.pickup_date != portal_date:
+                        date_changes.append('%s: %s -> %s' % (
+                            reference, row.pickup_date, portal_date))
+                    row.write({
+                        'pickup_date': portal_date,
+                        'pickup_status': str(entry.get('pickupStatus') or '')[:120],
+                        'last_checked_at': fields.Datetime.now(),
+                    })
+                # Never silently reconcile uncertain, cancelled or rejected
+                # records based on a read-only list API.
             else:
-                raw_date = str(entry.get('pickupDate') or '')[:10]
-                try:
-                    pickup_date = fields.Date.to_date(raw_date)
-                except (ValueError, TypeError):
-                    continue
-                if not pickup_date:
-                    continue
                 self.sudo().create({
-                    'pickup_number': reference, 'pickup_date': pickup_date,
+                    'pickup_number': reference, 'pickup_date': portal_date,
                     'ready_time': str(entry.get('parcelReadyTime') or '10:00:00')[:8],
                     'close_time': str(entry.get('officeCloseTime') or '18:00:00')[:8],
                     'transportation': entry.get('transportationMode')
@@ -295,8 +307,11 @@ class GdexPickup(models.Model):
                     'last_checked_at': fields.Datetime.now(),
                 })
                 total += 1
-        return self._notification(_('GDEX Upcoming Pickups'),
-                                  _('%s new pickups imported. Existing entries preserved.') % total, 'success')
+        summary = _('%s new pickups imported; %s existing pickup dates synchronized from GDEX.') % (
+            total, len(date_changes))
+        if date_changes:
+            summary += ' ' + '; '.join(date_changes[:5])
+        return self._notification(_('GDEX Upcoming Pickups'), summary, 'success')
 
     @api.model
     def _notification(self, title, message, typ):
