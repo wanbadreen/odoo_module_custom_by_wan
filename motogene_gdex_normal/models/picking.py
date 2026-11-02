@@ -57,3 +57,17 @@ class StockPicking(models.Model):
         if not consignment:
             raise UserError(_('No successful GDEX multi-piece consignment found for this DO.'))
         return consignment.action_open_mps_upload_wizard()
+
+    def action_open_gdex_actions(self):
+        self.ensure_one()
+        self.env['motogene.gdex.consignment']._check_operator()
+        if self.picking_type_code != 'outgoing' or self.x_studio_order_type != 'Normal':
+            raise UserError(_('This Delivery Order is not a Normal outgoing shipment.'))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('GDEX Actions'),
+            'res_model': 'motogene.gdex.do.actions',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_picking_id': self.id},
+        }
