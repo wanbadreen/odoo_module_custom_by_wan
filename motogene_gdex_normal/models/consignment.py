@@ -58,7 +58,10 @@ class GdexConsignment(models.Model):
     def init(self):
         # Database-level safeguard against concurrent duplicate requests.
         self.env.cr.execute("""
-            CREATE UNIQUE INDEX IF NOT EXISTS motogene_gdex_active_picking_uniq
+            DROP INDEX IF EXISTS motogene_gdex_active_picking_uniq
+        """)
+        self.env.cr.execute("""
+            CREATE UNIQUE INDEX motogene_gdex_active_picking_uniq
             ON motogene_gdex_consignment (picking_id)
             WHERE state IN ('uncertain', 'success', 'cancel_pending')
         """)
@@ -113,8 +116,8 @@ class GdexConsignment(models.Model):
             'weight': line.weight,
             'pieces': line.pieces,
             'note_source': line.note_source or 'none',
-            'note1': (line.note1 or '').strip(),
-            'note2': (line.note2 or '').strip(),
+            'note1': (line.note1 or '').strip() if line.note_source != 'none' else '',
+            'note2': (line.note2 or '').strip() if line.note_source != 'none' else '',
         }
         if len(vals['note1']) > 50 or len(vals['note2']) > 50:
             return False, _('Each GDEX note must be 50 characters or fewer.')
