@@ -10,6 +10,9 @@
     <button name="action_gdex_normal_wizard" type="object" string="Create GDEX Normal"
             class="btn-primary" groups="motogene_gdex_normal.group_gdex_normal_user"
             invisible="state != 'assigned' or x_studio_order_type != 'Normal' or mori_awb_no"/>
+    <button name="action_open_gdex_cancel_wizard" type="object" string="Cancel GDEX AWB"
+            class="btn-secondary" groups="base.group_system"
+            invisible="state != 'assigned' or x_studio_order_type != 'Normal' or not mori_awb_no"/>
    </xpath>
   </field>
  </record>
