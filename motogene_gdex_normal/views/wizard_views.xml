@@ -15,6 +15,9 @@
        <field name="receiver_postcode"/>
        <field name="weight"/>
        <field name="pieces"/>
+       <field name="note_source"/>
+       <field name="note1" optional="show"/>
+       <field name="note2" optional="show"/>
        <field name="result" readonly="1" optional="show"/>
       </list>
      </field>
