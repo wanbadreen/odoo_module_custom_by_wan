@@ -43,3 +43,17 @@ class StockPicking(models.Model):
             'view_mode': 'form',
             'target': 'new',
         }
+
+    def action_open_gdex_mps_upload_wizard(self):
+        """Open the official multi-piece label importer directly from the DO."""
+        self.ensure_one()
+        self.env['motogene.gdex.consignment']._check_operator()
+        consignment = self.env['motogene.gdex.consignment'].sudo().search([
+            ('picking_id', '=', self.id),
+            ('awb', '=', self.mori_awb_no),
+            ('state', '=', 'success'),
+            ('pieces', '>', 1),
+        ], limit=1)
+        if not consignment:
+            raise UserError(_('No successful GDEX multi-piece consignment found for this DO.'))
+        return consignment.action_open_mps_upload_wizard()
