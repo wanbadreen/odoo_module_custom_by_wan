@@ -36,6 +36,11 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='motogene_gdex_normal.production_enabled',
         groups='base.group_system', default=False,
     )
+    gdex_normal_pickup_production_enabled = fields.Boolean(
+        string='Enable Production Pickup Create / Cancel',
+        config_parameter='motogene_gdex_normal.pickup_production_enabled',
+        groups='base.group_system', default=False,
+    )
     gdex_normal_account = fields.Char(
         string='GDEX Account No (optional)', config_parameter='motogene_gdex_normal.account_no',
         groups='base.group_system',
