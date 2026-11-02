@@ -10,3 +10,5 @@ access_gdex_tracking_event_user,motogene.gdex.tracking.event user,model_motogene
 access_gdex_tracking_event_admin,motogene.gdex.tracking.event admin,model_motogene_gdex_tracking_event,base.group_system,1,1,1,1
 access_gdex_pickup_user,motogene.gdex.pickup user,model_motogene_gdex_pickup,motogene_gdex_normal.group_gdex_normal_user,1,0,0,0
 access_gdex_pickup_admin,motogene.gdex.pickup admin,model_motogene_gdex_pickup,base.group_system,1,1,1,0
+access_gdex_do_actions_operator,motogene.gdex.do.actions operator,model_motogene_gdex_do_actions,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_do_actions_admin,motogene.gdex.do.actions admin,model_motogene_gdex_do_actions,base.group_system,1,1,1,1
