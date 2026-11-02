@@ -1,5 +1,6 @@
 """Read-only GDEX shipment tracking for successfully created consignments."""
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 import requests
 
@@ -7,13 +8,24 @@ from odoo import fields, models, _
 from odoo.exceptions import UserError
 
 
+# GDEX tracking timestamps have been verified against the Prime portal:
+# the clock time in dateScan / latestScanDateTime is Malaysian local time,
+# although the response sometimes ends in "Z". Treat the Z-marked clock as
+# Asia/Kuala_Lumpur wall time so Odoo does not add another eight hours.
+# Explicit non-Z numeric offsets are respected as supplied.
+GDEX_TRACKING_TZ = ZoneInfo('Asia/Kuala_Lumpur')
+
+
 def _scan_datetime(value):
     if not value:
         return False
     try:
-        parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
-        if parsed.tzinfo is not None:
-            parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+        raw = str(value).strip()
+        z_marked = raw.upper().endswith('Z')
+        parsed = datetime.fromisoformat(raw.replace('Z', '+00:00'))
+        if z_marked or parsed.tzinfo is None:
+            parsed = parsed.replace(tzinfo=GDEX_TRACKING_TZ)
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
         return fields.Datetime.to_string(parsed)
     except (TypeError, ValueError, OverflowError):
         return False
