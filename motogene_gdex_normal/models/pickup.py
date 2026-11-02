@@ -109,6 +109,8 @@ class GdexPickup(models.Model):
             row = other[self._name].sudo().browse(self.id)
             if row.state != 'draft':
                 raise UserError(_('Pickup has already been processed.'))
+            cr.execute('SELECT pg_advisory_xact_lock(hashtext(%s))',
+                       ('gdex-pickup-%s-%s' % (environment, row.pickup_date),))
             other_pickups = other[self._name].sudo().search_count([
                 ('id', '!=', row.id), ('api_environment', '=', environment),
                 ('pickup_date', '=', row.pickup_date),
@@ -170,6 +172,7 @@ class GdexPickup(models.Model):
             raise UserError(_('GDEX only permits cancellation for tomorrow onward.'))
         self._allow_production_mutation(self.api_environment)
         headers, _account, endpoint, _ = self._credentials(environment=self.api_environment)
+        prior_state = self.state
         dbname, uid = self.env.cr.dbname, self.env.uid
         with Registry(dbname).cursor() as cr:
             other = api.Environment(cr, uid, dict(self.env.context))
@@ -189,7 +192,7 @@ class GdexPickup(models.Model):
                 state, message = 'cancelled', 'Cancellation confirmed by GDEX.'
             elif (isinstance(data, dict) and response.status_code in (400, 401, 403)
                   and data.get('s') == 'fail'):
-                state, message = 'confirmed', str(data.get('e') or 'Cancellation rejected')[:500]
+                state, message = prior_state, str(data.get('e') or 'Cancellation rejected')[:500]
         except (requests.RequestException, ValueError):
             pass
         with Registry(dbname).cursor() as cr:
