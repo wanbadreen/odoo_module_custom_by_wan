@@ -24,6 +24,12 @@ class GdexPickup(models.Model):
     pickup_date = fields.Date(required=True)
     ready_time = fields.Char(required=True, default='10:00:00')
     close_time = fields.Char(required=True, default='18:00:00')
+    # Float-time UI, backed by the original API strings. No migration or
+    # loss of existing pickup times is needed.
+    ready_hour = fields.Float(string='Parcel Ready Time', compute='_compute_hours',
+                              inverse='_inverse_ready_hour', digits=(2, 4))
+    close_hour = fields.Float(string='Office Close Time', compute='_compute_hours',
+                              inverse='_inverse_close_hour', digits=(2, 4))
     contact_name = fields.Char()
     contact_number = fields.Char()
     transportation = fields.Selection([('Motorbike', 'Motorbike'),
@@ -49,6 +55,35 @@ class GdexPickup(models.Model):
     cancelled_at = fields.Datetime(readonly=True)
     pickup_status = fields.Char(readonly=True)
     last_checked_at = fields.Datetime(readonly=True)
+
+    @api.depends('ready_time', 'close_time')
+    def _compute_hours(self):
+        for pickup in self:
+            for raw_field, hour_field in [('ready_time', 'ready_hour'),
+                                          ('close_time', 'close_hour')]:
+                raw = getattr(pickup, raw_field) or '00:00:00'
+                try:
+                    hour, minute, second = [int(v) for v in raw.split(':')]
+                    value = hour + minute / 60.0 + second / 3600.0
+                except (ValueError, TypeError):
+                    value = 0.0
+                setattr(pickup, hour_field, value)
+
+    @api.model
+    def _format_hour(self, value):
+        minute_total = round(float(value or 0) * 60)
+        if not 0 <= minute_total <= 1439:
+            raise UserError(_('Pickup time must be between 00:00 and 23:59.'))
+        hour, minute = divmod(minute_total, 60)
+        return '%02d:%02d:00' % (hour, minute)
+
+    def _inverse_ready_hour(self):
+        for pickup in self:
+            pickup.ready_time = self._format_hour(pickup.ready_hour)
+
+    def _inverse_close_hour(self):
+        for pickup in self:
+            pickup.close_time = self._format_hour(pickup.close_hour)
 
     @api.model
     def _check_operator(self):
