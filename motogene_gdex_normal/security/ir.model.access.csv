@@ -4,3 +4,5 @@ access_gdex_wizard_user,motogene.gdex.wizard user,model_motogene_gdex_wizard,mot
 access_gdex_wizard_line_user,motogene.gdex.wizard.line user,model_motogene_gdex_wizard_line,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
 access_gdex_consignment_admin,motogene.gdex.consignment admin,model_motogene_gdex_consignment,base.group_system,1,1,1,1
 access_gdex_cancel_wizard_admin,motogene.gdex.cancel.wizard admin,model_motogene_gdex_cancel_wizard,base.group_system,1,1,1,1
+access_gdex_mps_upload_user,motogene.gdex.mps.upload.wizard user,model_motogene_gdex_mps_upload_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_mps_upload_admin,motogene.gdex.mps.upload.wizard admin,model_motogene_gdex_mps_upload_wizard,base.group_system,1,1,1,1
