@@ -154,6 +154,14 @@ class MotogenePromotionProgram(models.Model):
         help="Choose whether delivery/shipping charges contribute to the minimum purchase amount.",
     )
 
+    manual_shipping_product_code = fields.Char(
+        string="Manual Shipping Product Reference",
+        default="SHIPMENT",
+        help="When Shipping is Exclude Shipping, also exclude Sales Order lines "
+             "whose product Reference matches this value. This covers shipping "
+             "entered manually as a normal product. Default: SHIPMENT.",
+    )
+
     repeat_reward = fields.Boolean(
         string="Repeat Reward",
         default=True,
@@ -493,9 +501,15 @@ class MotogenePromotionProgram(models.Model):
             }
         )
 
-    @staticmethod
-    def _is_shipping_line(line):
-        return bool("is_delivery" in line._fields and line.is_delivery)
+    def _is_shipping_line(self, line):
+        self.ensure_one()
+        if "is_delivery" in line._fields and line.is_delivery:
+            return True
+        code = (self.manual_shipping_product_code or "SHIPMENT").strip().upper()
+        return bool(
+            code and line.product_id
+            and (line.product_id.default_code or "").strip().upper() == code
+        )
 
     @staticmethod
     def _is_other_reward_line(line):

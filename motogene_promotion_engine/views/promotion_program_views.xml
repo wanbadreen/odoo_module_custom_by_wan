@@ -66,6 +66,8 @@
 
                             <field name="shipping_handling"
                                    invisible="rule_type != 'minimum_purchase'"/>
+                            <field name="manual_shipping_product_code"
+                                   invisible="rule_type != 'minimum_purchase' or shipping_handling != 'exclude'"/>
 
                             <field name="repeat_reward"
                                    invisible="rule_type == 'pwp'"/>

@@ -229,6 +229,60 @@ class TestMotogenePromotionEngine(TransactionCase):
             order.action_recompute_motogene_promotions()
             self.assertEqual(self._reward_qty(order, self.minimum_program), 1)
 
+    def test_manual_shipping_product_is_excluded_from_spend(self):
+        # CS adds the service product directly, without the Add shipping button.
+        self.shipping_product.default_code = "SHIPMENT"
+        order = self._new_order()
+        self._add_line(order, self.combo8, 1, 1950)
+        shipping_line = self._add_line(order, self.shipping_product, 1, 60)
+        if "is_delivery" in shipping_line._fields:
+            self.assertFalse(shipping_line.is_delivery)
+        self.assertEqual(order.amount_untaxed, 2010)
+        self.assertEqual(self.minimum_program._eligible_purchase_amount_for_order(order), 1950)
+        self.assertEqual(self._reward_qty(order, self.minimum_program), 0)
+
+        self.minimum_program.write({"shipping_handling": "include"})
+        order.action_recompute_motogene_promotions()
+        self.assertEqual(self._reward_qty(order, self.minimum_program), 1)
+
+        self.minimum_program.write({
+            "shipping_handling": "exclude",
+            "manual_shipping_product_code": "DIFFERENT-SHIPPING",
+        })
+        order.action_recompute_motogene_promotions()
+        self.assertEqual(self._reward_qty(order, self.minimum_program), 1)
+
+    def test_manual_shipping_does_not_inflate_scratch_entitlement(self):
+        self.shipping_product.default_code = "SHIPMENT"
+        scratch = self.env["motogene.promotion.program"].create({
+            "name": "Scratch RM888 without manually entered shipping",
+            "state": "active",
+            "date_start": fields.Date.today() - timedelta(days=1),
+            "date_end": fields.Date.today() + timedelta(days=1),
+            "reward_type": "scratch_cards",
+            "scratch_redemption_expiry_date": fields.Date.today() + timedelta(days=60),
+            "minimum_amount": 888,
+            "shipping_handling": "exclude",
+            "scratch_package_line_ids": [(0, 0, {
+                "product_tmpl_id": self.combo8.product_tmpl_id.id,
+                "advertised_cards": 4,
+                "card_prefixes": "A,B,C,D",
+            })],
+            "scratch_serial_pool_ids": [(0, 0, {
+                "prefix": prefix, "first_number": 8001, "last_number": 8010,
+            }) for prefix in ("A", "B", "C", "D")],
+        })
+        order = self._new_order()
+        self._add_line(order, self.combo8, 1, 4200)
+        shipping_line = self._add_line(order, self.shipping_product, 1, 280)
+        if "is_delivery" in shipping_line._fields:
+            self.assertFalse(shipping_line.is_delivery)
+        self.assertEqual(scratch._eligible_purchase_amount_for_order(order), 4200)
+        self.assertEqual(scratch._reward_quantity_for_order(order), 4)
+        with patch.object(type(scratch), "_is_scratch_vip_customer", return_value=True):
+            order.action_confirm()
+        self.assertEqual((order.scratch_base_cards, order.scratch_vip_cards, order.scratch_total_cards), (4, 1, 5))
+
     def test_10_repeat_minimum_purchase_reward(self):
         self.minimum_program.write({"repeat_reward": True})
         order = self._new_order()
