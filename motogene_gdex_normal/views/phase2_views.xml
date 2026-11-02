@@ -1,0 +1,97 @@
+<odoo>
+  <record id="gdex_pickup_list" model="ir.ui.view">
+    <field name="name">motogene.gdex.pickup.list</field>
+    <field name="model">motogene.gdex.pickup</field>
+    <field name="arch" type="xml">
+      <list create="true" delete="false">
+        <field name="pickup_date"/>
+        <field name="pickup_number"/>
+        <field name="state"/>
+        <field name="pickup_status" optional="show"/>
+        <field name="api_environment"/>
+        <field name="ready_time"/>
+        <field name="close_time"/>
+        <field name="pieces"/>
+        <field name="weight"/>
+        <field name="transportation"/>
+        <field name="error_message" optional="hide"/>
+      </list>
+    </field>
+  </record>
+  <record id="gdex_pickup_form" model="ir.ui.view">
+    <field name="name">motogene.gdex.pickup.form</field>
+    <field name="model">motogene.gdex.pickup</field>
+    <field name="arch" type="xml">
+      <form string="GDEX Pickup">
+        <header>
+          <button name="action_create_pickup" string="Confirm &amp; Request GDEX Pickup"
+                  type="object" class="btn-primary" groups="base.group_system"
+                  invisible="state != 'draft'"
+                  confirm="This sends a REAL pickup request to GDEX. Confirm the date, pieces and weight first."/>
+          <button name="action_cancel_pickup" string="Cancel GDEX Pickup"
+                  type="object" class="btn-secondary" groups="base.group_system"
+                  invisible="state not in ('confirmed', 'external')"
+                  confirm="Cancel this pickup in GDEX? Only future-day pickups may be cancelled."/>
+          <field name="state" widget="statusbar"/>
+        </header>
+        <sheet>
+          <div class="alert alert-warning" role="alert">
+            Pickup creation/cancellation changes arrangements at GDEX. If a request is uncertain, verify in myGDEX Prime before taking further action.
+          </div>
+          <group>
+            <group string="Pickup">
+              <field name="pickup_number" readonly="1"/>
+              <field name="pickup_date" readonly="state != 'draft'" required="1"/>
+              <field name="ready_time" readonly="state != 'draft'"/>
+              <field name="close_time" readonly="state != 'draft'"/>
+              <field name="contact_name" readonly="state != 'draft'"/>
+              <field name="contact_number" readonly="state != 'draft'"/>
+            </group>
+            <group string="Shipment">
+              <field name="shipment_type" readonly="state != 'draft'"/>
+              <field name="transportation" readonly="state != 'draft'"/>
+              <field name="pieces" readonly="state != 'draft'"/>
+              <field name="weight" readonly="state != 'draft'"/>
+              <field name="is_trolley" readonly="state != 'draft'"/>
+              <field name="remarks" readonly="state != 'draft'"/>
+            </group>
+          </group>
+          <group string="GDEX / Audit">
+            <field name="api_environment" readonly="1"/>
+            <field name="pickup_status" readonly="1"/>
+            <field name="created_by_id" readonly="1"/>
+            <field name="cancelled_by_id" readonly="1"/>
+            <field name="cancelled_at" readonly="1"/>
+            <field name="last_checked_at" readonly="1"/>
+            <field name="error_message" readonly="1"/>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="gdex_pickup_action" model="ir.actions.act_window">
+    <field name="name">GDEX Pickup Management</field>
+    <field name="res_model">motogene.gdex.pickup</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="gdex_pickup_refresh_action" model="ir.actions.server">
+    <field name="name">Refresh Upcoming GDEX Pickups</field>
+    <field name="model_id" ref="model_motogene_gdex_pickup"/>
+    <field name="state">code</field>
+    <field name="code">action = env['motogene.gdex.pickup'].action_refresh_upcoming()</field>
+  </record>
+  <record id="gdex_tracking_bulk_refresh_action" model="ir.actions.server">
+    <field name="name">Refresh GDEX Tracking (Selected)</field>
+    <field name="model_id" ref="model_motogene_gdex_consignment"/>
+    <field name="binding_model_id" ref="model_motogene_gdex_consignment"/>
+    <field name="binding_view_types">list</field>
+    <field name="state">code</field>
+    <field name="code">action = records.action_refresh_tracking()</field>
+  </record>
+  <menuitem id="gdex_pickup_menu" name="Pickup Management"
+            parent="menu_gdex_normal_root" action="gdex_pickup_action" sequence="30"
+            groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
+  <menuitem id="gdex_pickup_refresh_menu" name="Refresh Upcoming Pickups"
+            parent="menu_gdex_normal_root" action="gdex_pickup_refresh_action" sequence="31"
+            groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
+</odoo>
