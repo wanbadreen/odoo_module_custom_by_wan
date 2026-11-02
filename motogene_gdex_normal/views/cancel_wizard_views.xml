@@ -1,0 +1,28 @@
+<odoo>
+ <record id="gdex_cancel_wizard_form" model="ir.ui.view">
+  <field name="name">motogene.gdex.cancel.wizard.form</field>
+  <field name="model">motogene.gdex.cancel.wizard</field>
+  <field name="arch" type="xml">
+   <form string="Cancel GDEX AWB">
+    <sheet>
+     <div class="alert alert-warning" role="alert">
+      This will request cancellation in GDEX. Only uncollected single-piece consignments can be cancelled.
+      The Delivery Order AWB will be cleared only after GDEX confirms success.
+     </div>
+     <group>
+      <field name="picking_id" readonly="1"/>
+      <field name="awb" readonly="1"/>
+      <field name="api_environment" readonly="1"/>
+      <field name="consignment_id" invisible="1"/>
+      <field name="cancellation_reason" placeholder="Enter reason for cancellation" required="1"/>
+     </group>
+    </sheet>
+    <footer>
+     <button name="action_confirm_cancel" string="Confirm GDEX Cancellation" type="object"
+             class="btn-danger" confirm="Send a real cancellation request to GDEX for this AWB?"/>
+     <button string="Back" special="cancel" class="btn-secondary"/>
+    </footer>
+   </form>
+  </field>
+ </record>
+</odoo>
