@@ -219,6 +219,10 @@ class GdexConsignment(models.Model):
             raise UserError(_('Only a confirmed, successful AWB can be cancelled.'))
         if self.pieces > 1:
             raise UserError(_('MPS cancellation is blocked until GDEX confirms that cancelling the parent also cancels every child CN.'))
+        params = self.env['ir.config_parameter'].sudo()
+        if (self.api_environment == 'production' and
+                params.get_param('motogene_gdex_normal.production_enabled', 'False') != 'True'):
+            raise UserError(_('Production actions are disabled. Administrator must enable Production AWB Creation before live cancellation.'))
         if not (self.cancellation_reason or '').strip():
             raise UserError(_('Enter a cancellation reason before cancelling.'))
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
