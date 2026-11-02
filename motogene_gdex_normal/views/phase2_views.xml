@@ -9,8 +9,8 @@
         <field name="state"/>
         <field name="pickup_status" optional="show"/>
         <field name="api_environment"/>
-        <field name="ready_time"/>
-        <field name="close_time"/>
+        <field name="ready_hour" widget="float_time"/>
+        <field name="close_hour" widget="float_time"/>
         <field name="pieces"/>
         <field name="weight"/>
         <field name="transportation"/>
@@ -42,8 +42,8 @@
             <group string="Pickup">
               <field name="pickup_number" readonly="1"/>
               <field name="pickup_date" readonly="state != 'draft'" required="1"/>
-              <field name="ready_time" readonly="state != 'draft'"/>
-              <field name="close_time" readonly="state != 'draft'"/>
+              <field name="ready_hour" widget="float_time" readonly="state != 'draft'"/>
+              <field name="close_hour" widget="float_time" readonly="state != 'draft'"/>
               <field name="contact_name" readonly="state != 'draft'"/>
               <field name="contact_number" readonly="state != 'draft'"/>
             </group>
