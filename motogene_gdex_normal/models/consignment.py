@@ -162,7 +162,7 @@ class GdexConsignment(models.Model):
             'receiverName': vals['receiver_name'], 'receiverMobile': vals['receiver_mobile'],
             'receiverAddress1': vals['receiver_address1'], 'receiverPostcode': vals['receiver_postcode'],
             'receiverCountry': 'Malaysia', 'isDangerousGoods': False,
-            'IsInsurance': False, 'isCod': False, 'orderID': picking.name[:60],
+            'IsInsurance': False, 'isCod': False,
             'note1': vals['note1'], 'note2': vals['note2'],
         }]
         outcome = {'state': 'uncertain', 'error_message': 'Response not confirmed; verify in GDEX portal before retry.'}
@@ -223,7 +223,8 @@ class GdexConsignment(models.Model):
         if (self.api_environment == 'production' and
                 params.get_param('motogene_gdex_normal.production_enabled', 'False') != 'True'):
             raise UserError(_('Production actions are disabled. Administrator must enable Production AWB Creation before live cancellation.'))
-        if not (self.cancellation_reason or '').strip():
+        reason = (self.env.context.get('gdex_cancel_reason') or self.cancellation_reason or '').strip()
+        if not reason:
             raise UserError(_('Enter a cancellation reason before cancelling.'))
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
         dbname, uid = self.env.cr.dbname, self.env.uid
@@ -235,6 +236,7 @@ class GdexConsignment(models.Model):
             if attempt.state != 'success' or p.mori_awb_no != attempt.awb:
                 raise UserError(_('AWB state changed; refresh the record.'))
             attempt.write({'state': 'cancel_pending',
+                           'cancellation_reason': reason,
                            'error_message': 'Cancellation sent or pending; verify in GDEX before retry.'})
             cr.commit()
 
