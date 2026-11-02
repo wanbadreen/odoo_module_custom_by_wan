@@ -6,3 +6,7 @@ access_gdex_consignment_admin,motogene.gdex.consignment admin,model_motogene_gde
 access_gdex_cancel_wizard_admin,motogene.gdex.cancel.wizard admin,model_motogene_gdex_cancel_wizard,base.group_system,1,1,1,1
 access_gdex_mps_upload_user,motogene.gdex.mps.upload.wizard user,model_motogene_gdex_mps_upload_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
 access_gdex_mps_upload_admin,motogene.gdex.mps.upload.wizard admin,model_motogene_gdex_mps_upload_wizard,base.group_system,1,1,1,1
+access_gdex_tracking_event_user,motogene.gdex.tracking.event user,model_motogene_gdex_tracking_event,motogene_gdex_normal.group_gdex_normal_user,1,0,0,0
+access_gdex_tracking_event_admin,motogene.gdex.tracking.event admin,model_motogene_gdex_tracking_event,base.group_system,1,1,1,1
+access_gdex_pickup_user,motogene.gdex.pickup user,model_motogene_gdex_pickup,motogene_gdex_normal.group_gdex_normal_user,1,0,0,0
+access_gdex_pickup_admin,motogene.gdex.pickup admin,model_motogene_gdex_pickup,base.group_system,1,1,1,0
