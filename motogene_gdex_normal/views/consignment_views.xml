@@ -7,6 +7,8 @@
                 <field name="picking_id"/>
                 <field name="awb"/>
                 <field name="state"/>
+                <field name="pieces"/>
+                <field name="mps_status" optional="show"/>
                 <field name="api_environment"/>
                 <field name="pdf_ready"/>
                 <field name="created_by_id"/>
@@ -21,6 +23,11 @@
         <field name="arch" type="xml">
             <form create="false">
                 <header>
+                    <button name="action_get_mps" type="object" string="Retrieve MPS Numbers" class="btn-secondary"
+                        invisible="state != 'success' or pieces &lt;= 1"/>
+                    <button name="action_cancel_consignment" type="object" string="Cancel Consignment"
+                        groups="base.group_system" confirm="Cancel this shipment in GDEX? This may be irreversible."
+                        invisible="state != 'success'"/>
                     <button name="action_print_single" type="object"
                         string="Print 100x150 PDF" class="btn-primary"
                         invisible="state != 'success'"/>
@@ -32,6 +39,14 @@
                         <field name="api_environment"/>
                         <field name="awb"/>
                         <field name="pdf_ready"/>
+                        <field name="mps_status"/>
+                        <field name="mps_numbers" readonly="1"/>
+                        <field name="cancellation_reason" readonly="state != 'success'"/>
+                        <field name="cancelled_by_id"/>
+                        <field name="cancelled_at"/>
+                        <field name="note_source"/>
+                        <field name="note1"/>
+                        <field name="note2"/>
                         <field name="error_message"/>
                         <field name="pdf_attachment_id"/>
                     </group>
