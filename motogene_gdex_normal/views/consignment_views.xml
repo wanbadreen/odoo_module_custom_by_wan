@@ -25,6 +25,8 @@
                 <header>
                     <button name="action_get_mps" type="object" string="Retrieve MPS Numbers" class="btn-secondary"
                         invisible="state != 'success' or pieces &lt;= 1"/>
+                    <button name="action_open_mps_upload_wizard" type="object" string="Import Official MPS Labels"
+                        class="btn-secondary" invisible="state != 'success' or pieces &lt;= 1"/>
                     <button name="action_cancel_consignment" type="object" string="Cancel Consignment"
                         groups="base.group_system" confirm="Cancel this shipment in GDEX? This may be irreversible."
                         invisible="state != 'success'"/>
