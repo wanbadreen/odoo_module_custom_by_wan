@@ -111,6 +111,9 @@ class GdexTrackingConsignment(models.Model):
             except (requests.RequestException, ValueError, TypeError) as exc:
                 failures.append('%s: %s' % (consignment.awb, type(exc).__name__))
                 consignment.sudo().write({'tracking_error': str(type(exc).__name__)})
+        if completed and not failures:
+            # Reload the open form/list so the new scan rows are visible immediately.
+            return {'type': 'ir.actions.client', 'tag': 'reload'}
         return {
             'type': 'ir.actions.client', 'tag': 'display_notification',
             'params': {'title': _('GDEX Tracking Refresh'),
