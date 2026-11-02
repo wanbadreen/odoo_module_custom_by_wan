@@ -1,0 +1,36 @@
+<odoo>
+ <record id="gdex_do_actions_form" model="ir.ui.view">
+  <field name="name">motogene.gdex.do.actions.form</field>
+  <field name="model">motogene.gdex.do.actions</field>
+  <field name="arch" type="xml">
+   <form string="GDEX Actions">
+    <sheet>
+     <group>
+      <field name="picking_id" readonly="1"/>
+      <field name="awb" readonly="1"/>
+      <field name="can_create" invisible="1"/>
+      <field name="can_track" invisible="1"/>
+      <field name="can_import_mps" invisible="1"/>
+      <field name="can_cancel" invisible="1"/>
+     </group>
+     <div class="alert alert-info" role="alert">
+      Choose a GDEX action. Creating or cancelling an AWB opens the existing confirmation workflow.
+     </div>
+     <group>
+      <button name="action_create_awb" type="object" string="Create GDEX Normal AWB"
+              class="btn-primary" invisible="not can_create"/>
+      <button name="action_tracking" type="object" string="Shipment Tracking"
+              class="btn-secondary" invisible="not can_track"/>
+      <button name="action_import_mps" type="object" string="Import Official MPS PDF"
+              class="btn-secondary" invisible="not can_import_mps"/>
+      <button name="action_cancel_awb" type="object" string="Cancel GDEX AWB"
+              class="btn-secondary" groups="base.group_system" invisible="not can_cancel"/>
+     </group>
+    </sheet>
+    <footer>
+     <button string="Close" special="cancel" class="btn-secondary"/>
+    </footer>
+   </form>
+  </field>
+ </record>
+</odoo>
