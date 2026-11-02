@@ -97,7 +97,7 @@ class GdexTrackingConsignment(models.Model):
                         'location': str(scan.get('location') or '')[:200],
                         'undel_code': str(scan.get('undelCode') or '')[:80],
                     }))
-                consignment.write({
+                consignment.sudo().write({
                     'tracking_status': str(item.get('consignmentNoteStatus') or
                                            record.get('latestConsignmentNoteStatus') or '')[:200],
                     'tracking_enum': int(item.get('enumStatus') or 0),
@@ -110,7 +110,7 @@ class GdexTrackingConsignment(models.Model):
                 completed += 1
             except (requests.RequestException, ValueError, TypeError) as exc:
                 failures.append('%s: %s' % (consignment.awb, type(exc).__name__))
-                consignment.write({'tracking_error': str(type(exc).__name__)})
+                consignment.sudo().write({'tracking_error': str(type(exc).__name__)})
         return {
             'type': 'ir.actions.client', 'tag': 'display_notification',
             'params': {'title': _('GDEX Tracking Refresh'),
