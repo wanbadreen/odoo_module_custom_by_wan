@@ -13,6 +13,9 @@
     <button name="action_open_gdex_mps_upload_wizard" type="object" string="Import GDEX MPS PDF"
             class="btn-secondary" groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"
             invisible="not mori_awb_no"/>
+    <button name="action_open_gdex_tracking" type="object" string="GDEX Tracking"
+            class="btn-secondary" groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"
+            invisible="not mori_awb_no"/>
     <button name="action_open_gdex_cancel_wizard" type="object" string="Cancel GDEX AWB"
             class="btn-secondary" groups="base.group_system"
             invisible="state != 'assigned' or x_studio_order_type != 'Normal' or not mori_awb_no"/>
