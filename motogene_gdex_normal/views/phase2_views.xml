@@ -69,6 +69,12 @@
       </form>
     </field>
   </record>
+  <record id="gdex_tracking_action" model="ir.actions.act_window">
+    <field name="name">GDEX Shipment Tracking</field>
+    <field name="res_model">motogene.gdex.consignment</field>
+    <field name="view_mode">list,form</field>
+    <field name="domain">[('awb','!=',False)]</field>
+  </record>
   <record id="gdex_pickup_action" model="ir.actions.act_window">
     <field name="name">GDEX Pickup Management</field>
     <field name="res_model">motogene.gdex.pickup</field>
@@ -88,6 +94,9 @@
     <field name="state">code</field>
     <field name="code">action = records.action_refresh_tracking()</field>
   </record>
+  <menuitem id="gdex_tracking_menu" name="Shipment Tracking"
+            parent="menu_gdex_normal_root" action="gdex_tracking_action" sequence="20"
+            groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
   <menuitem id="gdex_pickup_menu" name="Pickup Management"
             parent="menu_gdex_normal_root" action="gdex_pickup_action" sequence="30"
             groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
