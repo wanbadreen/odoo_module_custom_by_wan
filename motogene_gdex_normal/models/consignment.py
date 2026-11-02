@@ -1,5 +1,6 @@
 import base64
 import io
+import json
 import logging
 import uuid
 
@@ -22,6 +23,8 @@ class GdexConsignment(models.Model):
     state = fields.Selection([
         ('draft', 'Draft'), ('success', 'Success'),
         ('failed', 'Failed'), ('uncertain', 'Unknown - Verify in Portal'),
+        ('cancel_pending', 'Cancellation Unknown - Verify in Portal'),
+        ('cancelled', 'Cancelled'),
     ], default='draft', required=True, index=True, readonly=True)
     awb = fields.Char(readonly=True, copy=False)
     api_environment = fields.Selection([('sandbox', 'Sandbox'), ('production', 'Production')],
@@ -36,6 +39,14 @@ class GdexConsignment(models.Model):
     request_reference = fields.Char(readonly=True, copy=False)
     created_by_id = fields.Many2one('res.users', readonly=True)
     pdf_attachment_id = fields.Many2one('ir.attachment', readonly=True, copy=False)
+    note1 = fields.Char(readonly=True)
+    note2 = fields.Char(readonly=True)
+    note_source = fields.Selection([('none','No Note'),('manual','Manual'),('do','DO Note')], readonly=True)
+    cancellation_reason = fields.Char(string='Cancellation Reason')
+    cancelled_by_id = fields.Many2one('res.users', readonly=True)
+    cancelled_at = fields.Datetime(readonly=True)
+    mps_numbers = fields.Text(string='MPS Child Numbers (JSON)', readonly=True)
+    mps_status = fields.Selection([('not_needed', 'Single Piece'),('pending', 'Needs Retrieval'),('ready', 'MPS Retrieved')], default='not_needed', readonly=True)
     pdf_ready = fields.Boolean(string='PDF Ready', compute='_compute_pdf_ready', store=True)
 
     @api.depends('pdf_attachment_id')
@@ -49,7 +60,7 @@ class GdexConsignment(models.Model):
         self.env.cr.execute("""
             CREATE UNIQUE INDEX IF NOT EXISTS motogene_gdex_active_picking_uniq
             ON motogene_gdex_consignment (picking_id)
-            WHERE state IN ('uncertain', 'success')
+            WHERE state IN ('uncertain', 'success', 'cancel_pending')
         """)
 
     @api.model
@@ -101,7 +112,12 @@ class GdexConsignment(models.Model):
             'receiver_postcode': (line.receiver_postcode or '').strip(),
             'weight': line.weight,
             'pieces': line.pieces,
+            'note_source': line.note_source or 'none',
+            'note1': (line.note1 or '').strip(),
+            'note2': (line.note2 or '').strip(),
         }
+        if len(vals['note1']) > 50 or len(vals['note2']) > 50:
+            return False, _('Each GDEX note must be 50 characters or fewer.')
         picking = line.picking_id
         if not all(vals[k] for k in ('receiver_name','receiver_mobile','receiver_address1','receiver_postcode')):
             return False, _('Missing receiver details.')
@@ -127,10 +143,12 @@ class GdexConsignment(models.Model):
             if p.mori_awb_no:
                 return False, _('Blocked: an AWB already exists on the Delivery Order.')
             attempts = other['motogene.gdex.consignment'].sudo()
-            if attempts.search_count([('picking_id','=',p.id), ('state','in',('uncertain','success'))]):
+            if attempts.search_count([('picking_id','=',p.id), ('state','in',('uncertain','success','cancel_pending'))]):
                 return False, _('Blocked: successful or unresolved GDEX request exists.')
             attempt = attempts.create({**vals, 'api_environment': environment,
-                'state': 'uncertain', 'error_message': 'Reserved: check GDEX portal before retry if interrupted.',
+                'state': 'uncertain',
+                'mps_status': 'pending' if vals['pieces'] > 1 else 'not_needed',
+                'error_message': 'Reserved: check GDEX portal before retry if interrupted.',
                 'request_reference': str(uuid.uuid4()), 'created_by_id': user_id,
             })
             attempt_id = attempt.id
@@ -142,6 +160,7 @@ class GdexConsignment(models.Model):
             'receiverAddress1': vals['receiver_address1'], 'receiverPostcode': vals['receiver_postcode'],
             'receiverCountry': 'Malaysia', 'isDangerousGoods': False,
             'IsInsurance': False, 'isCod': False, 'orderID': picking.name[:60],
+            'note1': vals['note1'], 'note2': vals['note2'],
         }]
         outcome = {'state': 'uncertain', 'error_message': 'Response not confirmed; verify in GDEX portal before retry.'}
         try:
@@ -186,6 +205,95 @@ class GdexConsignment(models.Model):
             _logger.exception('GDEX attempt %s result could not be finalized', attempt_id)
             return attempt_id, _('UNKNOWN: database finalization failed; check GDEX portal and attempt history.')
         return attempt_id, (outcome['state'].upper() + ': ' + str(outcome.get('awb') or outcome.get('error_message') or ''))[:400]
+
+    def action_cancel_consignment(self):
+        """Lock the DO before the API PUT; never release an AWB on ambiguity."""
+        self.ensure_one()
+        self._check_operator()
+        if not self.env.user.has_group('base.group_system'):
+            raise AccessError(_('Only administrators can cancel a GDEX consignment.'))
+        if self.state != 'success' or not self.awb:
+            raise UserError(_('Only a confirmed, successful AWB can be cancelled.'))
+        if not (self.cancellation_reason or '').strip():
+            raise UserError(_('Enter a cancellation reason before cancelling.'))
+        headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
+        dbname, uid = self.env.cr.dbname, self.env.uid
+        with Registry(dbname).cursor() as cr:
+            other = api.Environment(cr, uid, dict(self.env.context))
+            cr.execute('SELECT id FROM stock_picking WHERE id=%s FOR UPDATE', (self.picking_id.id,))
+            attempt = other[self._name].sudo().browse(self.id)
+            p = other['stock.picking'].browse(self.picking_id.id)
+            if attempt.state != 'success' or p.mori_awb_no != attempt.awb:
+                raise UserError(_('AWB state changed; refresh the record.'))
+            attempt.write({'state': 'cancel_pending',
+                           'error_message': 'Cancellation sent or pending; verify in GDEX before retry.'})
+            cr.commit()
+
+        outcome = 'cancel_pending'
+        message = 'Cancellation response unknown: verify in myGDEX Prime.'
+        try:
+            response = requests.put(endpoint + '/CancelConsignment',
+                                    headers=headers, params={'consignmentNumber': self.awb},
+                                    timeout=(10, 35))
+            try:
+                data = response.json()
+            except ValueError:
+                data = {}
+            if isinstance(data, dict) and response.status_code == 200 and data.get('s') == 'success':
+                outcome, message = 'cancelled', 'Confirmed cancelled by GDEX.'
+            elif (isinstance(data, dict) and response.status_code in (400, 401, 403)
+                  and data.get('s') == 'fail'):
+                outcome = 'success'
+                message = str(data.get('e') or 'GDEX refused cancellation')[:500]
+        except requests.RequestException as exc:
+            message = 'Cancellation network error (%s). Check portal.' % type(exc).__name__
+
+        with Registry(dbname).cursor() as cr:
+            other = api.Environment(cr, uid, dict(self.env.context))
+            cr.execute('SELECT id FROM stock_picking WHERE id=%s FOR UPDATE', (self.picking_id.id,))
+            attempt = other[self._name].sudo().browse(self.id)
+            p = other['stock.picking'].browse(self.picking_id.id)
+            if attempt.state != 'cancel_pending':
+                raise UserError(_('Cancellation status changed; investigate in GDEX.'))
+            changes = {'state': outcome, 'error_message': message}
+            if outcome == 'cancelled':
+                if p.mori_awb_no != attempt.awb:
+                    raise UserError(_('DO AWB mismatch; manual review required.'))
+                p.sudo().write({'mori_awb_no': False})
+                changes.update({'cancelled_by_id': uid, 'cancelled_at': fields.Datetime.now()})
+            attempt.write(changes)
+            cr.commit()
+        return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'title': _('GDEX Cancellation'),
+                           'message': message, 'type': 'success' if outcome == 'cancelled' else 'warning',
+                           'sticky': True}}
+
+    def action_get_mps(self):
+        """Retrieve child CNs for already-created MPS, never CreateConsignment."""
+        self.ensure_one()
+        self._check_operator()
+        if self.state != 'success' or self.pieces <= 1:
+            raise UserError(_('MPS retrieval requires a successful multi-piece AWB.'))
+        headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
+        try:
+            response = requests.post(endpoint + '/GetPrimeMPS', headers=headers,
+                                     json=[self.awb], timeout=(10, 35))
+            data = response.json()
+        except (requests.RequestException, ValueError) as exc:
+            raise UserError(_('MPS retrieval failed (%s). Parent AWB remains unchanged.') %
+                            type(exc).__name__) from exc
+        records = data.get('r') if isinstance(data, dict) else None
+        result = next((x for x in records if isinstance(x, dict) and
+                       x.get('consignmentNote') == self.awb), None) if isinstance(records, list) else None
+        numbers = result.get('mpsNumbers') if result else None
+        if (response.status_code != 200 or data.get('s') != 'success'
+                or not isinstance(numbers, list) or not all(isinstance(n, str) for n in numbers)):
+            raise UserError(_('GDEX did not confirm MPS numbers. Parent AWB remains unchanged.'))
+        self.write({'mps_numbers': json.dumps(numbers), 'mps_status': 'ready'})
+        return {'type': 'ir.actions.client', 'tag': 'display_notification',
+                'params': {'title': _('GDEX MPS Retrieved'),
+                           'message': _('%s child MPS numbers saved.') % len(numbers),
+                           'type': 'success', 'sticky': False}}
 
     def _ensure_pdf(self):
         self.ensure_one()
