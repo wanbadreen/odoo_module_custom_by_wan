@@ -30,30 +30,30 @@ class GdexDoActions(models.TransientModel):
                                      and matching.pieces == 1 and
                                      self.env.user.has_group('base.group_system'))
 
-    def _check_access(self):
+    def _check_gdex_operator_access(self):
         self.ensure_one()
         self.env['motogene.gdex.consignment']._check_operator()
         if not self.picking_id.exists():
             raise UserError(_('Delivery Order not found.'))
 
     def action_create_awb(self):
-        self._check_access()
+        self._check_gdex_operator_access()
         if not self.can_create:
             raise UserError(_('AWB creation is not available for this Delivery Order.'))
         return self.picking_id.action_gdex_normal_wizard()
 
     def action_tracking(self):
-        self._check_access()
+        self._check_gdex_operator_access()
         return self.picking_id.action_open_gdex_tracking()
 
     def action_import_mps(self):
-        self._check_access()
+        self._check_gdex_operator_access()
         if not self.can_import_mps:
             raise UserError(_('No eligible multi-piece GDEX AWB found.'))
         return self.picking_id.action_open_gdex_mps_upload_wizard()
 
     def action_cancel_awb(self):
-        self._check_access()
+        self._check_gdex_operator_access()
         if not self.env.user.has_group('base.group_system'):
             raise AccessError(_('Only administrators may cancel GDEX AWBs.'))
         if not self.can_cancel:
