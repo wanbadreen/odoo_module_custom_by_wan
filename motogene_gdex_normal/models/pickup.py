@@ -134,7 +134,7 @@ class GdexPickup(models.Model):
         params = self.env['ir.config_parameter'].sudo()
         environment = params.get_param('motogene_gdex_normal.environment', 'sandbox')
         self._allow_production_mutation(environment)
-        headers, account, endpoint, _ = self._credentials(environment=environment)
+        headers, account, endpoint, resolved_environment = self._credentials(environment=environment)
         if not account:
             raise UserError(_('Configure a GDEX Account No before requesting pickup.'))
         dbname, uid = self.env.cr.dbname, self.env.uid
@@ -206,7 +206,7 @@ class GdexPickup(models.Model):
         if self.pickup_date <= _today_my():
             raise UserError(_('GDEX only permits cancellation for tomorrow onward.'))
         self._allow_production_mutation(self.api_environment)
-        headers, _account, endpoint, _ = self._credentials(environment=self.api_environment)
+        headers, account, endpoint, resolved_environment = self._credentials(environment=self.api_environment)
         prior_state = self.state
         dbname, uid = self.env.cr.dbname, self.env.uid
         with Registry(dbname).cursor() as cr:
