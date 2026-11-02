@@ -217,6 +217,8 @@ class GdexConsignment(models.Model):
             raise AccessError(_('Only administrators can cancel a GDEX consignment.'))
         if self.state != 'success' or not self.awb:
             raise UserError(_('Only a confirmed, successful AWB can be cancelled.'))
+        if self.pieces > 1:
+            raise UserError(_('MPS cancellation is blocked until GDEX confirms that cancelling the parent also cancels every child CN.'))
         if not (self.cancellation_reason or '').strip():
             raise UserError(_('Enter a cancellation reason before cancelling.'))
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
@@ -289,7 +291,7 @@ class GdexConsignment(models.Model):
         result = next((x for x in records if isinstance(x, dict) and
                        x.get('consignmentNote') == self.awb), None) if isinstance(records, list) else None
         numbers = result.get('mpsNumbers') if result else None
-        if (response.status_code != 200 or data.get('s') != 'success'
+        if (response.status_code != 200 or not isinstance(data, dict) or data.get('s') != 'success'
                 or not isinstance(numbers, list) or not all(isinstance(n, str) for n in numbers)):
             raise UserError(_('GDEX did not confirm MPS numbers. Parent AWB remains unchanged.'))
         self.write({'mps_numbers': json.dumps(numbers), 'mps_status': 'ready'})
