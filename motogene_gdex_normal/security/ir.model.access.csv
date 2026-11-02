@@ -3,3 +3,4 @@ access_gdex_consignment_user,motogene.gdex.consignment user,model_motogene_gdex_
 access_gdex_wizard_user,motogene.gdex.wizard user,model_motogene_gdex_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
 access_gdex_wizard_line_user,motogene.gdex.wizard.line user,model_motogene_gdex_wizard_line,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
 access_gdex_consignment_admin,motogene.gdex.consignment admin,model_motogene_gdex_consignment,base.group_system,1,1,1,1
+access_gdex_cancel_wizard_admin,motogene.gdex.cancel.wizard admin,model_motogene_gdex_cancel_wizard,base.group_system,1,1,1,1
