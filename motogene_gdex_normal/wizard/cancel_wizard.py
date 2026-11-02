@@ -10,7 +10,7 @@ class GdexCancelWizard(models.TransientModel):
     consignment_id = fields.Many2one('motogene.gdex.consignment', required=True, readonly=True)
     awb = fields.Char(related='consignment_id.awb', string='AWB', readonly=True)
     api_environment = fields.Selection(related='consignment_id.api_environment', readonly=True)
-    cancellation_reason = fields.Char(required=True, string='Cancellation Reason')
+    cancellation_reason = fields.Char(string='Cancellation Reason')
 
     def action_confirm_cancel(self):
         self.ensure_one()
