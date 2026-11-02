@@ -306,11 +306,45 @@ class GdexConsignment(models.Model):
                            'message': _('%s child MPS numbers saved.') % len(numbers),
                            'type': 'success', 'sticky': False}}
 
+    def action_open_mps_upload_wizard(self):
+        self.ensure_one()
+        self._check_operator()
+        if self.state != 'success' or self.pieces <= 1:
+            raise UserError(_('A successful multi-piece consignment is required.'))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Import Official GDEX MPS Labels'),
+            'res_model': 'motogene.gdex.mps.upload.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_consignment_id': self.id},
+        }
+
     def _ensure_pdf(self):
         self.ensure_one()
         self._check_operator()
         if self.state != 'success' or not self.awb:
             raise UserError(_('Only successful consignments may be printed.'))
+        if self.pieces > 1:
+            # GetConsignmentNotePDF and GetConsignmentDocument returned only
+            # the parent in the verified GDEX API tests. Never print a
+            # parent-only cached PDF as if it covered all shipped pieces.
+            if not self.pdf_attachment_id:
+                raise UserError(_('MPS requires the official multi-page PDF from myGDEX Prime. '
+                                  'Use Import Official MPS Labels before printing.'))
+            from pypdf import PdfReader
+            try:
+                cached = base64.b64decode(self.pdf_attachment_id.datas)
+                reader = PdfReader(io.BytesIO(cached))
+                if len(reader.pages) != self.pieces:
+                    raise UserError(_('MPS has %s pieces but saved PDF contains %s page(s). '
+                                      'Import the full official MPS PDF from myGDEX Prime.') %
+                                    (self.pieces, len(reader.pages)))
+            except UserError:
+                raise
+            except Exception as exc:
+                raise UserError(_('Saved MPS PDF is invalid. Reimport the original GDEX labels.')) from exc
+            return cached
         if self.pdf_attachment_id:
             return base64.b64decode(self.pdf_attachment_id.datas)
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
