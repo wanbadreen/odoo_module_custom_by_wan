@@ -11,6 +11,8 @@
                 <field name="mps_status" optional="show"/>
                 <field name="api_environment"/>
                 <field name="pdf_ready"/>
+                <field name="tracking_status" optional="show"/>
+                <field name="tracking_checked_at" optional="hide"/>
                 <field name="created_by_id"/>
                 <field name="create_date"/>
                 <field name="error_message" optional="hide"/>
@@ -23,6 +25,8 @@
         <field name="arch" type="xml">
             <form create="false">
                 <header>
+                    <button name="action_refresh_tracking" type="object" string="Refresh GDEX Tracking"
+                        class="btn-secondary" invisible="not awb"/>
                     <button name="action_get_mps" type="object" string="Retrieve MPS Numbers" class="btn-secondary"
                         invisible="state != 'success' or pieces &lt;= 1"/>
                     <button name="action_open_mps_upload_wizard" type="object" string="Import Official MPS Labels"
@@ -52,6 +56,14 @@
                         <field name="error_message"/>
                         <field name="pdf_attachment_id"/>
                     </group>
+                    <group string="Tracking">
+                        <field name="tracking_status" readonly="1"/>
+                        <field name="tracking_enum" readonly="1"/>
+                        <field name="tracking_location" readonly="1"/>
+                        <field name="tracking_latest_scan" readonly="1"/>
+                        <field name="tracking_checked_at" readonly="1"/>
+                        <field name="tracking_error" readonly="1"/>
+                    </group>
                     <group>
                         <field name="receiver_name"/>
                         <field name="receiver_mobile"/>
@@ -60,6 +72,20 @@
                         <field name="weight"/>
                         <field name="pieces"/>
                     </group>
+                    <notebook>
+                        <page string="GDEX Tracking History">
+                            <field name="tracking_event_ids" readonly="1">
+                                <list create="false" delete="false">
+                                    <field name="scan_at"/>
+                                    <field name="status"/>
+                                    <field name="status_detail"/>
+                                    <field name="location"/>
+                                    <field name="undel_code" optional="hide"/>
+                                    <field name="enum_status" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                    </notebook>
                 </sheet>
             </form>
         </field>
