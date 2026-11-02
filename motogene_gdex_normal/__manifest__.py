@@ -1,7 +1,7 @@
 {
     'name': 'MotoGene GDEX Normal',
     'summary': 'Manual single/bulk GDEX Normal consignment and 100x150 mm PDF printing',
-    'version': '18.0.4.1.4',
+    'version': '18.0.4.2.0',
     'category': 'Inventory/Delivery',
     'author': 'Morimoto Formulas',
     'license': 'LGPL-3',
@@ -17,6 +17,7 @@
         'views/picking_views.xml',
         'views/do_actions_views.xml',
         'views/phase2_views.xml',
+        'data/tracking_cron.xml',
     ],
     'external_dependencies': {'python': ['requests', 'pypdf']},
     'installable': True,
