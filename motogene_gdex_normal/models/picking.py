@@ -1,9 +1,23 @@
-from odoo import models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
 
 
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
+
+    gdex_cod_ids = fields.One2many(
+        'motogene.gdex.cod.consignment', 'picking_id',
+        string='GDEX COD AWBs', readonly=True)
+    gdex_cod_summary = fields.Char(
+        string='GDEX COD AWB Numbers',
+        compute='_compute_gdex_cod_summary')
+
+    @api.depends('gdex_cod_ids.awb', 'gdex_cod_ids.state')
+    def _compute_gdex_cod_summary(self):
+        for picking in self:
+            picking.gdex_cod_summary = ' / '.join(
+                picking.gdex_cod_ids.filtered(lambda a: a.state == 'success' and a.awb).mapped('awb'))
+
 
     def action_gdex_normal_wizard(self):
         self.env['motogene.gdex.consignment']._check_operator()
