@@ -1,0 +1,14 @@
+<odoo>
+  <data noupdate="1">
+    <record id="ir_cron_gdex_cod_tracking" model="ir.cron">
+      <field name="name">GDEX COD: Auto Tracking Sync (Hourly)</field>
+      <field name="model_id" ref="model_motogene_gdex_cod_consignment"/>
+      <field name="state">code</field>
+      <field name="code">model._cron_sync_cod_tracking()</field>
+      <field name="interval_number">1</field>
+      <field name="interval_type">hours</field>
+      <field name="active" eval="True"/>
+      <field name="user_id" ref="base.user_root"/>
+    </record>
+  </data>
+</odoo>
