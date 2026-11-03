@@ -194,6 +194,10 @@ class GdexSmartBulkWizard(models.TransientModel):
                 issues.append('%s: receiver incomplete' % p.name)
             if len(line.receiver_mobile or '') > 25 or len(line.note1 or '') > 50 or len(line.note2 or '') > 50:
                 issues.append('%s: GDEX mobile/note length exceeded' % p.name)
+            if line.route == 'normal' and line.note_source == 'do':
+                from odoo.tools import html2plaintext
+                if len(html2plaintext(p.note or '').strip()) > 100:
+                    issues.append('%s: DO note exceeds 100 characters; choose Manual notes' % p.name)
             if line.weight <= 0:
                 issues.append('%s: nonpositive parcel weight' % p.name)
             groups[p.id].append(line)
