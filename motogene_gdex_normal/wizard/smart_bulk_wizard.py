@@ -25,6 +25,7 @@ class GdexSmartBulkWizard(models.TransientModel):
                                string='Reviewed Shipments')
     selected_picking_ids = fields.Many2many('stock.picking', readonly=True)
     processed = fields.Boolean(readonly=True)
+    cod_picking_to_add = fields.Many2one('stock.picking', string='Add Parcel for COD DO')
     review_summary = fields.Text(readonly=True)
     results = fields.Text(readonly=True)
 
@@ -82,6 +83,7 @@ class GdexSmartBulkWizard(models.TransientModel):
                 lines.append((0, 0, {
                     'picking_id': p.id, 'route': 'normal', 'eligible': True,
                     'parcel_no': 1, 'weight': 1.0, 'pieces': 1,
+                    'currency_id': self.env.company.currency_id.id,
                     'note_source': 'none', **receiver,
                 }))
             else:
@@ -116,6 +118,39 @@ class GdexSmartBulkWizard(models.TransientModel):
                 'name': _('GDEX Bulk — Review Normal & COD'),
                 'res_model': wizard._name, 'res_id': wizard.id,
                 'view_mode': 'form', 'target': 'new'}
+
+    def action_add_cod_parcel(self):
+        self.ensure_one()
+        if self.processed:
+            raise UserError(_('This batch has already been processed.'))
+        p = self.cod_picking_to_add
+        if not p or p.id not in self.selected_picking_ids.ids:
+            raise UserError(_('Select one of the reviewed COD Delivery Orders.'))
+        existing = self.line_ids.filtered(
+            lambda line: line.picking_id == p and line.route == 'cod' and line.eligible)
+        if not existing:
+            raise UserError(_('The selected Delivery Order is not eligible COD.'))
+        if len(existing) >= 50:
+            raise UserError(_('A COD Delivery Order cannot exceed 50 parcel rows.'))
+        first = existing[0]
+        new_no = max(existing.mapped('parcel_no')) + 1
+        # A new row starts with zero allocation. Operations must deliberately
+        # redistribute the amount; preflight blocks zero or mismatching sums.
+        self.env['motogene.gdex.smart.bulk.line'].create({
+            'wizard_id': self.id, 'picking_id': p.id, 'route': 'cod',
+            'eligible': True, 'parcel_no': new_no,
+            'currency_id': first.currency_id.id,
+            'sales_amount': first.sales_amount, 'total_cod': first.total_cod,
+            'cod_amount': 0.0, 'weight': 1.0,
+            'receiver_name': first.receiver_name, 'receiver_mobile': first.receiver_mobile,
+            'receiver_address1': first.receiver_address1,
+            'receiver_postcode': first.receiver_postcode,
+            'change_reason': first.change_reason,
+        })
+        self.cod_picking_to_add = False
+        return {'type': 'ir.actions.act_window',
+                'name': _('GDEX Bulk — Review Normal & COD'), 'res_model': self._name,
+                'res_id': self.id, 'view_mode': 'form', 'target': 'new'}
 
     def _preflight(self):
         """All edits validated before *first* external call."""
