@@ -61,8 +61,8 @@ class StockPicking(models.Model):
     def action_open_gdex_actions(self):
         self.ensure_one()
         self.env['motogene.gdex.consignment']._check_operator()
-        if self.picking_type_code != 'outgoing' or self.x_studio_order_type != 'Normal':
-            raise UserError(_('This Delivery Order is not a Normal outgoing shipment.'))
+        if self.picking_type_code != 'outgoing' or self.x_studio_order_type not in ('Normal', 'COD', 'Cash On Delivery', 'Cash on Delivery'):
+            raise UserError(_('This Delivery Order is not an eligible GDEX Normal or COD outgoing shipment.'))
         return {
             'type': 'ir.actions.act_window',
             'name': _('GDEX Actions'),
