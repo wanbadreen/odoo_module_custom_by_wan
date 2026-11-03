@@ -12,11 +12,17 @@
       <field name="can_track" invisible="1"/>
       <field name="can_import_mps" invisible="1"/>
       <field name="can_cancel" invisible="1"/>
+      <field name="can_create_cod" invisible="1"/>
+      <field name="can_view_cod" invisible="1"/>
      </group>
      <div class="alert alert-info" role="alert">
       Choose a GDEX action. Creating or cancelling an AWB opens the existing confirmation workflow.
      </div>
      <group>
+      <button name="action_create_cod" type="object" string="Create GDEX COD AWBs"
+              class="btn-primary" invisible="not can_create_cod"/>
+      <button name="action_view_cod" type="object" string="View COD Parcels &amp; AWBs"
+              class="btn-secondary" invisible="not can_view_cod"/>
       <button name="action_create_awb" type="object" string="Create GDEX Normal AWB"
               class="btn-primary" invisible="not can_create"/>
       <button name="action_tracking" type="object" string="Shipment Tracking"
