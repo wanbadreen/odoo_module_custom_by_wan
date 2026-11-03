@@ -127,9 +127,9 @@
         <field name="state">code</field>
         <field name="code">action = records.action_print_bulk()</field>
     </record>
-    <menuitem id="menu_gdex_normal_root" name="GDEX Normal"
+    <menuitem id="menu_gdex_normal_root" name="GDEX"
         parent="stock.menu_stock_root" sequence="95"
         groups="motogene_gdex_normal.group_gdex_normal_user"/>
-    <menuitem id="menu_gdex_normal_consignment" name="Consignments"
+    <menuitem id="menu_gdex_normal_consignment" name="Normal Consignments"
         parent="menu_gdex_normal_root" action="action_gdex_normal_consignment"/>
 </odoo>
