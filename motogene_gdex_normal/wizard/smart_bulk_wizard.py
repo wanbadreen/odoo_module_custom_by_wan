@@ -5,6 +5,7 @@ loading or previewing selected DOs. Every shipment is delegated to the
 existing durable, per-AWB reservation/create path.
 """
 from collections import defaultdict
+import json
 from decimal import Decimal, ROUND_HALF_UP
 from types import SimpleNamespace
 
