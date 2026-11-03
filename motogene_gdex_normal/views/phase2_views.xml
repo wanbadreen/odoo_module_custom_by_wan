@@ -94,9 +94,9 @@
     <field name="state">code</field>
     <field name="code">action = records.action_refresh_tracking()</field>
   </record>
-  <menuitem id="gdex_tracking_menu" name="Shipment Tracking"
-            parent="menu_gdex_normal_root" action="gdex_tracking_action" sequence="20"
-            groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
+  <record id="gdex_tracking_menu" model="ir.ui.menu">
+    <field name="active" eval="False"/>
+  </record>
   <menuitem id="gdex_pickup_menu" name="Pickup Management"
             parent="menu_gdex_normal_root" action="gdex_pickup_action" sequence="30"
             groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
