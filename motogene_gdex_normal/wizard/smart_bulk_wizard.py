@@ -291,8 +291,8 @@ class GdexSmartBulkWizard(models.TransientModel):
             results.append('%s [Skipped] %s' % (line.picking_id.name, line.skip_reason))
         self.write({
             'results': '\n'.join(results),
-            'created_normal_ids': [(6, 0, created_normal)],
-            'created_cod_ids': [(6, 0, created_cod)],
+            'created_normal_ids_json': json.dumps(created_normal),
+            'created_cod_ids_json': json.dumps(created_cod),
         })
         return {'type': 'ir.actions.act_window',
                 'name': _('GDEX Bulk Results'), 'res_model': self._name,
