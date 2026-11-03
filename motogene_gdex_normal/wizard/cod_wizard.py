@@ -1,6 +1,5 @@
 """Editable COD allocation wizard, one distinct AWB per physical parcel."""
 from decimal import Decimal, ROUND_HALF_UP
-import math
 
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError
@@ -107,6 +106,19 @@ class GdexCodWizard(models.TransientModel):
         if any(cents(line.cod_amount) < 1 or cents(line.cod_amount) > 150000
                or line.weight <= 0 for line in lines):
             raise UserError(_('Each parcel needs RM0.01–RM1,500 and positive weight.'))
+        # Validate *all* parcel details before creating the first real AWB.
+        # Otherwise an invalid later parcel could leave an avoidable partial order.
+        if not all((self.receiver_name, self.receiver_mobile,
+                    self.receiver_address1, self.receiver_postcode)):
+            raise UserError(_('Complete all COD receiver details before creating AWBs.'))
+        if len(self.receiver_mobile or '') > 25:
+            raise UserError(_('GDEX receiver mobile must not exceed 25 characters.'))
+        if any(len(line.note1 or '') > 50 or len(line.note2 or '') > 50
+               for line in lines):
+            raise UserError(_('Parcel Note 1/2 must not exceed 50 characters.'))
+        if self.picking_id.partner_id.country_id.code != 'MY':
+            raise UserError(_('COD delivery is available only for Malaysian addresses.'))
+        COD._cod_credentials()  # Check COD account and safety switch before any AWB.
         if self.picking_id.mori_awb_no or COD.sudo().search_count([
                 ('picking_id', '=', self.picking_id.id)]):
             raise UserError(_('Existing COD attempt or DO AWB found. Do not create duplicates.'))
