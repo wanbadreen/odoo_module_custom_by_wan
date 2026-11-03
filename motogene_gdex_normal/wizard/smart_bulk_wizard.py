@@ -300,14 +300,14 @@ class GdexSmartBulkWizard(models.TransientModel):
 
     def action_print_normal_results(self):
         self.ensure_one()
-        recs = self.created_normal_ids.filtered(lambda c: c.state == 'success' and c.awb)
+        recs = self.env['motogene.gdex.consignment'].browse(json.loads(self.created_normal_ids_json or '[]')).exists().filtered(lambda c: c.state == 'success' and c.awb)
         if not recs:
             raise UserError(_('No successful Normal labels in the selection.'))
         return recs.action_print_bulk()
 
     def action_print_cod_results(self):
         self.ensure_one()
-        recs = self.created_cod_ids.filtered(lambda c: c.state == 'success' and c.awb)
+        recs = self.env['motogene.gdex.cod.consignment'].browse(json.loads(self.created_cod_ids_json or '[]')).exists().filtered(lambda c: c.state == 'success' and c.awb)
         if not recs:
             raise UserError(_('No successful COD labels in the selection.'))
         return recs.action_print_bulk_cod()
