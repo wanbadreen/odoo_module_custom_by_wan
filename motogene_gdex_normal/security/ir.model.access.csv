@@ -20,3 +20,7 @@ access_gdex_cod_wizard_line_operator,motogene.gdex.cod.wizard.line operator,mode
 access_gdex_cod_wizard_line_admin,motogene.gdex.cod.wizard.line admin,model_motogene_gdex_cod_wizard_line,base.group_system,1,1,1,1
 access_gdex_cod_tracking_operator,motogene.gdex.cod.tracking.event operator,model_motogene_gdex_cod_tracking_event,motogene_gdex_normal.group_gdex_normal_user,1,0,0,0
 access_gdex_cod_tracking_admin,motogene.gdex.cod.tracking.event admin,model_motogene_gdex_cod_tracking_event,base.group_system,1,1,1,1
+access_gdex_smart_bulk_user,GDEX smart bulk user,model_motogene_gdex_smart_bulk_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_smart_bulk_admin,GDEX smart bulk admin,model_motogene_gdex_smart_bulk_wizard,base.group_system,1,1,1,1
+access_gdex_smart_bulk_line_user,GDEX smart bulk lines,model_motogene_gdex_smart_bulk_line,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_smart_bulk_line_admin,GDEX smart bulk lines admin,model_motogene_gdex_smart_bulk_line,base.group_system,1,1,1,1
