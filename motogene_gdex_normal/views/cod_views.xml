@@ -59,6 +59,8 @@
         <field name="cod_amount"/>
         <field name="currency_id" column_invisible="True"/>
         <field name="state"/>
+        <field name="tracking_status" optional="show"/>
+        <field name="tracking_checked_at" optional="hide"/>
         <field name="api_environment"/>
         <field name="error_message" optional="hide"/>
       </list>
@@ -70,6 +72,8 @@
     <field name="arch" type="xml">
       <form create="false" delete="false">
         <header>
+          <button name="action_refresh_cod_tracking" type="object" string="Refresh COD Tracking"
+                  class="btn-secondary" invisible="state != 'success'"/>
           <button name="action_print_cod" type="object" string="Print COD AWB"
                   class="btn-primary" invisible="state != 'success'"/>
         </header>
@@ -97,6 +101,28 @@
               <field name="pdf_attachment_id"/>
             </group>
           </group>
+          <group string="Tracking">
+            <field name="tracking_status" readonly="1"/>
+            <field name="tracking_enum" readonly="1"/>
+            <field name="tracking_location" readonly="1"/>
+            <field name="tracking_latest_scan" readonly="1"/>
+            <field name="tracking_checked_at" readonly="1"/>
+            <field name="tracking_error" readonly="1"/>
+          </group>
+          <notebook>
+            <page string="COD Tracking History">
+              <field name="tracking_event_ids" readonly="1">
+                <list create="false" delete="false">
+                  <field name="scan_at"/>
+                  <field name="status"/>
+                  <field name="status_detail"/>
+                  <field name="location"/>
+                  <field name="undel_code" optional="hide"/>
+                  <field name="enum_status" optional="hide"/>
+                </list>
+              </field>
+            </page>
+          </notebook>
         </sheet>
       </form>
     </field>
@@ -105,6 +131,14 @@
     <field name="name">GDEX COD Consignments</field>
     <field name="res_model">motogene.gdex.cod.consignment</field>
     <field name="view_mode">list,form</field>
+  </record>
+  <record id="gdex_cod_bulk_refresh_action" model="ir.actions.server">
+    <field name="name">Refresh COD Tracking (Selected)</field>
+    <field name="model_id" ref="model_motogene_gdex_cod_consignment"/>
+    <field name="binding_model_id" ref="model_motogene_gdex_cod_consignment"/>
+    <field name="binding_view_types">list</field>
+    <field name="state">code</field>
+    <field name="code">action = records.action_refresh_cod_tracking()</field>
   </record>
   <record id="gdex_cod_bulk_print_action" model="ir.actions.server">
     <field name="name">Bulk Print COD Labels</field>
