@@ -24,6 +24,12 @@ class GdexSmartBulkWizard(models.TransientModel):
     line_ids = fields.One2many('motogene.gdex.smart.bulk.line', 'wizard_id',
                                string='Reviewed Shipments')
     selected_picking_ids = fields.Many2many('stock.picking', readonly=True)
+    created_normal_ids = fields.Many2many(
+        'motogene.gdex.consignment', 'gdex_smart_bulk_normal_rel',
+        'wizard_id', 'consignment_id', readonly=True)
+    created_cod_ids = fields.Many2many(
+        'motogene.gdex.cod.consignment', 'gdex_smart_bulk_cod_rel',
+        'wizard_id', 'consignment_id', readonly=True)
     processed = fields.Boolean(readonly=True)
     cod_picking_to_add = fields.Many2one('stock.picking', string='Add Parcel for COD DO')
     review_summary = fields.Text(readonly=True)
@@ -229,6 +235,8 @@ class GdexSmartBulkWizard(models.TransientModel):
         normal = self.env['motogene.gdex.consignment']
         cod = self.env['motogene.gdex.cod.consignment']
         results = []
+        created_normal = []
+        created_cod = []
         # Persist the operator's intent before external API work.
         self.write({'processed': True, 'review_summary':
                     _('Confirmed. External attempts may have completed; NEVER re-submit this batch.')})
@@ -240,6 +248,8 @@ class GdexSmartBulkWizard(models.TransientModel):
             if rows[0].route == 'normal':
                 try:
                     attempt_id, result = normal.create_from_wizard_line(rows[0])
+                    if attempt_id:
+                        created_normal.append(attempt_id)
                     results.append('%s [Normal] %s' % (p.name, result))
                 except Exception as exc:
                     results.append('%s [Normal] STOPPED: %s' % (p.name, type(exc).__name__))
@@ -259,6 +269,8 @@ class GdexSmartBulkWizard(models.TransientModel):
                         receiver_postcode=row.receiver_postcode,
                         change_reason=row.change_reason)
                     attempt_id, outcome = cod.create_from_cod_line(adapter, row)
+                    if attempt_id:
+                        created_cod.append(attempt_id)
                     results.append('%s [COD parcel %s] %s %s' % (
                         p.name, row.parcel_no, outcome.get('state'),
                         outcome.get('awb') or outcome.get('error_message') or ''))
@@ -276,25 +288,25 @@ class GdexSmartBulkWizard(models.TransientModel):
         skipped = self.line_ids.filtered(lambda x: not x.eligible)
         for line in skipped:
             results.append('%s [Skipped] %s' % (line.picking_id.name, line.skip_reason))
-        self.write({'results': '\n'.join(results)})
+        self.write({
+            'results': '\n'.join(results),
+            'created_normal_ids': [(6, 0, created_normal)],
+            'created_cod_ids': [(6, 0, created_cod)],
+        })
         return {'type': 'ir.actions.act_window',
                 'name': _('GDEX Bulk Results'), 'res_model': self._name,
                 'res_id': self.id, 'view_mode': 'form', 'target': 'new'}
 
     def action_print_normal_results(self):
         self.ensure_one()
-        pickings = self.selected_picking_ids
-        recs = self.env['motogene.gdex.consignment'].search([
-            ('picking_id', 'in', pickings.ids), ('state', '=', 'success'), ('awb', '!=', False)])
+        recs = self.created_normal_ids.filtered(lambda c: c.state == 'success' and c.awb)
         if not recs:
             raise UserError(_('No successful Normal labels in the selection.'))
         return recs.action_print_bulk()
 
     def action_print_cod_results(self):
         self.ensure_one()
-        pickings = self.selected_picking_ids
-        recs = self.env['motogene.gdex.cod.consignment'].search([
-            ('picking_id', 'in', pickings.ids), ('state', '=', 'success'), ('awb', '!=', False)])
+        recs = self.created_cod_ids.filtered(lambda c: c.state == 'success' and c.awb)
         if not recs:
             raise UserError(_('No successful COD labels in the selection.'))
         return recs.action_print_bulk_cod()
