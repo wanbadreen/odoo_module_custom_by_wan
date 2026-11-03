@@ -66,6 +66,10 @@ class GdexCodConsignment(models.Model):
         account = params.get_param(prefix + 'account')
         if not token or not key or not account:
             raise UserError(_('Configure GDEX COD %s token, subscription key and account first.') % environment)
+        if environment == 'production':
+            normal_account = params.get_param('motogene_gdex_normal.account_no')
+            if normal_account and normal_account.strip() == account.strip():
+                raise UserError(_('COD Production Account Number must be different from the GDEX Normal account.'))
         if environment == 'production' and params.get_param(
                 'motogene_gdex_normal.cod_production_enabled', 'False') != 'True':
             raise UserError(_('Production GDEX COD creation is disabled in Settings.'))
