@@ -25,12 +25,8 @@ class GdexSmartBulkWizard(models.TransientModel):
     line_ids = fields.One2many('motogene.gdex.smart.bulk.line', 'wizard_id',
                                string='Reviewed Shipments')
     selected_picking_ids = fields.Many2many('stock.picking', readonly=True)
-    created_normal_ids = fields.Many2many(
-        'motogene.gdex.consignment', 'gdex_smart_bulk_normal_rel',
-        'wizard_id', 'consignment_id', readonly=True)
-    created_cod_ids = fields.Many2many(
-        'motogene.gdex.cod.consignment', 'gdex_smart_bulk_cod_rel',
-        'wizard_id', 'consignment_id', readonly=True)
+    created_normal_ids_json = fields.Text(readonly=True, default='[]')
+    created_cod_ids_json = fields.Text(readonly=True, default='[]')
     processed = fields.Boolean(readonly=True)
     cod_picking_to_add = fields.Many2one('stock.picking', string='Add Parcel for COD DO')
     review_summary = fields.Text(readonly=True)
