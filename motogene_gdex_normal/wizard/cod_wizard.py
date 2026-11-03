@@ -136,10 +136,30 @@ class GdexCodWizard(models.TransientModel):
                 results.append('Parcel %s: STOPPED (%s)' % (line.parcel_no, str(exc)))
                 break
         self.env.invalidate_all()
+        # Mirror confirmed COD numbers into the DO AWB No field after *all*
+        # CreateConsignment attempts, not between parcels.
+        # A conflict with a manually entered AWB never erases it.
+        try:
+            COD.sync_do_cod_awbs(self.picking_id.id)
+        except UserError as exc:
+            results.append('DO AWB No was NOT updated: %s' % str(exc))
         self.write({'processed': True, 'result_message': '\n'.join(results)})
         return {'type': 'ir.actions.act_window', 'name': _('GDEX COD Results'),
                 'res_model': self._name, 'res_id': self.id,
                 'view_mode': 'form', 'target': 'new'}
+
+
+    def action_print_cod_results(self):
+        """Print all successful parcel labels in a single PDF after creation."""
+        self.ensure_one()
+        self.env['motogene.gdex.cod.consignment']._check_operator()
+        recs = self.env['motogene.gdex.cod.consignment'].search([
+            ('picking_id', '=', self.picking_id.id),
+            ('state', '=', 'success'), ('awb', '!=', False),
+        ], order='parcel_no, id')
+        if not recs:
+            raise UserError(_('No confirmed COD AWBs are available for printing.'))
+        return recs.action_print_bulk_cod()
 
 
 class GdexCodWizardLine(models.TransientModel):
