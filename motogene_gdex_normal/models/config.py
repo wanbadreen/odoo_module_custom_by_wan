@@ -41,6 +41,35 @@ class ResConfigSettings(models.TransientModel):
         config_parameter='motogene_gdex_normal.pickup_production_enabled',
         groups='base.group_system', default=False,
     )
+    gdex_cod_environment = fields.Selection(
+        [('sandbox', 'Sandbox'), ('production', 'Production')],
+        string='COD Environment', required=True, default='sandbox',
+        config_parameter='motogene_gdex_normal.cod_environment',
+        groups='base.group_system',
+    )
+    gdex_cod_sandbox_token = fields.Char(
+        string='COD Sandbox ApiToken',
+        config_parameter='motogene_gdex_normal.cod_sandbox_token', groups='base.group_system')
+    gdex_cod_sandbox_key = fields.Char(
+        string='COD Sandbox Subscription Key',
+        config_parameter='motogene_gdex_normal.cod_sandbox_key', groups='base.group_system')
+    gdex_cod_sandbox_account = fields.Char(
+        string='COD Sandbox Account Number',
+        config_parameter='motogene_gdex_normal.cod_sandbox_account', groups='base.group_system')
+    gdex_cod_production_token = fields.Char(
+        string='COD Production ApiToken',
+        config_parameter='motogene_gdex_normal.cod_production_token', groups='base.group_system')
+    gdex_cod_production_key = fields.Char(
+        string='COD Production Subscription Key',
+        config_parameter='motogene_gdex_normal.cod_production_key', groups='base.group_system')
+    gdex_cod_production_account = fields.Char(
+        string='COD Production Account Number',
+        config_parameter='motogene_gdex_normal.cod_production_account', groups='base.group_system')
+    gdex_cod_production_enabled = fields.Boolean(
+        string='Enable Production COD AWB Creation',
+        config_parameter='motogene_gdex_normal.cod_production_enabled',
+        default=False, groups='base.group_system',
+    )
     gdex_normal_account = fields.Char(
         string='GDEX Account No (optional)', config_parameter='motogene_gdex_normal.account_no',
         groups='base.group_system',
