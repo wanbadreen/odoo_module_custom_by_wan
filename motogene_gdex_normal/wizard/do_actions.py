@@ -12,6 +12,8 @@ class GdexDoActions(models.TransientModel):
     can_track = fields.Boolean(compute='_compute_available')
     can_import_mps = fields.Boolean(compute='_compute_available')
     can_cancel = fields.Boolean(compute='_compute_available')
+    can_create_cod = fields.Boolean(compute='_compute_available')
+    can_view_cod = fields.Boolean(compute='_compute_available')
 
     @api.depends('picking_id', 'picking_id.state', 'picking_id.mori_awb_no')
     def _compute_available(self):
@@ -26,6 +28,10 @@ class GdexDoActions(models.TransientModel):
                                     ('awb', '=', awb),
                                     ('state', '=', 'success')], limit=1) if awb else cons.browse()
             wizard.can_import_mps = bool(matching and matching.pieces > 1)
+            is_cod = p.picking_type_code == 'outgoing' and p.x_studio_order_type in ('COD', 'Cash On Delivery', 'Cash on Delivery')
+            cod_count = self.env['motogene.gdex.cod.consignment'].sudo().search_count([('picking_id', '=', p.id)])
+            wizard.can_create_cod = bool(is_cod and p.state == 'assigned' and not awb and not cod_count)
+            wizard.can_view_cod = bool(is_cod and cod_count)
             wizard.can_cancel = bool(is_normal and p.state == 'assigned' and matching
                                      and matching.pieces == 1 and
                                      self.env.user.has_group('base.group_system'))
@@ -59,3 +65,18 @@ class GdexDoActions(models.TransientModel):
         if not self.can_cancel:
             raise UserError(_('GDEX cancellation is unavailable for this Delivery Order.'))
         return self.picking_id.action_open_gdex_cancel_wizard()
+
+    def action_create_cod(self):
+        self._check_gdex_operator_access()
+        if not self.can_create_cod:
+            raise UserError(_('COD creation is not available for this DO.'))
+        return self.env['motogene.gdex.cod.wizard'].action_open_for_picking(self.picking_id)
+
+    def action_view_cod(self):
+        self._check_gdex_operator_access()
+        return {
+            'type': 'ir.actions.act_window', 'name': _('GDEX COD Consignments'),
+            'res_model': 'motogene.gdex.cod.consignment', 'view_mode': 'list,form',
+            'domain': [('picking_id', '=', self.picking_id.id)],
+            'target': 'current',
+        }
