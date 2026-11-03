@@ -121,10 +121,11 @@ class GdexCodConsignment(models.Model):
             # Existing AWBs, including manually entered references, must not be overwritten.
             if current.mori_awb_no:
                 raise UserError(_('The DO already has an AWB. Verify it before creating COD AWBs.'))
-            already = other[self._name].sudo().search_count([('picking_id', '=', p.id)])
+            already = other[self._name].sudo().search_count([
+                ('picking_id', '=', p.id), ('parcel_no', '=', line.parcel_no)])
             if already:
-                raise UserError(_('COD attempts already exist for this DO. Review all parcels; '
-                                  'automatic re-creation is blocked to prevent duplicate AWBs.'))
+                raise UserError(_('This COD parcel already has an attempt. '
+                                  'Verify in GDEX before any retry.'))
             rec = other[self._name].sudo().create({
                 **vals, 'api_environment': environment, 'state': 'uncertain',
                 'error_message': 'Reserved before GDEX request. Verify portal if interrupted.',
