@@ -35,6 +35,32 @@
                             <button name="action_gdex_normal_test" type="object" string="Test Selected API Connection" class="btn-primary"/>
                         </setting>
                     </block>
+                    <block title="GDEX COD (Separate Account)">
+                        <setting string="COD Environment">
+                            <field name="gdex_cod_environment"/>
+                        </setting>
+                        <setting string="COD Sandbox ApiToken">
+                            <field name="gdex_cod_sandbox_token" password="True"/>
+                        </setting>
+                        <setting string="COD Sandbox Subscription Key">
+                            <field name="gdex_cod_sandbox_key" password="True"/>
+                        </setting>
+                        <setting string="COD Sandbox Account Number">
+                            <field name="gdex_cod_sandbox_account"/>
+                        </setting>
+                        <setting string="COD Production ApiToken">
+                            <field name="gdex_cod_production_token" password="True"/>
+                        </setting>
+                        <setting string="COD Production Subscription Key">
+                            <field name="gdex_cod_production_key" password="True"/>
+                        </setting>
+                        <setting string="COD Production Account Number">
+                            <field name="gdex_cod_production_account"/>
+                        </setting>
+                        <setting string="Enable Production COD AWB Creation" help="OFF by default. Enable only after COD-specific staging testing and live account confirmation.">
+                            <field name="gdex_cod_production_enabled"/>
+                        </setting>
+                    </block>
                 </app>
             </xpath>
         </field>
