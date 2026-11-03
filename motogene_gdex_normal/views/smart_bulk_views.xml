@@ -1,0 +1,70 @@
+<odoo>
+  <record id="gdex_smart_bulk_wizard_form" model="ir.ui.view">
+    <field name="name">motogene.gdex.smart.bulk.wizard.form</field>
+    <field name="model">motogene.gdex.smart.bulk.wizard</field>
+    <field name="arch" type="xml">
+      <form string="GDEX Smart Bulk — Normal &amp; COD" create="false">
+        <sheet>
+          <div class="alert alert-warning" role="alert">
+            REVIEW FIRST: Normal and COD use separate GDEX accounts. No AWB is created until Confirm. Any uncertain request is permanently blocked from automatic retries.
+          </div>
+          <field name="processed" invisible="1"/>
+          <field name="selected_picking_ids" invisible="1"/>
+          <field name="review_summary" readonly="1"/>
+          <group invisible="processed">
+            <field name="cod_picking_to_add"
+                   domain="[('id', 'in', selected_picking_ids)]"
+                   options="{'no_create': True}"/>
+            <button name="action_add_cod_parcel" type="object"
+                    string="Add a COD Parcel Row" class="btn-secondary"/>
+          </group>
+          <field name="line_ids" readonly="processed">
+            <list editable="bottom" create="false" delete="false"
+                  decoration-muted="not eligible">
+              <field name="picking_id" readonly="1"/>
+              <field name="route" readonly="1"/>
+              <field name="eligible" readonly="1"/>
+              <field name="skip_reason" readonly="1" optional="show"/>
+              <field name="parcel_no" readonly="not eligible or route != 'cod'"/>
+              <field name="receiver_name" readonly="not eligible"/>
+              <field name="receiver_mobile" readonly="not eligible"/>
+              <field name="receiver_address1" readonly="not eligible" optional="hide"/>
+              <field name="receiver_postcode" readonly="not eligible"/>
+              <field name="weight" readonly="not eligible"/>
+              <field name="pieces" readonly="not eligible or route != 'normal'"/>
+              <field name="currency_id" column_invisible="True"/>
+              <field name="sales_amount" readonly="1" optional="hide"/>
+              <field name="total_cod" readonly="not eligible or route != 'cod'"/>
+              <field name="cod_amount" readonly="not eligible or route != 'cod'"/>
+              <field name="change_reason" readonly="not eligible or route != 'cod'" optional="hide"/>
+              <field name="note_source" readonly="not eligible or route != 'normal'" optional="hide"/>
+              <field name="note1" readonly="not eligible"/>
+              <field name="note2" readonly="not eligible"/>
+            </list>
+          </field>
+          <field name="results" readonly="1" widget="text" invisible="not processed"/>
+        </sheet>
+        <footer>
+          <button name="action_create" type="object"
+                  string="Confirm &amp; Create Reviewed GDEX AWBs" class="btn-primary"
+                  invisible="processed"
+                  confirm="This will create REAL GDEX Normal and COD AWBs in separate accounts. Review every COD allocation and skipped DO first. Continue?"/>
+          <button name="action_print_normal_results" type="object"
+                  string="Print Normal Labels" class="btn-secondary" invisible="not processed"/>
+          <button name="action_print_cod_results" type="object"
+                  string="Print COD Labels" class="btn-secondary" invisible="not processed"/>
+          <button special="cancel" string="Close" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="gdex_smart_bulk_action" model="ir.actions.server">
+    <field name="name">Create GDEX Consignments (Normal + COD)</field>
+    <field name="model_id" ref="stock.model_stock_picking"/>
+    <field name="binding_model_id" ref="stock.model_stock_picking"/>
+    <field name="binding_view_types">list</field>
+    <field name="state">code</field>
+    <field name="code">action = env['motogene.gdex.smart.bulk.wizard'].action_open_for_pickings(records)</field>
+    <field name="groups_id" eval="[(4, ref('motogene_gdex_normal.group_gdex_normal_user'))]"/>
+  </record>
+</odoo>
