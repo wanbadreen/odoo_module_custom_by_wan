@@ -12,3 +12,9 @@ access_gdex_pickup_user,motogene.gdex.pickup user,model_motogene_gdex_pickup,mot
 access_gdex_pickup_admin,motogene.gdex.pickup admin,model_motogene_gdex_pickup,base.group_system,1,1,1,0
 access_gdex_do_actions_operator,motogene.gdex.do.actions operator,model_motogene_gdex_do_actions,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
 access_gdex_do_actions_admin,motogene.gdex.do.actions admin,model_motogene_gdex_do_actions,base.group_system,1,1,1,1
+access_gdex_cod_consignment_operator,motogene.gdex.cod.consignment operator,model_motogene_gdex_cod_consignment,motogene_gdex_normal.group_gdex_normal_user,1,0,0,0
+access_gdex_cod_consignment_admin,motogene.gdex.cod.consignment admin,model_motogene_gdex_cod_consignment,base.group_system,1,1,1,0
+access_gdex_cod_wizard_operator,motogene.gdex.cod.wizard operator,model_motogene_gdex_cod_wizard,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_cod_wizard_admin,motogene.gdex.cod.wizard admin,model_motogene_gdex_cod_wizard,base.group_system,1,1,1,1
+access_gdex_cod_wizard_line_operator,motogene.gdex.cod.wizard.line operator,model_motogene_gdex_cod_wizard_line,motogene_gdex_normal.group_gdex_normal_user,1,1,1,1
+access_gdex_cod_wizard_line_admin,motogene.gdex.cod.wizard.line admin,model_motogene_gdex_cod_wizard_line,base.group_system,1,1,1,1
