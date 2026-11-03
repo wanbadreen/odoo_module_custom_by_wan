@@ -9,7 +9,7 @@
     <field name="mori_awb_no" invisible="1"/>
     <button name="action_open_gdex_actions" type="object" string="GDEX"
             class="btn-secondary" groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"
-            invisible="picking_type_code != 'outgoing' or x_studio_order_type != 'Normal'"/>
+            invisible="picking_type_code != 'outgoing' or x_studio_order_type not in ('Normal', 'COD', 'Cash On Delivery', 'Cash on Delivery')"/>
    </xpath>
   </field>
  </record>
