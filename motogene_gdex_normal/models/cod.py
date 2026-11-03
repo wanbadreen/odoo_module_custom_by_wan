@@ -173,6 +173,77 @@ class GdexCodConsignment(models.Model):
             cr.commit()
         return attempt_id, outcome
 
+    @api.model
+    def sync_do_cod_awbs(self, picking_id):
+        """Mirror successful COD AWBs to DO AWB No without losing parcel records.
+
+        Refuse to overwrite a manually entered or unrelated reference.
+        This runs in an isolated transaction because CreateConsignment has
+        already committed external success/attempts on separate cursors.
+        """
+        self._check_operator()
+        dbname, uid = self.env.cr.dbname, self.env.uid
+        with Registry(dbname).cursor() as cr:
+            other = api.Environment(cr, uid, dict(self.env.context))
+            cr.execute('SELECT id FROM stock_picking WHERE id = %s FOR UPDATE', (picking_id,))
+            picking = other['stock.picking'].sudo().browse(picking_id).exists()
+            if not picking or picking.x_studio_order_type != 'COD':
+                raise UserError(_('The selected Delivery Order is not COD.'))
+            attempts = other[self._name].sudo().search(
+                [('picking_id', '=', picking_id)], order='parcel_no, id')
+            active = attempts.filtered(lambda c: c.state == 'success' and c.awb)
+            if not active:
+                return False
+            desired = '/'.join(active.mapped('awb'))
+            existing = (picking.mori_awb_no or '').strip()
+            known = set(active.mapped('awb'))
+            current_parts = [piece.strip() for piece in existing.split('/') if piece.strip()]
+            # Allow a blank DO, the exact current summary, or a previous
+            # partial summary consisting solely of this DO's confirmed COD AWBs.
+            if existing and (not current_parts or not set(current_parts).issubset(known)):
+                raise UserError(_('DO AWB No has a different/manual value. '
+                                  'It was NOT overwritten; reconcile manually.'))
+            if existing != desired:
+                picking.write({'mori_awb_no': desired})
+                cr.commit()
+            return desired
+
+    def action_sync_do_cod_awbs(self):
+        self._check_operator()
+        for picking in self.mapped('picking_id'):
+            self.sync_do_cod_awbs(picking.id)
+        return {'type': 'ir.actions.client', 'tag': 'reload'}
+
+    def action_print_bulk_cod(self):
+        """Merge existing/newly retrieved official COD PDFs, without creating AWBs."""
+        self._check_operator()
+        selected = self.exists().sorted(key=lambda c: (c.picking_id.id, c.parcel_no, c.id))
+        if not selected or len(selected) > 60:
+            raise UserError(_('Select between 1 and 60 COD consignments to print.'))
+        if any(c.state != 'success' or not c.awb for c in selected):
+            raise UserError(_('Only successful COD AWBs may be bulk printed.'))
+        from pypdf import PdfReader, PdfWriter
+        writer = PdfWriter()
+        for rec in selected:
+            # Single print is also the safe fetch-and-cache path.
+            rec.action_print_cod()
+            pdf = base64.b64decode(rec.pdf_attachment_id.sudo().datas)
+            reader = PdfReader(io.BytesIO(pdf))
+            if len(reader.pages) != 1:
+                raise UserError(_('COD label %s must contain exactly one page.') % rec.awb)
+            writer.add_page(reader.pages[0])
+        result = io.BytesIO()
+        writer.write(result)
+        attachment = self.env['ir.attachment'].sudo().create({
+            'name': 'GDEX_COD_Bulk_%s_labels.pdf' % len(selected),
+            'type': 'binary', 'datas': base64.b64encode(result.getvalue()),
+            'mimetype': 'application/pdf',
+            'res_model': self._name, 'res_id': selected[0].id,
+        })
+        return {'type': 'ir.actions.act_url',
+                'url': '/web/content/%s?download=true' % attachment.id,
+                'target': 'new'}
+
     def action_print_cod(self):
         self.ensure_one()
         self._check_operator()
