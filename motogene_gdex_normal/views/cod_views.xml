@@ -1,0 +1,110 @@
+<odoo>
+  <record id="gdex_cod_wizard_form" model="ir.ui.view">
+    <field name="name">motogene.gdex.cod.wizard.form</field>
+    <field name="model">motogene.gdex.cod.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Create GDEX COD">
+        <sheet>
+          <div class="alert alert-warning" role="alert">
+            Real COD AWBs may charge customers. Each parcel must have its own AWB and COD value not exceeding RM1,500. Do not resubmit if an attempt is uncertain.
+          </div>
+          <group>
+            <group string="Delivery &amp; COD">
+              <field name="picking_id" readonly="1"/>
+              <field name="currency_id" invisible="1"/>
+              <field name="sales_amount" readonly="1"/>
+              <field name="total_cod" readonly="processed"/>
+              <field name="allocated_amount" readonly="1"/>
+              <field name="change_reason" readonly="processed" placeholder="Required when COD total differs from Sales Order"/>
+            </group>
+            <group string="Receiver">
+              <field name="receiver_name" readonly="processed"/>
+              <field name="receiver_mobile" readonly="processed"/>
+              <field name="receiver_address1" readonly="processed"/>
+              <field name="receiver_postcode" readonly="processed"/>
+            </group>
+          </group>
+          <field name="processed" invisible="1"/>
+          <field name="line_ids" readonly="processed">
+            <list editable="bottom" create="1" delete="1">
+              <field name="parcel_no"/>
+              <field name="currency_id" column_invisible="True"/>
+              <field name="cod_amount"/>
+              <field name="weight"/>
+              <field name="note1"/>
+              <field name="note2"/>
+            </list>
+          </field>
+          <field name="result_message" readonly="1" invisible="not processed"/>
+        </sheet>
+        <footer>
+          <button name="action_create_cod" string="Confirm &amp; Create COD AWBs"
+                  type="object" class="btn-primary" invisible="processed"
+                  confirm="This creates real GDEX COD consignments for every parcel. Verify the total and parcel allocations."/>
+          <button string="Close" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+  <record id="gdex_cod_list" model="ir.ui.view">
+    <field name="name">motogene.gdex.cod.consignment.list</field>
+    <field name="model">motogene.gdex.cod.consignment</field>
+    <field name="arch" type="xml">
+      <list create="false" delete="false">
+        <field name="picking_id"/>
+        <field name="parcel_no"/>
+        <field name="awb"/>
+        <field name="cod_amount"/>
+        <field name="currency_id" column_invisible="True"/>
+        <field name="state"/>
+        <field name="api_environment"/>
+        <field name="error_message" optional="hide"/>
+      </list>
+    </field>
+  </record>
+  <record id="gdex_cod_form" model="ir.ui.view">
+    <field name="name">motogene.gdex.cod.consignment.form</field>
+    <field name="model">motogene.gdex.cod.consignment</field>
+    <field name="arch" type="xml">
+      <form create="false" delete="false">
+        <header>
+          <button name="action_print_cod" type="object" string="Print COD AWB"
+                  class="btn-primary" invisible="state != 'success'"/>
+        </header>
+        <sheet>
+          <group>
+            <group>
+              <field name="picking_id"/>
+              <field name="parcel_no"/>
+              <field name="awb"/>
+              <field name="state"/>
+              <field name="api_environment"/>
+              <field name="cod_amount"/>
+              <field name="currency_id" invisible="1"/>
+              <field name="weight"/>
+            </group>
+            <group>
+              <field name="receiver_name"/>
+              <field name="receiver_mobile"/>
+              <field name="receiver_address1"/>
+              <field name="receiver_postcode"/>
+              <field name="note1"/>
+              <field name="note2"/>
+              <field name="change_reason"/>
+              <field name="error_message"/>
+              <field name="pdf_attachment_id"/>
+            </group>
+          </group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="gdex_cod_action" model="ir.actions.act_window">
+    <field name="name">GDEX COD Consignments</field>
+    <field name="res_model">motogene.gdex.cod.consignment</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <menuitem id="menu_gdex_cod_consignment" name="COD Consignments"
+            parent="menu_gdex_normal_root" action="gdex_cod_action" sequence="25"
+            groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"/>
+</odoo>
