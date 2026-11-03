@@ -11,6 +11,24 @@
             class="btn-secondary" groups="motogene_gdex_normal.group_gdex_normal_user,base.group_system"
             invisible="picking_type_code != 'outgoing' or x_studio_order_type not in ('Normal', 'COD', 'Cash On Delivery', 'Cash on Delivery')"/>
    </xpath>
+   <xpath expr="//sheet/notebook" position="inside">
+    <page name="gdex_cod_awbs" string="GDEX COD Parcels"
+          invisible="x_studio_order_type not in ('COD', 'Cash On Delivery', 'Cash on Delivery')">
+      <group>
+        <field name="gdex_cod_summary" readonly="1"/>
+      </group>
+      <field name="gdex_cod_ids" readonly="1">
+        <list create="false" delete="false">
+          <field name="parcel_no"/>
+          <field name="awb"/>
+          <field name="cod_amount"/>
+          <field name="currency_id" column_invisible="True"/>
+          <field name="state"/>
+          <field name="api_environment"/>
+        </list>
+      </field>
+    </page>
+   </xpath>
   </field>
  </record>
 </odoo>
