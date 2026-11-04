@@ -7,6 +7,7 @@
     <field name="arch" type="xml">
       <xpath expr="//sheet" position="before">
         <header>
+          <button name="action_sync_escrow" type="object" string="Sync Estimated Income (Sandbox)"/>
           <button name="action_open_create_sale_wizard" type="object"
                   string="Create Draft SO (Test Only)"
                   class="btn-primary"
@@ -43,6 +44,7 @@
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="arch" type="xml">
       <xpath expr="//field[@name='client_order_ref']" position="after">
+        <field name="motogene_shopee_channel" readonly="1" invisible="not motogene_shopee_channel"/>
         <field name="motogene_shopee_order_ref" readonly="1"
                invisible="not motogene_shopee_order_ref"/>
         <field name="motogene_shopee_preview_id" readonly="1"
