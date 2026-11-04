@@ -1,6 +1,6 @@
 {
     "name": "MotoGene Shopee Integration",
-    "summary": "Shopee sandbox OAuth and read-only order preview / product mapping",
+    "summary": "Shopee sandbox OAuth, product mapping, order preview and gated draft SO testing",
     "version": "18.0.3.0.0",
     "category": "Sales/Sales",
     "author": "Morimoto Formulas",
