@@ -1,2 +1,5 @@
 id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
 access_motogene_shopee_shop_admin,motogene.shopee.shop admin,model_motogene_shopee_shop,base.group_system,1,1,1,1
+access_shopee_mapping_admin,motogene.shopee.product.mapping admin,model_motogene_shopee_product_mapping,base.group_system,1,1,1,1
+access_shopee_import_order_admin,motogene.shopee.import.order admin,model_motogene_shopee_import_order,base.group_system,1,1,1,0
+access_shopee_import_line_admin,motogene.shopee.import.line admin,model_motogene_shopee_import_line,base.group_system,1,1,1,0
