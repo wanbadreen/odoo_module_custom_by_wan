@@ -26,8 +26,10 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             raise UserError(_("All Shopee items must be mapped before creating a quotation."))
         if preview.order_status != "READY_TO_SHIP":
             raise UserError(_("Phase 3A only allows READY_TO_SHIP test orders."))
-        if self.env["ir.config_parameter"].sudo().get_param("database.is_neutralized") not in ("True", "true", "1"):
-            raise UserError(_("Phase 3A requires a neutralized Odoo staging database."))
+        if self.env["ir.config_parameter"].sudo().get_param(
+            "motogene_shopee.enable_test_so", default="0"
+        ) != "1":
+            raise UserError(_("Phase 3A test SO creation is disabled. Enable it explicitly on Odoo staging."))
         if self.company_id != self.env.company:
             raise UserError(_("Switch to the intended test company before creating the quotation."))
         Order = self.env["sale.order"].sudo().with_company(self.company_id)
@@ -36,11 +38,9 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "SELECT id FROM motogene_shopee_import_order WHERE id = %s FOR UPDATE",
             [preview.id],
         )
-        other = Order.search([
-            "|",
-            ("motogene_shopee_preview_id", "=", preview.id),
-            ("shopee_order_ref", "=", preview.name),
-        ], limit=1)
+        other = Order.search([("motogene_shopee_preview_id", "=", preview.id)], limit=1)
+        if not other and "shopee_order_ref" in Order._fields:
+            other = Order.search([("shopee_order_ref", "=", preview.name)], limit=1)
         if other:
             raise UserError(_("This Shopee Order SN is already linked to SO %s.") % other.name)
         if any(
