@@ -71,9 +71,23 @@ class ShopeeImportedOrder(models.Model):
                 "escrow_status": "available",
                 "escrow_last_sync": fields.Datetime.now(),
             })
+        updated = False
+        if value is not None:
+            Sale = self.env["sale.order"].sudo()
+            so = Sale.search([("motogene_shopee_preview_id", "=", self.id)], limit=1)
+            if (so and so.state == "draft"
+                    and "x_studio_estimated_income_shopee_order_only" in Sale._fields
+                    and (not self.currency or self.currency == so.currency_id.name)):
+                so.write({
+                    "x_studio_estimated_income_shopee_order_only": float(value),
+                })
+                updated = True
+        msg = (_("Linked draft quotation estimated income updated.")
+               if updated else
+               _("Escrow preview saved; no Sales Order financial field was updated."))
         return {"type": "ir.actions.client", "tag": "display_notification",
                 "params": {"title": _("Escrow Preview Synced"),
-                           "message": _("No Sales Order financial field was updated."),
+                           "message": msg,
                            "type": "success", "sticky": False}}
 
     mapping_status = fields.Selection(
