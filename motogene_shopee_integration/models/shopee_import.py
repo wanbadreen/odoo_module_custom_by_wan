@@ -75,13 +75,19 @@ class ShopeeImportedOrder(models.Model):
         if value is not None:
             Sale = self.env["sale.order"].sudo()
             so = Sale.search([("motogene_shopee_preview_id", "=", self.id)], limit=1)
-            if (so and so.state == "draft"
-                    and "x_studio_estimated_income_shopee_order_only" in Sale._fields
-                    and (not self.currency or self.currency == so.currency_id.name)):
-                so.write({
-                    "x_studio_estimated_income_shopee_order_only": float(value),
-                })
-                updated = True
+            if so and so.state == "draft":
+                vals = {}
+                selection = Sale.fields_get(
+                    ["x_studio_order_type"], attributes=["selection"]
+                ).get("x_studio_order_type", {}) if "x_studio_order_type" in Sale._fields else {}
+                if "SHOPEE " in dict(selection.get("selection") or []):
+                    vals["x_studio_order_type"] = "SHOPEE "
+                if ("x_studio_estimated_income_shopee_order_only" in Sale._fields
+                        and (not self.currency or self.currency == so.currency_id.name)):
+                    vals["x_studio_estimated_income_shopee_order_only"] = float(value)
+                    updated = True
+                if vals:
+                    so.write(vals)
         msg = (_("Linked draft quotation estimated income updated.")
                if updated else
                _("Escrow preview saved; no Sales Order financial field was updated."))
