@@ -71,6 +71,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "company_id": self.company_id.id,
             "client_order_ref": preview.name,
             "motogene_shopee_order_ref": preview.name,
+            "motogene_shopee_channel": "shopee",
             "origin": "MotoGene Shopee Sandbox: " + preview.name,
             "motogene_shopee_preview_id": preview.id,
             "order_line": lines,
