@@ -30,6 +30,8 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "motogene_shopee.enable_test_so", default="0"
         ) != "1":
             raise UserError(_("Phase 3A test SO creation is disabled. Enable it explicitly on Odoo staging."))
+        if self.partner_id.company_id and self.partner_id.company_id != self.company_id:
+            raise UserError(_("Test customer belongs to another company."))
         if self.company_id != self.env.company:
             raise UserError(_("Switch to the intended test company before creating the quotation."))
         Order = self.env["sale.order"].sudo().with_company(self.company_id)
@@ -38,9 +40,11 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "SELECT id FROM motogene_shopee_import_order WHERE id = %s FOR UPDATE",
             [preview.id],
         )
-        other = Order.search([("motogene_shopee_preview_id", "=", preview.id)], limit=1)
-        if not other and "shopee_order_ref" in Order._fields:
-            other = Order.search([("shopee_order_ref", "=", preview.name)], limit=1)
+        other = Order.search([
+            "|",
+            ("motogene_shopee_preview_id", "=", preview.id),
+            ("motogene_shopee_order_ref", "=", preview.name),
+        ], limit=1)
         if other:
             raise UserError(_("This Shopee Order SN is already linked to SO %s.") % other.name)
         if any(
@@ -48,8 +52,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             for line in preview.line_ids
         ):
             raise UserError(_("Invalid or unmapped item quantity."))
-        # The native connector fields (shopee_shop_id, shopee_order_ref)
-        # are deliberately NOT written here: they belong to Odoo's sale_shopee.
+        # Independent fields only; official sale_shopee is not a dependency.
         lines = []
         for line in preview.line_ids:
             product = line.product_id.with_company(self.company_id)
@@ -67,6 +70,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "partner_id": self.partner_id.id,
             "company_id": self.company_id.id,
             "client_order_ref": preview.name,
+            "motogene_shopee_order_ref": preview.name,
             "origin": "MotoGene Shopee Sandbox: " + preview.name,
             "motogene_shopee_preview_id": preview.id,
             "order_line": lines,
