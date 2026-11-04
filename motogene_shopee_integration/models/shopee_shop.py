@@ -13,7 +13,7 @@ from odoo.exceptions import UserError
 
 _logger = logging.getLogger(__name__)
 HOSTS = {
-    "sandbox": "https://partner.test-stable.shopeemobile.com",
+    "sandbox": "https://openplatform.sandbox.test-stable.shopee.sg",
     "production": "https://partner.shopeemobile.com",
 }
 
