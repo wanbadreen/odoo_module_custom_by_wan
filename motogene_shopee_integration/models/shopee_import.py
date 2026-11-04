@@ -135,7 +135,7 @@ class MotoGeneShopeeShop(models.Model):
             ids = list(dict.fromkeys(sn_list))[start:start + 50]
             details = self._read_only_api_get("/api/v2/order/get_order_detail", {
                 "order_sn_list": ",".join(ids),
-                "response_optional_fields": "total_amount,currency",
+                "response_optional_fields": "item_list,total_amount",
             })
             for detail in details.get("order_list", []):
                 if not detail.get("order_sn"):
