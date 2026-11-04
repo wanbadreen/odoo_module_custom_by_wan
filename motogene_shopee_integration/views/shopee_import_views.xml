@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_shopee_mapping_list" model="ir.ui.view">
+    <field name="name">motogene.shopee.mapping.list</field>
+    <field name="model">motogene.shopee.product.mapping</field>
+    <field name="arch" type="xml">
+      <list><field name="shop_id"/><field name="shopee_item_id"/><field name="shopee_model_id"/>
+        <field name="seller_sku"/><field name="product_id"/><field name="active"/></list>
+    </field>
+  </record>
+  <record id="view_shopee_mapping_form" model="ir.ui.view">
+    <field name="name">motogene.shopee.mapping.form</field>
+    <field name="model">motogene.shopee.product.mapping</field>
+    <field name="arch" type="xml">
+      <form><sheet><group><field name="shop_id"/><field name="shopee_item_id"/>
+        <field name="shopee_model_id"/><field name="seller_sku"/>
+        <field name="product_id"/><field name="active"/></group></sheet></form>
+    </field>
+  </record>
+  <record id="action_shopee_mappings" model="ir.actions.act_window">
+    <field name="name">Shopee Product Mapping</field>
+    <field name="res_model">motogene.shopee.product.mapping</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="view_shopee_order_list" model="ir.ui.view">
+    <field name="name">motogene.shopee.order.preview.list</field>
+    <field name="model">motogene.shopee.import.order</field>
+    <field name="arch" type="xml">
+      <list create="false" edit="false" delete="false">
+        <field name="name"/><field name="shop_id"/><field name="order_status"/>
+        <field name="shopee_create_time"/><field name="currency"/>
+        <field name="buyer_total"/><field name="mapping_status"/><field name="last_sync_at"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_shopee_order_form" model="ir.ui.view">
+    <field name="name">motogene.shopee.order.preview.form</field>
+    <field name="model">motogene.shopee.import.order</field>
+    <field name="arch" type="xml">
+      <form create="false" edit="false" delete="false"><sheet>
+        <group>
+          <group><field name="name"/><field name="shop_id"/><field name="order_status"/>
+            <field name="shopee_create_time"/></group>
+          <group><field name="currency"/><field name="buyer_total"/>
+            <field name="mapping_status"/><field name="last_sync_at"/></group>
+        </group>
+        <field name="line_ids">
+          <list create="false" edit="false" delete="false">
+            <field name="item_id"/><field name="model_id"/><field name="item_name"/>
+            <field name="seller_sku"/><field name="quantity"/>
+            <field name="shopee_original_price"/><field name="shopee_discounted_price"/>
+            <field name="product_id"/><field name="matched"/>
+          </list>
+        </field>
+      </sheet></form>
+    </field>
+  </record>
+  <record id="action_shopee_orders" model="ir.actions.act_window">
+    <field name="name">Shopee Order Previews (Read Only)</field>
+    <field name="res_model">motogene.shopee.import.order</field>
+    <field name="view_mode">list,form</field>
+  </record>
+  <record id="view_shop_form_import_button" model="ir.ui.view">
+    <field name="name">motogene.shopee.shop.form.import.button</field>
+    <field name="model">motogene.shopee.shop</field>
+    <field name="inherit_id" ref="motogene_shopee_integration.view_shopee_shop_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header/button[@name='action_test_connection']" position="after">
+        <button name="action_preview_recent_orders" type="object"
+          string="Preview Last 3 Days Orders (Sandbox)"/>
+      </xpath>
+    </field>
+  </record>
+  <menuitem id="menu_shopee_orders" name="Order Previews" parent="menu_shopee_root"
+    action="action_shopee_orders" sequence="20" groups="base.group_system"/>
+  <menuitem id="menu_shopee_mappings" name="Product Mapping" parent="menu_shopee_root"
+    action="action_shopee_mappings" sequence="30" groups="base.group_system"/>
+</odoo>
