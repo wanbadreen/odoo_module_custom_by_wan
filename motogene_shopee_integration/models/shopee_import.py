@@ -40,6 +40,42 @@ class ShopeeImportedOrder(models.Model):
     shopee_create_time = fields.Datetime(readonly=True)
     currency = fields.Char(readonly=True)
     buyer_total = fields.Float(readonly=True, digits=(16, 2))
+    escrow_amount = fields.Float(
+        string="Shopee Estimated Net Income", readonly=True, digits=(16, 2))
+    escrow_status = fields.Selection([
+        ("not_checked", "Not Checked"),
+        ("available", "Available"),
+        ("unavailable", "Not Available"),
+    ], default="not_checked", readonly=True)
+    escrow_last_sync = fields.Datetime(readonly=True)
+
+    def action_sync_escrow(self):
+        self.ensure_one()
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only administrators can sync sandbox financial data."))
+        if self.shop_id.environment != "sandbox":
+            raise UserError(_("Escrow preview is sandbox-only."))
+        response = self.shop_id.sudo()._read_only_api_get(
+            "/api/v2/payment/get_escrow_detail", {"order_sn": self.name}
+        )
+        income = response.get("order_income") or {}
+        value = income.get("escrow_amount")
+        if value is None:
+            self.sudo().write({
+                "escrow_status": "unavailable",
+                "escrow_last_sync": fields.Datetime.now(),
+            })
+        else:
+            self.sudo().write({
+                "escrow_amount": float(value),
+                "escrow_status": "available",
+                "escrow_last_sync": fields.Datetime.now(),
+            })
+        return {"type": "ir.actions.client", "tag": "display_notification",
+                "params": {"title": _("Escrow Preview Synced"),
+                           "message": _("No Sales Order financial field was updated."),
+                           "type": "success", "sticky": False}}
+
     mapping_status = fields.Selection(
         [("matched", "Matched"), ("review", "Review Required"), ("empty", "No Item Data")],
         default="empty", readonly=True,
