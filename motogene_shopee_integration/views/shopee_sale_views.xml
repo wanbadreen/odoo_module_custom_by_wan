@@ -43,6 +43,8 @@
     <field name="inherit_id" ref="sale.view_order_form"/>
     <field name="arch" type="xml">
       <xpath expr="//field[@name='client_order_ref']" position="after">
+        <field name="motogene_shopee_order_ref" readonly="1"
+               invisible="not motogene_shopee_order_ref"/>
         <field name="motogene_shopee_preview_id" readonly="1"
                invisible="not motogene_shopee_preview_id"/>
       </xpath>
