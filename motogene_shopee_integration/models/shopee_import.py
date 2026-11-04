@@ -46,6 +46,18 @@ class ShopeeImportedOrder(models.Model):
     )
     line_ids = fields.One2many("motogene.shopee.import.line", "order_id", readonly=True)
     last_sync_at = fields.Datetime(readonly=True)
+    def action_open_create_sale_wizard(self):
+        self.ensure_one()
+        if self.mapping_status != "matched" or self.order_status != "READY_TO_SHIP":
+            raise UserError(_("The Shopee order is not ready for a draft quotation."))
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": "motogene.shopee.create.sale.wizard",
+            "view_mode": "form",
+            "target": "new",
+            "context": {"default_preview_id": self.id},
+        }
+
     _sql_constraints = [
         ("shopee_order_per_shop_unique", "unique(shop_id, name)",
          "Shopee order already exists for this shop."),
