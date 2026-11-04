@@ -49,6 +49,35 @@ class ShopeeImportedOrder(models.Model):
     ], default="not_checked", readonly=True)
     escrow_last_sync = fields.Datetime(readonly=True)
 
+    related_sale_order_id = fields.Many2one(
+        "sale.order", string="Related Sales Order",
+        compute="_compute_related_sale_order", compute_sudo=True, readonly=True,
+    )
+
+    def _compute_related_sale_order(self):
+        Sale = self.env["sale.order"].sudo()
+        for record in self:
+            record.related_sale_order_id = Sale.search([
+                ("motogene_shopee_preview_id", "=", record.id)
+            ], limit=1)
+
+    def action_view_related_so(self):
+        self.ensure_one()
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only administrators can view linked test Sales Orders."))
+        so = self.related_sale_order_id
+        if not so:
+            raise UserError(_("No Sales Order is linked to this Shopee Order Preview."))
+        return {
+            "type": "ir.actions.act_window",
+            "name": _("Related Sales Order"),
+            "res_model": "sale.order",
+            "res_id": so.id,
+            "view_mode": "form",
+            "target": "current",
+        }
+
+
     def action_sync_escrow(self):
         self.ensure_one()
         if not self.env.user.has_group("base.group_system"):
