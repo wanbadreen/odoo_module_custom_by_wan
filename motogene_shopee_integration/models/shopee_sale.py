@@ -4,6 +4,11 @@ from odoo import fields, models
 class SaleOrder(models.Model):
     _inherit = "sale.order"
 
+    motogene_shopee_channel = fields.Selection(
+        [("shopee", "Shopee")], string="MotoGene Sales Channel",
+        readonly=True, copy=False, index=True,
+    )
+
     motogene_shopee_order_ref = fields.Char(
         string="MotoGene Shopee Order SN",
         copy=False, readonly=True, index=True,
