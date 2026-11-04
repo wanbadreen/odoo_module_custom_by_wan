@@ -42,7 +42,9 @@
           <group><field name="name"/><field name="shop_id"/><field name="order_status"/>
             <field name="shopee_create_time"/></group>
           <group><field name="currency"/><field name="buyer_total"/>
-            <field name="mapping_status"/><field name="last_sync_at"/></group>
+            <field name="mapping_status"/><field name="last_sync_at"/>
+            <field name="escrow_status"/><field name="escrow_amount" invisible="escrow_status != 'available'"/>
+            <field name="escrow_last_sync"/></group>
         </group>
         <field name="line_ids">
           <list create="false" edit="false" delete="false">
