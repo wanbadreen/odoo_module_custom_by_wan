@@ -66,16 +66,37 @@ class ShopeeCreateSaleWizard(models.TransientModel):
                 "price_unit": line.shopee_discounted_price,
                 "discount": 0.0,
             }))
+        # Odoo Studio selection key includes a trailing space: 'SHOPEE '.
+        order_type_field = Order._fields.get("x_studio_order_type")
+        allowed = dict(Order.fields_get(
+            ["x_studio_order_type"], attributes=["selection"]
+        )["x_studio_order_type"].get("selection") or []) if order_type_field else {}
+        if "SHOPEE " not in allowed:
+            raise UserError(_(
+                "Shopee Delivery Type ('SHOPEE ' with trailing space) is missing. "
+                "Check the Odoo Studio selection before testing."
+            ))
+        if preview.escrow_status == "available":
+            if preview.currency and preview.currency != self.company_id.currency_id.name:
+                raise UserError(_("Shopee and company currencies differ; review income before importing."))
+
         so = Order.create({
             "partner_id": self.partner_id.id,
             "company_id": self.company_id.id,
             "client_order_ref": preview.name,
             "motogene_shopee_order_ref": preview.name,
             "motogene_shopee_channel": "shopee",
+            "x_studio_order_type": "SHOPEE ",
             "origin": "MotoGene Shopee Sandbox: " + preview.name,
             "motogene_shopee_preview_id": preview.id,
             "order_line": lines,
         })
+        # Only write an available Shopee escrow amount to the existing Studio field.
+        if (preview.escrow_status == "available"
+                and "x_studio_estimated_income_shopee_order_only" in Order._fields):
+            so.write({
+                "x_studio_estimated_income_shopee_order_only": preview.escrow_amount
+            })
         # Explicitly enforce source transaction line price after SO creation.
         # No order confirmation, invoice, shipping carrier, or stock reservation.
         for so_line, source_line in zip(
