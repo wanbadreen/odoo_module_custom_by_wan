@@ -29,7 +29,7 @@
           <field name="preview_id"/>
           <field name="partner_id" invisible="1"/>
           <field name="company_id"/>
-          <label string="Customer and delivery address will be mapped from verified Shopee recipient data."/>
+          <div class="alert alert-info" role="alert">Customer and delivery address are automatically mapped from verified Shopee recipient data.</div>
         </group>
         <div class="alert alert-warning" role="alert">
           This creates a draft quotation only, using item prices from Shopee Sandbox.
