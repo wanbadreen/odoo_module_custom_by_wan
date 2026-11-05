@@ -4,3 +4,5 @@ access_shopee_mapping_admin,motogene.shopee.product.mapping admin,model_motogene
 access_shopee_import_order_admin,motogene.shopee.import.order admin,model_motogene_shopee_import_order,base.group_system,1,1,1,0
 access_shopee_import_line_admin,motogene.shopee.import.line admin,model_motogene_shopee_import_line,base.group_system,1,1,1,0
 access_shopee_create_sale_wizard_admin,shopee.create.sale.wizard admin,model_motogene_shopee_create_sale_wizard,base.group_system,1,1,1,1
+access_shopee_shipment_wizard_admin,shopee.shipment.wizard admin,model_motogene_shopee_shipment_wizard,base.group_system,1,1,1,1
+access_shopee_shipment_option_admin,shopee.shipment.option admin,model_motogene_shopee_shipment_option,base.group_system,1,1,1,1
