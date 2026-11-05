@@ -18,12 +18,16 @@ class MotoGeneShopeeCallback(http.Controller):
         nonce_hash = hashlib.sha256(nonce.encode()).hexdigest()
         shops = request.env["motogene.shopee.shop"].sudo().search([
             ("oauth_nonce_expiry", ">", fields.Datetime.now()),
-            ("environment", "=", "sandbox"),
+            ("environment", "in", ["sandbox", "production"]),
         ])
         shop = next((s for s in shops if s.oauth_nonce_hash and
                      hmac.compare_digest(s.oauth_nonce_hash, nonce_hash)), None)
         if not shop:
             return request.make_response("Authorization expired or invalid.", status=400)
+        try:
+            shop._check_environment_access()
+        except Exception:
+            return request.make_response("Shopee environment is not enabled.", status=403)
         code = kwargs.get("code")
         shop_id = kwargs.get("shop_id")
         if not code or not shop_id:
