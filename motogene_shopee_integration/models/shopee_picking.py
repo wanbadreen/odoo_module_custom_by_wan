@@ -124,6 +124,7 @@ class StockPicking(models.Model):
             ("state", "in", ["confirmed", "assigned", "waiting"]),
             ("motogene_shopee_shipment_state", "=", "requested"),
             ("motogene_shopee_awb_attachment_id", "=", False),
+            ("motogene_shopee_progress_checks", "<", 30),
             ("motogene_shopee_document_state", "in",
              ["not_created", "requested", "processing", "ready"]),
             ("sale_id.motogene_shopee_channel", "=", "shopee"),
