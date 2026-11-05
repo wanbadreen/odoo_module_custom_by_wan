@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="action_motogene_shopee_bulk_print_awb" model="ir.actions.server">
+    <field name="name">Print Shopee AWB (Bulk)</field>
+    <field name="model_id" ref="stock.model_stock_picking"/>
+    <field name="binding_model_id" ref="stock.model_stock_picking"/>
+    <field name="binding_type">action</field>
+    <field name="state">code</field>
+    <field name="code">action = records.action_motogene_shopee_bulk_print_awb()</field>
+    <field name="groups_id" eval="[(4, ref('base.group_system'))]"/>
+  </record>
+</odoo>
