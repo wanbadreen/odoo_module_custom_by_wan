@@ -40,6 +40,10 @@ class ShopeeImportedOrder(models.Model):
     shopee_create_time = fields.Datetime(readonly=True)
     currency = fields.Char(readonly=True)
     buyer_total = fields.Float(readonly=True, digits=(16, 2))
+    buyer_username = fields.Char(
+        string="Shopee Buyer Username", readonly=True, copy=False,
+        groups="base.group_system",
+    )
     escrow_amount = fields.Float(
         string="Shopee Estimated Net Income", readonly=True, digits=(16, 2))
     escrow_status = fields.Selection([
@@ -232,7 +236,7 @@ class MotoGeneShopeeShop(models.Model):
             ids = list(dict.fromkeys(sn_list))[start:start + 50]
             details = self._read_only_api_get("/api/v2/order/get_order_detail", {
                 "order_sn_list": ",".join(ids),
-                "response_optional_fields": "item_list,total_amount",
+                "response_optional_fields": "item_list,total_amount,buyer_username",
             })
             for detail in details.get("order_list", []):
                 if not detail.get("order_sn"):
@@ -279,6 +283,7 @@ class MotoGeneShopeeShop(models.Model):
                   "matched" if all(v[2]["matched"] for v in lines) else "review")
         vals = {
             "name": sn,
+            "buyer_username": (str(detail.get("buyer_username") or "").strip()[:128]),
             "shop_id": self.id,
             "order_status": str(detail.get("order_status") or ""),
             "shopee_create_time": create_dt,
