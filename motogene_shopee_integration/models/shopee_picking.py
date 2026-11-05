@@ -83,6 +83,10 @@ class StockPicking(models.Model):
 
     def _motogene_shopee_api_post(self, shop, path, payload):
         """Return (response_body, error). No automatic retries on mutating Shopee APIs."""
+        shop._check_environment_access(mutation=path in (
+            "/api/v2/logistics/ship_order",
+            "/api/v2/logistics/create_shipping_document",
+        ))
         shop._refresh_if_needed()
         ts = int(time.time())
         params = {
@@ -256,9 +260,14 @@ class StockPicking(models.Model):
             ("motogene_shopee_document_state", "in",
              ["not_created", "requested", "processing", "ready"]),
             ("sale_id.motogene_shopee_channel", "=", "shopee"),
-            ("sale_id.motogene_shopee_preview_id.shop_id.environment", "=", "sandbox"),
+            ("sale_id.motogene_shopee_preview_id.shop_id.environment", "in", ["sandbox", "production"]),
         ], order="motogene_shopee_last_progress_check asc, id asc", limit=10)
         for picking in pending:
+            shop = picking.sale_id.motogene_shopee_preview_id.shop_id.sudo()
+            try:
+                shop._check_environment_access(mutation=True)
+            except UserError:
+                continue
             started = time.monotonic()
             try:
                 with self.env.cr.savepoint():
@@ -478,7 +487,7 @@ class StockPicking(models.Model):
             "dropoff_available": "dropoff" in needed,
             "dropoff_requires_details": bool(needed.get("dropoff")),
             "warning_text": _(
-                "Sandbox only. Choosing Pickup or Drop-off SENDS a shipment request. "
+                "%s. Choosing Pickup or Drop-off SENDS a shipment request. " % shop.environment.upper() + 
                 "Use only a valid option returned by Shopee. Never repeat after timeout."
             ),
         }
@@ -500,7 +509,7 @@ class StockPicking(models.Model):
         return {
             "type": "ir.actions.act_window", "res_model": wizard._name,
             "res_id": wizard.id, "view_mode": "form", "target": "new",
-            "name": _("Arrange Shopee Shipment (Sandbox)"),
+            "name": _("Arrange Shopee Shipment (%s)") % shop.environment.title(),
         }
 
     def action_motogene_shopee_sync_tracking(self):
@@ -661,8 +670,9 @@ class StockPicking(models.Model):
             raise UserError(_("Cannot retrieve an AWB for a cancelled Delivery Order."))
         sale = self.sale_id
         preview = sale.motogene_shopee_preview_id
-        if not preview or preview.shop_id.environment != "sandbox":
-            raise UserError(_("Manual Shopee AWB test is limited to linked sandbox orders."))
+        if not preview or preview.shop_id.environment not in ("sandbox", "production"):
+            raise UserError(_("A linked Shopee Shop is required."))
+        preview.shop_id.sudo()._check_environment_access(mutation=True)
         if sale.company_id != self.company_id:
             raise UserError(_("Sales Order and Delivery Order companies do not match."))
         return sale, preview, preview.shop_id.sudo()
