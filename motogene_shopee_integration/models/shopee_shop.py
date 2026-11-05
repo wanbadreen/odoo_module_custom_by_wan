@@ -81,6 +81,20 @@ class MotoGeneShopeeShop(models.Model):
                     parsed.query or parsed.fragment):
                 raise UserError(_("Redirect base URL must be an HTTPS origin without a path or query."))
 
+    def write(self, vals):
+        # Never carry a connected shop's OAuth credentials into another environment.
+        if "environment" in vals:
+            for rec in self:
+                if rec.environment != vals["environment"] and (
+                    rec.shop_id or rec.access_token or rec.refresh_token
+                    or rec.state != "draft"
+                ):
+                    raise UserError(_(
+                        "Do not switch an authorized Shopee Shop between Sandbox and "
+                        "Production. Create a separate shop configuration instead."
+                    ))
+        return super().write(vals)
+
     def _host(self):
         self.ensure_one()
         return HOSTS[self.environment]
@@ -238,6 +252,12 @@ class MotoGeneShopeeShop(models.Model):
             ("environment", "in", ["sandbox", "production"]),
         ])
         for shop in shops:
+            if shop.environment == "production" and (
+                self.env["ir.config_parameter"].sudo().get_param(
+                    "motogene_shopee.enable_production_connection", "0"
+                ) != "1"
+            ):
+                continue
             try:
                 with self.env.cr.savepoint():
                     shop._refresh_if_needed()
