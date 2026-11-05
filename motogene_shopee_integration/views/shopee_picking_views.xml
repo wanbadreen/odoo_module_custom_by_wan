@@ -10,6 +10,24 @@
         <field name="motogene_shopee_awb_attachment_id" invisible="1"/>
         <field name="motogene_shopee_tracking_number" invisible="1"/>
         <field name="motogene_shopee_awb_needs_sync" invisible="1"/>
+        <field name="motogene_shopee_shipment_state" invisible="1"/>
+        <field name="motogene_shopee_document_state" invisible="1"/>
+        <button name="action_motogene_shopee_arrange_shipment" type="object"
+                string="Arrange Shopee Shipment (Sandbox)" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or state == 'cancel' or motogene_shopee_shipment_state != 'not_sent'"/>
+        <button name="action_motogene_shopee_sync_tracking" type="object"
+                string="Sync Shopee Tracking" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or state == 'cancel'"/>
+        <button name="action_motogene_shopee_generate_document" type="object"
+                string="Generate Shopee AWB Task" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or state == 'cancel' or motogene_shopee_document_state != 'not_created' or motogene_shopee_awb_attachment_id"/>
+        <button name="action_motogene_shopee_check_document" type="object"
+                string="Check Shopee AWB Status" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or state == 'cancel'"/>
         <button name="action_motogene_shopee_retrieve_awb" type="object"
                 string="Retrieve Shopee AWB (Sandbox)" groups="base.group_system"
                 class="btn-secondary"
@@ -26,6 +44,9 @@
       <xpath expr="//sheet" position="inside">
         <group string="MotoGene Shopee AWB" groups="base.group_system"
                invisible="not motogene_shopee_is_delivery">
+          <field name="motogene_shopee_shipment_state" readonly="1"/>
+          <field name="motogene_shopee_shipping_method" readonly="1"/>
+          <field name="motogene_shopee_document_state" readonly="1"/>
           <field name="motogene_shopee_tracking_number" readonly="1"/>
           <field name="motogene_shopee_awb_attachment_id" readonly="1"/>
         </group>
