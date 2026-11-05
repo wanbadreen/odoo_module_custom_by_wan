@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_picking_motogene_shopee_awb" model="ir.ui.view">
+    <field name="name">stock.picking.motogene.shopee.awb</field>
+    <field name="model">stock.picking</field>
+    <field name="inherit_id" ref="stock.view_picking_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//header" position="inside">
+        <field name="motogene_shopee_is_delivery" invisible="1"/>
+        <field name="motogene_shopee_awb_attachment_id" invisible="1"/>
+        <button name="action_motogene_shopee_retrieve_awb" type="object"
+                string="Retrieve Shopee AWB (Sandbox)" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or motogene_shopee_awb_attachment_id or state == 'cancel'"/>
+        <button name="action_motogene_shopee_print_awb" type="object"
+                string="Print Shopee AWB" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or not motogene_shopee_awb_attachment_id"/>
+      </xpath>
+      <xpath expr="//sheet" position="inside">
+        <group string="MotoGene Shopee AWB" groups="base.group_system"
+               invisible="not motogene_shopee_is_delivery">
+          <field name="motogene_shopee_tracking_number" readonly="1"/>
+          <field name="motogene_shopee_awb_attachment_id" readonly="1"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+</odoo>
