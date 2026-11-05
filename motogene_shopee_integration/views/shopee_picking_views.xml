@@ -8,10 +8,16 @@
       <xpath expr="//header" position="inside">
         <field name="motogene_shopee_is_delivery" invisible="1"/>
         <field name="motogene_shopee_awb_attachment_id" invisible="1"/>
+        <field name="motogene_shopee_tracking_number" invisible="1"/>
+        <field name="mori_awb_no" invisible="1"/>
         <button name="action_motogene_shopee_retrieve_awb" type="object"
                 string="Retrieve Shopee AWB (Sandbox)" groups="base.group_system"
                 class="btn-secondary"
                 invisible="not motogene_shopee_is_delivery or motogene_shopee_awb_attachment_id or state == 'cancel'"/>
+        <button name="action_motogene_shopee_sync_awb_no" type="object"
+                string="Sync Shopee AWB No" groups="base.group_system"
+                class="btn-secondary"
+                invisible="not motogene_shopee_is_delivery or not motogene_shopee_awb_attachment_id or not motogene_shopee_tracking_number or mori_awb_no == motogene_shopee_tracking_number"/>
         <button name="action_motogene_shopee_print_awb" type="object"
                 string="Print Shopee AWB" groups="base.group_system"
                 class="btn-secondary"
