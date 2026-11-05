@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Shopee Integration",
     "summary": "Shopee sandbox order to quotation, escrow, and invoice reference integration",
-    "version": "18.0.4.4.0",
+    "version": "18.0.5.0.0",
     "category": "Sales/Sales",
     "author": "Morimoto Formulas",
     "license": "LGPL-3",
@@ -13,6 +13,7 @@
         "views/shopee_sale_views.xml",
         "views/shopee_picking_views.xml",
         "views/shopee_shipment_wizard_views.xml",
+        "views/shopee_bulk_shipment_wizard_views.xml",
         "data/shopee_bulk_action.xml",
         "data/shopee_cron.xml",
     ],
