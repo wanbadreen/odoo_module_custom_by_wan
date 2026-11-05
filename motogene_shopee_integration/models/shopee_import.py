@@ -76,6 +76,31 @@ class ShopeeImportedOrder(models.Model):
                 ("motogene_shopee_preview_id", "=", record.id)
             ], limit=1)
 
+    @api.model
+    def motogene_shopee_pending_order_count(self):
+        """Badge counts only imported, READY_TO_SHIP orders with no linked SO."""
+        if not self.env.user.has_group("base.group_system"):
+            return 0
+        previews = self.sudo().search([
+            ("shop_id.environment", "=", "sandbox"),
+            ("shop_id.active", "=", True),
+            ("order_status", "=", "READY_TO_SHIP"),
+        ])
+        if not previews:
+            return 0
+        linked = set(self.env["sale.order"].sudo().search([
+            "|",
+            ("motogene_shopee_preview_id", "in", previews.ids),
+            ("motogene_shopee_order_ref", "in", previews.mapped("name")),
+        ]).mapped("motogene_shopee_order_ref"))
+        linked_previews = set(self.env["sale.order"].sudo().search([
+            ("motogene_shopee_preview_id", "in", previews.ids)
+        ]).mapped("motogene_shopee_preview_id").ids)
+        return sum(
+            1 for row in previews
+            if row.id not in linked_previews and row.name not in linked
+        )
+
     def action_view_related_so(self):
         self.ensure_one()
         if not self.env.user.has_group("base.group_system"):
