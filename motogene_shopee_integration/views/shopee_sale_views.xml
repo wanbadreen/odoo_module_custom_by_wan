@@ -13,7 +13,7 @@
                   string="View Related SO" class="btn-secondary"
                   invisible="not related_sale_order_id"/>
           <button name="action_open_create_sale_wizard" type="object"
-                  string="Create Draft SO (Test Only)"
+                  string="Create Draft SO"
                   class="btn-primary"
                   invisible="mapping_status != 'matched' or order_status != 'READY_TO_SHIP' or related_sale_order_id"/>
         </header>
@@ -32,8 +32,8 @@
           <div class="alert alert-info" role="alert">Customer and delivery address are automatically mapped from verified Shopee recipient data.</div>
         </group>
         <div class="alert alert-warning" role="alert">
-          This creates a draft quotation only, using item prices from Shopee Sandbox.
-          It does not create an invoice, delivery order, shipment, or payment.
+          This creates a draft quotation only, using prices from the selected Shopee Shop.
+          It does not create an invoice, delivery order, shipment, or payment. Production SO creation requires separate approval.
         </div>
         <footer>
           <button name="action_create_draft_so" type="object"
