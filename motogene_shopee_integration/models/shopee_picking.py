@@ -7,7 +7,7 @@ from pypdf import PdfReader, PdfWriter
 
 import requests
 
-from odoo import fields, models, _
+from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
 
 _logger = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class StockPicking(models.Model):
         string="Shopee AWB Check Count", readonly=True, copy=False, default=0,
     )
 
-    @models.api.model
+    @api.model
     def _cron_motogene_shopee_awb_progress(self):
         """Sandbox only, capped. Never arrange shipment again; stop on uncertainty."""
         if self.env["ir.config_parameter"].sudo().get_param(
