@@ -31,6 +31,8 @@
           <field name="motogene_shopee_shipment_state" readonly="1"/>
           <field name="motogene_shopee_shipping_method" readonly="1"/>
           <field name="motogene_shopee_document_state" readonly="1"/>
+          <field name="motogene_shopee_last_progress_check" readonly="1"/>
+          <field name="motogene_shopee_progress_checks" readonly="1"/>
           <field name="motogene_shopee_tracking_number" readonly="1"/>
           <field name="motogene_shopee_awb_attachment_id" readonly="1"/>
           <group string="Advanced / Troubleshooting">
