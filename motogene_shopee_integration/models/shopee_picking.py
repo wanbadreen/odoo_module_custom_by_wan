@@ -105,12 +105,140 @@ class StockPicking(models.Model):
             return body, str(body["error"])[:150]
         return body, None
 
+    motogene_shopee_bulk_state = fields.Selection([
+        ("queued", "Queued for Bulk Drop-off"),
+        ("running", "Shipment Request In Progress - Verify if Stuck"),
+        ("skipped", "Needs Manual Review"),
+        ("done", "Shipment Arranged"),
+    ], string="Shopee Bulk Status", readonly=True, copy=False)
+    motogene_shopee_bulk_note = fields.Char(
+        string="Shopee Bulk Note", readonly=True, copy=False,
+    )
+
     motogene_shopee_last_progress_check = fields.Datetime(
         string="Shopee AWB Last Checked", readonly=True, copy=False,
     )
     motogene_shopee_progress_checks = fields.Integer(
         string="Shopee AWB Check Count", readonly=True, copy=False, default=0,
     )
+
+    @api.model
+    def _cron_motogene_shopee_bulk_dropoff(self):
+        """Send up to 3 explicitly queued sandbox drop-offs per run.
+
+        A durable running marker is committed BEFORE sending each mutating API
+        request. On interruption, staff must verify with Shopee; never auto-retry.
+        """
+        if self.env["ir.config_parameter"].sudo().get_param(
+            "motogene_shopee.enable_bulk_dropoff", "0"
+        ) != "1":
+            return
+        picks = self.sudo().search([
+            ("motogene_shopee_bulk_state", "=", "queued"),
+            ("motogene_shopee_shipment_state", "=", "not_sent"),
+            ("picking_type_code", "=", "outgoing"),
+            ("state", "in", ["confirmed", "assigned", "waiting"]),
+        ], order="id asc", limit=3)
+        for picking in picks:
+            started = time.monotonic()
+            try:
+                # Recheck under lock, then persist an irreversible attempt marker.
+                self.env.cr.execute(
+                    "SELECT id FROM stock_picking WHERE id = %s FOR UPDATE NOWAIT",
+                    [picking.id],
+                )
+                picking.invalidate_recordset()
+                if (picking.motogene_shopee_bulk_state != "queued"
+                        or picking.motogene_shopee_shipment_state != "not_sent"
+                        or picking.motogene_shopee_awb_attachment_id):
+                    continue
+                if not picking.motogene_shopee_is_delivery:
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": "Not a Shopee outgoing order",
+                    })
+                    self.env.cr.commit()
+                    continue
+                sale, preview, shop = picking._motogene_shopee_check_awb_access()
+                if not sale.motogene_shopee_order_ref or picking.company_id != sale.company_id:
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": "Missing order reference or company mismatch",
+                    })
+                    self.env.cr.commit()
+                    continue
+                order_sn = sale.motogene_shopee_order_ref
+                tracking = shop._read_only_api_get(
+                    "/api/v2/logistics/get_tracking_number", {"order_sn": order_sn}
+                ).get("tracking_number")
+                if tracking:
+                    picking.write({
+                        "motogene_shopee_shipment_state": "requested",
+                        "motogene_shopee_tracking_number": str(tracking),
+                        "motogene_shopee_bulk_state": "done",
+                        "motogene_shopee_bulk_note": "Tracking already existed; no ship_order sent",
+                    })
+                    self.env.cr.commit()
+                    continue
+                shipping = shop._read_only_api_get(
+                    "/api/v2/logistics/get_shipping_parameter",
+                    {"order_sn": order_sn},
+                )
+                needed = shipping.get("info_needed") or {}
+                if "dropoff" not in needed or needed.get("dropoff"):
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": "Drop-off unavailable or requires extra details; arrange manually",
+                    })
+                    self.env.cr.commit()
+                    continue
+                picking.write({
+                    "motogene_shopee_bulk_state": "running",
+                    "motogene_shopee_bulk_note": "Sending one drop-off request; verify if stuck",
+                    "motogene_shopee_shipment_state": "uncertain",
+                })
+                self.env.cr.commit()  # durable marker BEFORE external POST
+                body, error = picking._motogene_shopee_api_post(
+                    shop, "/api/v2/logistics/ship_order",
+                    {"order_sn": order_sn, "dropoff": {}},
+                )
+                if error == "transport":
+                    note = "Shopee response uncertain; verify Seller Centre manually"
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": note,
+                    })
+                elif error:
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": str(error)[:220],
+                    })
+                else:
+                    picking.write({
+                        "motogene_shopee_shipment_state": "requested",
+                        "motogene_shopee_shipping_method": "dropoff",
+                        "motogene_shopee_bulk_state": "done",
+                        "motogene_shopee_bulk_note": "Drop-off arranged; AWB handled by progress scheduler",
+                    })
+                self.env.cr.commit()
+                _logger.info(
+                    "Shopee bulk dropoff DO=%s state=%s elapsed=%.2fs",
+                    picking.name, picking.motogene_shopee_bulk_state,
+                    time.monotonic() - started,
+                )
+            except Exception:
+                self.env.cr.rollback()
+                _logger.exception("Shopee bulk dropoff failed for DO %s; no automatic retry", picking.name)
+                try:
+                    # A pre-POST queued record is safe to review manually, not auto-retry.
+                    picking.invalidate_recordset()
+                    picking.write({
+                        "motogene_shopee_bulk_state": "skipped",
+                        "motogene_shopee_bulk_note": "Unexpected error; check logs and Seller Centre",
+                    })
+                    self.env.cr.commit()
+                except Exception:
+                    self.env.cr.rollback()
 
     @api.model
     def _cron_motogene_shopee_awb_progress(self):
