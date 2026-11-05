@@ -29,6 +29,8 @@
         <group string="MotoGene Shopee AWB" groups="base.group_system"
                invisible="not motogene_shopee_is_delivery">
           <field name="motogene_shopee_shipment_state" readonly="1"/>
+          <field name="motogene_shopee_bulk_state" readonly="1"/>
+          <field name="motogene_shopee_bulk_note" readonly="1"/>
           <field name="motogene_shopee_shipping_method" readonly="1"/>
           <field name="motogene_shopee_document_state" readonly="1"/>
           <field name="motogene_shopee_last_progress_check" readonly="1"/>
