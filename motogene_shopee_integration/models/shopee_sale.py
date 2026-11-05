@@ -38,7 +38,7 @@ class SaleOrder(models.Model):
         self.ensure_one()
         if (self.motogene_shopee_channel != "shopee"
                 or not self.motogene_shopee_preview_id
-                or self.motogene_shopee_preview_id.shop_id.environment != "sandbox"):
+                or self.motogene_shopee_preview_id.shop_id.environment not in ("sandbox", "production")):
             return vals
         # Keep any reference another workflow explicitly prepared.
         if vals.get("payment_reference"):
