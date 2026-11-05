@@ -144,9 +144,9 @@ class StockPicking(models.Model):
         if len(binary) > 5 * 1024 * 1024:
             raise UserError(_("Shopee AWB PDF exceeds the 5 MB test limit."))
         # Validate the Operations AWB field before creating an attachment.
-        if "mori_awb_no" not in self._fields:
-            raise UserError(_("Operations AWB field 'mori_awb_no' is missing."))
-        if self.mori_awb_no and self.mori_awb_no.strip() != str(tracking).strip():
+        if ("mori_awb_no" in self._fields
+                and self.mori_awb_no
+                and self.mori_awb_no.strip() != str(tracking).strip()):
             raise UserError(_("Existing AWB No differs from Shopee tracking; refusing to overwrite."))
         attachment = self.env["ir.attachment"].sudo().create({
             "name": "Shopee_AWB_%s.pdf" % order_sn,
@@ -157,8 +157,15 @@ class StockPicking(models.Model):
             "res_id": self.id,
             "public": False,
         })
-        self._motogene_shopee_sync_main_awb(tracking)
-        self.write({"motogene_shopee_awb_attachment_id": attachment.id})
+        vals = {
+            "motogene_shopee_tracking_number": str(tracking),
+            "motogene_shopee_awb_attachment_id": attachment.id,
+        }
+        if "mori_awb_no" in self._fields:
+            vals["mori_awb_no"] = str(tracking)
+        else:
+            _logger.warning("Optional mori_awb_no field missing on picking %s; Shopee tracking kept in module field", self.id)
+        self.write(vals)
         return {
             "type": "ir.actions.client",
             "tag": "display_notification",
