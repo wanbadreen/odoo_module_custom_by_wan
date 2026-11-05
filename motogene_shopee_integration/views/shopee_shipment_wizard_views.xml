@@ -4,7 +4,7 @@
     <field name="name">motogene.shopee.shipment.wizard.form</field>
     <field name="model">motogene.shopee.shipment.wizard</field>
     <field name="arch" type="xml">
-      <form string="Arrange Shopee Shipment (Sandbox)">
+      <form string="Arrange Shopee Shipment">
         <group>
           <field name="picking_id" readonly="1"/>
           <field name="order_sn" readonly="1"/>
