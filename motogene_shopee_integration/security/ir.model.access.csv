@@ -7,3 +7,5 @@ access_shopee_create_sale_wizard_admin,shopee.create.sale.wizard admin,model_mot
 access_shopee_shipment_wizard_admin,shopee.shipment.wizard admin,model_motogene_shopee_shipment_wizard,base.group_system,1,1,1,1
 access_shopee_shipment_option_admin,shopee.shipment.option admin,model_motogene_shopee_shipment_option,base.group_system,1,1,1,1
 access_shopee_bulk_shipment_wizard_admin,shopee.bulk.shipment.wizard admin,model_motogene_shopee_bulk_shipment_wizard,base.group_system,1,1,1,1
+access_shopee_customer_mapping_admin,shopee.customer.mapping admin,model_motogene_shopee_customer_mapping,base.group_system,1,1,1,1
+access_shopee_recipient_mapping_admin,shopee.recipient.mapping admin,model_motogene_shopee_recipient_mapping,base.group_system,1,1,1,1
