@@ -487,9 +487,9 @@ class StockPicking(models.Model):
             "dropoff_available": "dropoff" in needed,
             "dropoff_requires_details": bool(needed.get("dropoff")),
             "warning_text": _(
-                "%s. Choosing Pickup or Drop-off SENDS a shipment request. " % shop.environment.upper() + 
+                "%s. Choosing Pickup or Drop-off SENDS a shipment request. "
                 "Use only a valid option returned by Shopee. Never repeat after timeout."
-            ),
+            ) % shop.environment.upper(),
         }
         options = []
         for address in (shipping.get("pickup") or {}).get("address_list") or []:
