@@ -70,7 +70,7 @@
     <field name="arch" type="xml">
       <xpath expr="//header/button[@name='action_test_connection']" position="after">
         <button name="action_preview_recent_orders" type="object"
-          string="Preview Last 3 Days Orders (Sandbox)"/>
+          string="Preview Last 3 Days Orders"/>
       </xpath>
     </field>
   </record>
