@@ -787,6 +787,24 @@ class StockPicking(models.Model):
             "target": "new",
         }
 
+    def action_motogene_shopee_bulk_prepare(self):
+        """Open an explicit approval wizard; does not send Shopee requests."""
+        if not self.env.user.has_group("base.group_system"):
+            raise AccessError(_("Sandbox Shopee bulk preparation is limited to administrators."))
+        if not self or len(self) > 20:
+            raise UserError(_("Select between 1 and 20 Delivery Orders."))
+        wizard = self.env["motogene.shopee.bulk.shipment.wizard"].create({
+            "picking_ids": [(6, 0, self.ids)],
+        })
+        return {
+            "type": "ir.actions.act_window",
+            "res_model": wizard._name,
+            "res_id": wizard.id,
+            "view_mode": "form",
+            "target": "new",
+            "name": _("Prepare Shopee Drop-off (Bulk)"),
+        }
+
     def action_motogene_shopee_bulk_print_awb(self):
         """Manually merge previously attached Shopee PDFs for selected outgoing DOs."""
         if not self.env.user.has_group("base.group_system"):
