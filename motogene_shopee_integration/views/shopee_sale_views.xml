@@ -7,7 +7,7 @@
     <field name="arch" type="xml">
       <xpath expr="//sheet" position="before">
         <header>
-          <button name="action_sync_escrow" type="object" string="Sync Estimated Income (Sandbox)"/>
+          <button name="action_sync_escrow" type="object" string="Sync Estimated Income"/>
           <field name="related_sale_order_id" invisible="1"/>
           <button name="action_view_related_so" type="object"
                   string="View Related SO" class="btn-secondary"
