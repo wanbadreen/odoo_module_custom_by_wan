@@ -215,6 +215,78 @@ class MotoGeneShopeeShop(models.Model):
             raise UserError(_("Unexpected Shopee API response."))
         return result["response"]
 
+    @api.model
+    def _cron_motogene_shopee_auto_sync(self):
+        """Opt-in sandbox order discovery, read-only from Shopee; no SO creation."""
+        conf = self.env["ir.config_parameter"].sudo()
+        if conf.get_param("motogene_shopee.enable_auto_order_sync", "0") != "1":
+            return
+        shops = self.sudo().search([
+            ("environment", "=", "sandbox"), ("state", "=", "connected"),
+            ("active", "=", True),
+        ], limit=5)
+        for shop in shops:
+            try:
+                with self.env.cr.savepoint():
+                    # Prevent overlapping cron executions for the same shop.
+                    self.env.cr.execute(
+                        "SELECT pg_try_advisory_xact_lock(%s, %s)",
+                        [741231, shop.id],
+                    )
+                    if not self.env.cr.fetchone()[0]:
+                        continue
+                    result = shop._motogene_shopee_sync_order_previews()
+                    _logger.info(
+                        "Shopee auto sync shop=%s retrieved=%s new=%s",
+                        shop.id, result["retrieved"], result["new"],
+                    )
+            except Exception:
+                _logger.exception("Shopee auto order sync failed for shop %s", shop.id)
+
+    def _motogene_shopee_sync_order_previews(self):
+        """Bounded 3-day lookback; upsert by (shop, order SN), safe to repeat."""
+        self.ensure_one()
+        if self.environment != "sandbox" or self.state != "connected":
+            raise UserError(_("Sandbox connected shop required."))
+        now = int(time.time())
+        begin = now - 3 * 86400
+        cursor = ""
+        numbers = []
+        for _page in range(3):
+            data = self._read_only_api_get("/api/v2/order/get_order_list", {
+                "time_range_field": "create_time",
+                "time_from": begin,
+                "time_to": now,
+                "page_size": 50,
+                "cursor": cursor,
+            })
+            numbers.extend(
+                str(row["order_sn"]) for row in data.get("order_list", [])
+                if row.get("order_sn")
+            )
+            if not data.get("more"):
+                break
+            new_cursor = data.get("next_cursor") or ""
+            if not new_cursor or new_cursor == cursor:
+                break
+            cursor = new_cursor
+        numbers = list(dict.fromkeys(numbers))
+        Preview = self.env["motogene.shopee.import.order"].sudo()
+        existing = set(Preview.search([
+            ("shop_id", "=", self.id), ("name", "in", numbers)
+        ]).mapped("name"))
+        retrieved = 0
+        for start in range(0, len(numbers), 50):
+            details = self._read_only_api_get("/api/v2/order/get_order_detail", {
+                "order_sn_list": ",".join(numbers[start:start + 50]),
+                "response_optional_fields": "item_list,total_amount,buyer_username,buyer_user_id,recipient_address",
+            })
+            for detail in details.get("order_list", []):
+                if detail.get("order_sn"):
+                    self._upsert_order_preview(detail)
+                    retrieved += 1
+        return {"retrieved": retrieved, "new": len(set(numbers) - existing)}
+
     def action_preview_recent_orders(self):
         self.ensure_one()
         if self.environment != "sandbox":
