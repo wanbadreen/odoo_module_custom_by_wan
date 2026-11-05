@@ -40,13 +40,14 @@ class ShopeeOrderRecipient(models.Model):
     def _motogene_shopee_resolve_customer_and_shipping(self, company):
         """Resolve one buyer and delivery address, without searching by fuzzy name."""
         self.ensure_one()
-        if self.shop_id.environment != "sandbox" or not self.recipient_ready:
+        self.shop_id._check_environment_access()
+        if not self.recipient_ready:
             raise UserError(_("Shopee recipient details unavailable. Do not create a SO with a placeholder address."))
         buyer_id = (self.buyer_user_id or "").strip()
         if not buyer_id or "*" in buyer_id:
             raise UserError(_("Shopee buyer_user_id missing or masked; manual review required."))
         if self.recipient_region != "MY":
-            raise UserError(_("Only Malaysia sandbox shipping addresses are supported."))
+            raise UserError(_("Only Malaysia shipping addresses are supported."))
         address = (self.recipient_full_address or "").strip()
         zipcode = (self.recipient_zipcode or "").strip()
         name = (self.recipient_name or "").strip()
