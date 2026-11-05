@@ -20,8 +20,13 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         preview = self.preview_id.sudo()
         if not self.env.user.has_group("base.group_system"):
             raise UserError(_("Only system administrators can create test quotations."))
-        if preview.shop_id.environment != "sandbox":
-            raise UserError(_("Phase 3A is limited to sandbox."))
+        preview.shop_id._check_environment_access()
+        if preview.shop_id.environment == "production" and (
+            self.env["ir.config_parameter"].sudo().get_param(
+                "motogene_shopee.enable_production_so_creation", "0"
+            ) != "1"
+        ):
+            raise UserError(_("Production SO creation is locked pending mapping verification."))
         if preview.mapping_status != "matched" or not preview.line_ids:
             raise UserError(_("All Shopee items must be mapped before creating a quotation."))
         if preview.order_status != "READY_TO_SHIP":
@@ -94,7 +99,9 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "motogene_shopee_order_ref": preview.name,
             "motogene_shopee_channel": "shopee",
             "x_studio_order_type": "SHOPEE ",
-            "origin": "MotoGene Shopee Sandbox: " + preview.name,
+            "origin": "MotoGene Shopee %s: %s" % (
+                preview.shop_id.environment.title(), preview.name
+            ),
             "motogene_shopee_preview_id": preview.id,
             "order_line": lines,
         })
