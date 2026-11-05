@@ -26,7 +26,7 @@ class ShopeeShipmentOption(models.TransientModel):
 
 class ShopeeShipmentWizard(models.TransientModel):
     _name = "motogene.shopee.shipment.wizard"
-    _description = "Arrange Shopee Shipment (Manual)
+    _description = "Arrange Shopee Shipment (Manual)"
 
     picking_id = fields.Many2one("stock.picking", required=True, readonly=True)
     order_sn = fields.Char(readonly=True)
