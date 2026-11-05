@@ -34,6 +34,25 @@ class StockPicking(models.Model):
                 and so and so.motogene_shopee_channel == "shopee"
             )
 
+    motogene_shopee_awb_needs_sync = fields.Boolean(
+        string="Shopee AWB No Needs Sync",
+        compute="_compute_motogene_shopee_awb_needs_sync",
+    )
+
+    def _compute_motogene_shopee_awb_needs_sync(self):
+        for picking in self:
+            tracking = (picking.motogene_shopee_tracking_number or "").strip()
+            current = (
+                (picking.mori_awb_no or "").strip()
+                if "mori_awb_no" in picking._fields else ""
+            )
+            picking.motogene_shopee_awb_needs_sync = bool(
+                picking.motogene_shopee_is_delivery
+                and picking.motogene_shopee_awb_attachment_id
+                and tracking and tracking != current
+                and "mori_awb_no" in picking._fields
+            )
+
     def _motogene_shopee_check_awb_access(self):
         self.ensure_one()
         if not self.env.user.has_group("base.group_system"):
