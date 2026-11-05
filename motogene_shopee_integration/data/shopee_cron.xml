@@ -29,4 +29,14 @@
     <field name="interval_type">minutes</field>
     <field name="active">False</field>
   </record>
+  <record id="ir_cron_shopee_auto_order_sync" model="ir.cron">
+    <field name="name">MotoGene Shopee: Auto Sync New Orders (Sandbox)</field>
+    <field name="model_id" ref="model_motogene_shopee_shop"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_motogene_shopee_auto_sync()</field>
+    <field name="user_id" ref="base.user_admin"/>
+    <field name="interval_number">1</field>
+    <field name="interval_type">minutes</field>
+    <field name="active">False</field>
+  </record>
 </odoo>
