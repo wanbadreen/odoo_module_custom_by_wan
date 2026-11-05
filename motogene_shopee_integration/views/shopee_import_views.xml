@@ -39,7 +39,7 @@
     <field name="arch" type="xml">
       <form create="false" edit="false" delete="false"><sheet>
         <group>
-          <group><field name="name"/><field name="shop_id"/><field name="order_status"/>
+          <group><field name="name"/><field name="shop_id"/><field name="buyer_username" groups="base.group_system"/><field name="order_status"/>
             <field name="shopee_create_time"/></group>
           <group><field name="currency"/><field name="buyer_total"/>
             <field name="mapping_status"/><field name="last_sync_at"/>
