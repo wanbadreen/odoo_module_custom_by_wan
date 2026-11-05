@@ -249,6 +249,10 @@ class MotoGeneShopeeShop(models.Model):
             ("active", "=", True),
         ], limit=5)
         for shop in shops:
+            if shop.environment == "production" and (
+                conf.get_param("motogene_shopee.enable_production_auto_sync", "0") != "1"
+            ):
+                continue
             try:
                 with self.env.cr.savepoint():
                     # Prevent overlapping cron executions for the same shop.
