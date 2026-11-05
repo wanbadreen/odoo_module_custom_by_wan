@@ -47,6 +47,27 @@ class MotoGeneShopeeShop(models.Model):
         default="draft", readonly=True, copy=False,
     )
     last_connection_test = fields.Datetime(readonly=True, copy=False)
+    production_fulfillment_enabled = fields.Boolean(
+        string="Enable Live Shipment & AWB Actions", default=False,
+        copy=False, groups="base.group_system",
+        help="Requires a separate administrator parameter. Keep disabled while testing Production OAuth.",
+    )
+
+    def _check_environment_access(self, mutation=False):
+        self.ensure_one()
+        if self.environment == "sandbox":
+            return
+        if self.environment != "production":
+            raise UserError(_("Unsupported Shopee environment."))
+        conf = self.env["ir.config_parameter"].sudo()
+        if conf.get_param("motogene_shopee.enable_production_connection", "0") != "1":
+            raise UserError(_("Production Shopee access is disabled. Enable connection explicitly first."))
+        if mutation and (
+            not self.production_fulfillment_enabled
+            or conf.get_param("motogene_shopee.enable_production_fulfillment", "0") != "1"
+        ):
+            raise UserError(_("Production shipment actions are locked until explicitly authorized."))
+
 
     @api.constrains("redirect_base_url")
     def _check_redirect_base_url(self):
@@ -108,8 +129,7 @@ class MotoGeneShopeeShop(models.Model):
 
     def action_connect(self):
         self.ensure_one()
-        if self.environment != "sandbox":
-            raise UserError(_("Production OAuth is deliberately disabled in Phase 1."))
+        self._check_environment_access()
         if not self.redirect_base_url or not self.partner_key:
             raise UserError(_("Configure Redirect Base URL and Partner Key first."))
         nonce = secrets.token_urlsafe(32)
@@ -149,8 +169,7 @@ class MotoGeneShopeeShop(models.Model):
 
     def action_test_connection(self):
         self.ensure_one()
-        if self.environment != "sandbox":
-            raise UserError(_("Production API calls are disabled in Phase 1."))
+        self._check_environment_access()
         if not self.shop_id or not self.access_token:
             raise UserError(_("Authorize the Shopee shop first."))
         self._refresh_if_needed()
@@ -176,7 +195,7 @@ class MotoGeneShopeeShop(models.Model):
             "type": "ir.actions.client",
             "tag": "display_notification",
             "params": {"title": _("Shopee Connected"),
-                       "message": _("Sandbox shop API responded successfully."),
+                       "message": _("%s shop API responded successfully.") % self.environment.title(),
                        "type": "success", "sticky": False},
         }
 
@@ -192,8 +211,7 @@ class MotoGeneShopeeShop(models.Model):
         self.invalidate_recordset(["token_expiry", "refresh_token"])
         if self.token_expiry and self.token_expiry > fields.Datetime.now() + timedelta(minutes=20):
             return
-        if self.environment != "sandbox":
-            return
+        self._check_environment_access()
         try:
             result = self._public_post(
                 "/api/v2/auth/access_token/get",
@@ -217,7 +235,7 @@ class MotoGeneShopeeShop(models.Model):
         shops = self.sudo().search([
             ("active", "=", True),
             ("state", "=", "connected"),
-            ("environment", "=", "sandbox"),
+            ("environment", "in", ["sandbox", "production"]),
         ])
         for shop in shops:
             try:
