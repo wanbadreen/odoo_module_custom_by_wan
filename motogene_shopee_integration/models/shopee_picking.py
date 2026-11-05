@@ -197,7 +197,8 @@ class StockPicking(models.Model):
         results = (body.get("response") or {}).get("result_list") or []
         item = next((r for r in results if r.get("order_sn") == order_sn), None)
         if not item:
-            return None, _("Shopee returned no document status.")
+            # No existing task in the Shopee response: allow first manual creation.
+            return None, None
         if item.get("fail_error") or item.get("error"):
             return None, str(item.get("fail_error") or item.get("error"))[:150]
         return item.get("status"), None
