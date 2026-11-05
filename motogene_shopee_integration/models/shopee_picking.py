@@ -105,6 +105,132 @@ class StockPicking(models.Model):
             return body, str(body["error"])[:150]
         return body, None
 
+    def action_motogene_shopee_prepare(self):
+        """One entry point: choose shipment method, or advance an arranged shipment."""
+        self.ensure_one()
+        self._motogene_shopee_check_awb_access()
+        if self.motogene_shopee_awb_attachment_id:
+            return self._motogene_shopee_notify(
+                _("Shopee AWB Ready"),
+                _("AWB is already attached. Click Print Shopee AWB."),
+                "success",
+            )
+        if self.motogene_shopee_shipment_state == "uncertain":
+            return self._motogene_shopee_notify(
+                _("Shipment status uncertain"),
+                _("Check Shopee Seller Centre before proceeding; no new shipment request was sent."),
+                "warning",
+            )
+        if self.motogene_shopee_shipment_state == "not_sent":
+            # Existing wizard verifies live Pickup/Drop-off parameters before writing.
+            return self.action_motogene_shopee_arrange_shipment()
+        return self.action_motogene_shopee_check_progress()
+
+    def action_motogene_shopee_check_progress(self):
+        """Bounded progress step: no polling loop and no repeated shipment arrangement."""
+        self.ensure_one()
+        sale, preview, shop = self._motogene_shopee_check_awb_access()
+        if self.motogene_shopee_awb_attachment_id:
+            return self._motogene_shopee_notify(
+                _("Shopee AWB Ready"), _("PDF is attached. Click Print Shopee AWB."), "success"
+            )
+        if self.motogene_shopee_shipment_state == "uncertain":
+            return self._motogene_shopee_notify(
+                _("Manual shipment verification needed"),
+                _("The arrange result was uncertain. Verify in Seller Centre first."),
+                "warning",
+            )
+        if self.motogene_shopee_shipment_state == "not_sent":
+            return self.action_motogene_shopee_arrange_shipment()
+
+        order_sn = sale.motogene_shopee_order_ref or preview.name
+        tracking = shop._read_only_api_get(
+            "/api/v2/logistics/get_tracking_number", {"order_sn": order_sn}
+        ).get("tracking_number")
+        if not tracking:
+            return self._motogene_shopee_notify(
+                _("Shopee AWB Pending"),
+                _("Shipment arranged. Shopee tracking is not available yet. Click Check Shipment Progress later."),
+                "warning",
+            )
+        tracking = str(tracking).strip()
+        current = (self.mori_awb_no or "").strip() if "mori_awb_no" in self._fields else ""
+        if current and current != tracking:
+            return self._motogene_shopee_notify(
+                _("AWB number conflict"),
+                _("The existing AWB No differs from Shopee tracking. Review manually."),
+                "warning",
+            )
+        values = {"motogene_shopee_tracking_number": tracking}
+        if "mori_awb_no" in self._fields:
+            values["mori_awb_no"] = tracking
+        self.write(values)
+
+        state = self.motogene_shopee_document_state
+        if state in ("uncertain", "failed"):
+            return self._motogene_shopee_notify(
+                _("AWB needs review"),
+                _("Previous AWB task is uncertain or failed. Use advanced tools to investigate."),
+                "warning",
+            )
+
+        status, error = self._motogene_shopee_get_document_status(shop, order_sn)
+        if error:
+            return self._motogene_shopee_notify(
+                _("Shopee AWB status unavailable"), str(error)[:180], "warning"
+            )
+        if status == "READY":
+            self.write({"motogene_shopee_document_state": "ready"})
+            return self.action_motogene_shopee_retrieve_awb()
+        if status == "PROCESSING":
+            self.write({"motogene_shopee_document_state": "processing"})
+            return self._motogene_shopee_notify(
+                _("Shopee AWB Pending"),
+                _("Shopee is generating the document. Click Check Shipment Progress later."),
+                "warning",
+            )
+        if status == "FAILED":
+            self.write({"motogene_shopee_document_state": "failed"})
+            return self._motogene_shopee_notify(
+                _("Shopee AWB failed"),
+                _("Document task failed at Shopee. Review before creating a new task."),
+                "warning",
+            )
+        if state in ("requested", "processing", "ready"):
+            # A missing response must never trigger a second create request.
+            return self._motogene_shopee_notify(
+                _("Shopee AWB Pending"),
+                _("Task was already requested. Waiting for Shopee document status."),
+                "warning",
+            )
+
+        # Only for first request when no prior task is registered.
+        result = self.action_motogene_shopee_generate_document()
+        if self.motogene_shopee_document_state != "requested":
+            return result
+
+        status, error = self._motogene_shopee_get_document_status(shop, order_sn)
+        if error:
+            return self._motogene_shopee_notify(
+                _("AWB task submitted"),
+                _("Shopee accepted the task; check progress later. Status detail: %s") % str(error)[:120],
+                "warning",
+            )
+        if status == "READY":
+            self.write({"motogene_shopee_document_state": "ready"})
+            return self.action_motogene_shopee_retrieve_awb()
+        if status == "FAILED":
+            self.write({"motogene_shopee_document_state": "failed"})
+            return self._motogene_shopee_notify(
+                _("Shopee AWB failed"), _("Document generation failed. Check advanced tools."), "warning"
+            )
+        self.write({"motogene_shopee_document_state": "processing" if status == "PROCESSING" else "requested"})
+        return self._motogene_shopee_notify(
+            _("Shopee AWB Pending"),
+            _("Shipment is arranged and AWB task is submitted. Click Check Shipment Progress later."),
+            "warning",
+        )
+
     def action_motogene_shopee_arrange_shipment(self):
         self.ensure_one()
         sale, preview, shop = self._motogene_shopee_check_awb_access()
