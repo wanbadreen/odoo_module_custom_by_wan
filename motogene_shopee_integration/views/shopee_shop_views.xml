@@ -18,7 +18,7 @@
     <field name="arch" type="xml">
       <form string="Shopee Shop">
         <header>
-          <button name="action_connect" type="object" string="Connect Shopee (Sandbox)" class="btn-primary"/>
+          <button name="action_connect" type="object" string="Connect Shopee" class="btn-primary"/>
           <button name="action_test_connection" type="object" string="Test Connection"/>
           <field name="state" widget="statusbar" statusbar_visible="draft,connected,reauthorize"/>
         </header>
@@ -36,8 +36,13 @@
               <field name="token_expiry" readonly="1"/>
               <field name="last_connection_test" readonly="1"/>
               <field name="active"/>
+              <field name="production_fulfillment_enabled" invisible="environment != 'production'"/>
             </group>
           </group>
+          <div class="alert alert-warning" role="alert" invisible="environment != 'production'">
+            Production requires separate activation for API connection, Sales Order creation,
+            and shipment actions. Connecting does not automatically process live orders.
+          </div>
         </sheet>
       </form>
     </field>
