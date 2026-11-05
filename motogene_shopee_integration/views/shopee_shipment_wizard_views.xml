@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_motogene_shopee_shipment_wizard" model="ir.ui.view">
+    <field name="name">motogene.shopee.shipment.wizard.form</field>
+    <field name="model">motogene.shopee.shipment.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Arrange Shopee Shipment (Sandbox)">
+        <group>
+          <field name="picking_id" readonly="1"/>
+          <field name="order_sn" readonly="1"/>
+          <field name="pickup_available" readonly="1"/>
+          <field name="dropoff_available" readonly="1"/>
+          <field name="dropoff_requires_details" invisible="1"/>
+        </group>
+        <field name="warning_text" readonly="1" nolabel="1"/>
+        <group string="Pickup Options" invisible="not pickup_available">
+          <field name="option_ids" nolabel="1" readonly="1">
+            <list create="0" delete="0" edit="0">
+              <field name="address_id_value"/>
+              <field name="address_label"/>
+              <field name="pickup_time_id_value"/>
+              <field name="display_slot"/>
+              <button name="action_arrange_pickup" type="object"
+                      string="Arrange Pickup" class="btn-primary" groups="base.group_system"/>
+            </list>
+          </field>
+        </group>
+        <div class="alert alert-warning" role="alert"
+             invisible="not dropoff_requires_details">
+          Drop-off requires additional Shopee parameters. No shipment request will be sent.
+        </div>
+        <footer>
+          <button name="action_arrange_dropoff" type="object" string="Arrange Drop-off"
+                  class="btn-primary" invisible="not dropoff_available or dropoff_requires_details"
+                  groups="base.group_system"/>
+          <button string="Close" special="cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>
