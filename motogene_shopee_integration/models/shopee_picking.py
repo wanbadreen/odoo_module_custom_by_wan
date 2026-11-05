@@ -156,10 +156,33 @@ class StockPicking(models.Model):
         tracking = str(tracking).strip()
         current = (self.mori_awb_no or "").strip() if "mori_awb_no" in self._fields else ""
         if current and current != tracking:
-            return self._motogene_shopee_notify(
-                _("AWB number conflict"),
-                _("The existing AWB No differs from Shopee tracking. Review manually."),
-                "warning",
+            saved = (self.motogene_shopee_tracking_number or "").strip()
+            # Sandbox sometimes changes its provisional number after arranging.
+            # Only reconcile a value previously mirrored in BOTH our fields.
+            # Never replace a printed/attached label or another carrier reference.
+            safe_to_reconcile = (
+                preview.shop_id.environment == "sandbox"
+                and self.state not in ("done", "cancel")
+                and self.motogene_shopee_shipment_state == "requested"
+                and self.motogene_shopee_document_state in ("requested", "processing", "ready")
+                and bool(saved) and saved == current
+                and not self.motogene_shopee_awb_attachment_id
+                and not self.carrier_tracking_ref
+            )
+            if safe_to_reconcile:
+                confirmation = shop._read_only_api_get(
+                    "/api/v2/logistics/get_tracking_number", {"order_sn": order_sn}
+                ).get("tracking_number")
+                safe_to_reconcile = str(confirmation or "").strip() == tracking
+            if not safe_to_reconcile:
+                return self._motogene_shopee_notify(
+                    _("AWB number conflict"),
+                    _("Saved AWB differs from Shopee tracking. Manual review required."),
+                    "warning",
+                )
+            _logger.warning(
+                "Shopee sandbox tracking reconciliation on DO %s: %s -> %s",
+                self.name, current, tracking,
             )
         values = {"motogene_shopee_tracking_number": tracking}
         if "mori_awb_no" in self._fields:
