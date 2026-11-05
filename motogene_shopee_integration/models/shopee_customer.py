@@ -98,8 +98,9 @@ class ShopeeOrderRecipient(models.Model):
                 raise UserError(_("Malaysia country record missing."))
             contact = P.create({
                 "name": name,
-                "type": "delivery",
-                "parent_id": buyer.partner_id.id,
+                # Recipient is the visible SO Customer, not a child of an
+                # internal buyer-ID placeholder (which changes display_name).
+                "type": "contact",
                 "company_id": company.id,
                 "phone": self.recipient_phone or False,
                 "street": address,
@@ -112,4 +113,19 @@ class ShopeeOrderRecipient(models.Model):
                 "address_fingerprint": fingerprint,
                 "partner_id": contact.id,
             })
-        return buyer.partner_id, shipping.partner_id
+        recipient = shipping.partner_id
+        if recipient.parent_id:
+            # Legacy v18.0.5.1.0 contacts were nested under "Shopee Buyer ID".
+            # Keep historical SO links untouched; remap this recipient to a
+            # standalone contact for new orders only.
+            replacement = recipient.copy(default={
+                "parent_id": False,
+                "type": "contact",
+                "name": name,
+                "company_id": company.id,
+            })
+            shipping.write({"partner_id": replacement.id})
+            recipient = replacement
+        if recipient.company_id and recipient.company_id != company:
+            raise UserError(_("Recipient contact belongs to a different company."))
+        return recipient, recipient
