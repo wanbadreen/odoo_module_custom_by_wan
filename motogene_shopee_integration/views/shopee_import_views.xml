@@ -40,12 +40,13 @@
       <form create="false" edit="false" delete="false"><sheet>
         <group>
           <group><field name="name"/><field name="shop_id"/><field name="buyer_username" groups="base.group_system"/><field name="order_status"/>
-            <field name="shopee_create_time"/></group>
+            <field name="shopee_create_time"/><field name="buyer_user_id" groups="base.group_system"/></group>
           <group><field name="currency"/><field name="buyer_total"/>
             <field name="mapping_status"/><field name="last_sync_at"/>
             <field name="escrow_status"/><field name="escrow_amount" invisible="escrow_status != 'available'"/>
-            <field name="escrow_last_sync"/></group>
+            <field name="escrow_last_sync"/><field name="recipient_ready" groups="base.group_system"/></group>
         </group>
+        <group string="Shopee Delivery Recipient" groups="base.group_system"><field name="recipient_name"/><field name="recipient_phone"/><field name="recipient_full_address"/><field name="recipient_city"/><field name="recipient_state"/><field name="recipient_zipcode"/><field name="recipient_region"/></group>
         <field name="line_ids">
           <list create="false" edit="false" delete="false">
             <field name="item_id"/><field name="model_id"/><field name="item_name"/>
