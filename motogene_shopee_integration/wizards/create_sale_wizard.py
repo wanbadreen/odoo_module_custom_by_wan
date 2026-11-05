@@ -81,6 +81,10 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         customer, shipping = preview._motogene_shopee_resolve_customer_and_shipping(
             self.company_id
         )
+        # Operations policy: AWB recipient is the visible SO customer.
+        # Username remains reserved for invoice Payment Reference.
+        if customer.id != shipping.id or customer.name != preview.recipient_name:
+            raise UserError(_("Shopee recipient mapping is inconsistent; quotation not created."))
         so = Order.create({
             "partner_id": customer.id,
             "partner_invoice_id": customer.id,
