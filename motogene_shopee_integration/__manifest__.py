@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Shopee Integration",
     "summary": "Shopee sandbox order to quotation, escrow, and invoice reference integration",
-    "version": "18.0.5.1.1",
+    "version": "18.0.5.2.0",
     "category": "Sales/Sales",
     "author": "Morimoto Formulas",
     "license": "LGPL-3",
@@ -17,6 +17,12 @@
         "data/shopee_bulk_action.xml",
         "data/shopee_cron.xml",
     ],
+    "assets": {
+        "web.assets_backend": [
+            "motogene_shopee_integration/static/src/js/shopee_home_badge.js",
+            "motogene_shopee_integration/static/src/scss/shopee_home_badge.scss",
+        ],
+    },
     "external_dependencies": {"python": ["requests", "pypdf"]},
     "installable": True,
     "application": True,
