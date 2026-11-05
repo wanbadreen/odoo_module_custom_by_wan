@@ -53,6 +53,253 @@ class StockPicking(models.Model):
                 and "mori_awb_no" in picking._fields
             )
 
+    motogene_shopee_shipment_state = fields.Selection([
+        ("not_sent", "Not Arranged in Odoo"),
+        ("requested", "Requested via Odoo"),
+        ("uncertain", "Uncertain - Verify Shopee"),
+    ], default="not_sent", readonly=True, copy=False, string="Shopee Shipment Request")
+    motogene_shopee_shipping_method = fields.Selection([
+        ("pickup", "Pickup"),
+        ("dropoff", "Drop-off"),
+    ], readonly=True, copy=False, string="Shopee Shipping Method")
+    motogene_shopee_document_state = fields.Selection([
+        ("not_created", "Not Requested in Odoo"),
+        ("requested", "Task Requested"),
+        ("processing", "Processing"),
+        ("ready", "Ready"),
+        ("failed", "Failed"),
+        ("uncertain", "Uncertain - Verify Shopee"),
+    ], readonly=True, copy=False, default="not_created", string="Shopee AWB Task")
+
+    def _motogene_shopee_notify(self, title, message, level="info"):
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": title, "message": message,
+                "type": level, "sticky": True,
+            },
+        }
+
+    def _motogene_shopee_api_post(self, shop, path, payload):
+        """Return (response_body, error). No automatic retries on mutating Shopee APIs."""
+        shop._refresh_if_needed()
+        ts = int(time.time())
+        params = {
+            "partner_id": shop._partner_id_int(),
+            "timestamp": ts,
+            "access_token": shop.access_token,
+            "shop_id": int(shop.shop_id),
+            "sign": shop._signature(path, ts, shop.access_token, shop.shop_id),
+        }
+        try:
+            response = requests.post(
+                shop._host() + path, params=params, json=payload, timeout=25,
+            )
+            response.raise_for_status()
+            body = response.json()
+        except (requests.RequestException, ValueError):
+            _logger.warning("Shopee mutating request outcome uncertain for DO %s", self.id)
+            return {}, "transport"
+        if body.get("error"):
+            return body, str(body["error"])[:150]
+        return body, None
+
+    def action_motogene_shopee_arrange_shipment(self):
+        self.ensure_one()
+        sale, preview, shop = self._motogene_shopee_check_awb_access()
+        if self.motogene_shopee_shipment_state != "not_sent":
+            raise UserError(_("Shipment already requested or uncertain. Do not arrange again."))
+        order_sn = sale.motogene_shopee_order_ref or preview.name
+        tracking = shop._read_only_api_get(
+            "/api/v2/logistics/get_tracking_number", {"order_sn": order_sn}
+        ).get("tracking_number")
+        if tracking:
+            self.write({
+                "motogene_shopee_tracking_number": str(tracking),
+                "motogene_shopee_shipment_state": "requested",
+            })
+            return self._motogene_shopee_notify(
+                _("Shipment already arranged"),
+                _("Shopee returned tracking; no shipment request sent."),
+            )
+        shipping = shop._read_only_api_get(
+            "/api/v2/logistics/get_shipping_parameter", {"order_sn": order_sn}
+        )
+        needed = shipping.get("info_needed") or {}
+        vals = {
+            "picking_id": self.id, "order_sn": order_sn,
+            "pickup_available": "pickup" in needed,
+            "dropoff_available": "dropoff" in needed,
+            "dropoff_requires_details": bool(needed.get("dropoff")),
+            "warning_text": _(
+                "Sandbox only. Choosing Pickup or Drop-off SENDS a shipment request. "
+                "Use only a valid option returned by Shopee. Never repeat after timeout."
+            ),
+        }
+        options = []
+        for address in (shipping.get("pickup") or {}).get("address_list") or []:
+            for slot in address.get("time_slot_list") or []:
+                if address.get("address_id") and slot.get("pickup_time_id"):
+                    options.append((0, 0, {
+                        "address_id_value": int(address["address_id"]),
+                        "pickup_time_id_value": str(slot["pickup_time_id"]),
+                        "display_slot": str(slot.get("time_text") or slot.get("date") or ""),
+                        "address_label": ", ".join(filter(None, [
+                            str(address.get("city") or ""),
+                            str(address.get("state") or ""),
+                        ])) or _("Address ID %s") % address["address_id"],
+                    }))
+        vals["option_ids"] = options
+        wizard = self.env["motogene.shopee.shipment.wizard"].create(vals)
+        return {
+            "type": "ir.actions.act_window", "res_model": wizard._name,
+            "res_id": wizard.id, "view_mode": "form", "target": "new",
+            "name": _("Arrange Shopee Shipment (Sandbox)"),
+        }
+
+    def action_motogene_shopee_sync_tracking(self):
+        self.ensure_one()
+        sale, preview, shop = self._motogene_shopee_check_awb_access()
+        tracking = shop._read_only_api_get(
+            "/api/v2/logistics/get_tracking_number",
+            {"order_sn": sale.motogene_shopee_order_ref or preview.name}
+        ).get("tracking_number")
+        if not tracking:
+            return self._motogene_shopee_notify(
+                _("Tracking pending"), _("Shopee has not assigned tracking yet."), "warning"
+            )
+        tracking = str(tracking).strip()
+        if ("mori_awb_no" in self._fields and self.mori_awb_no
+                and self.mori_awb_no.strip() != tracking):
+            raise UserError(_("Existing AWB No differs from Shopee tracking."))
+        vals = {
+            "motogene_shopee_tracking_number": tracking,
+            "motogene_shopee_shipment_state": "requested",
+        }
+        if "mori_awb_no" in self._fields:
+            vals["mori_awb_no"] = tracking
+        self.write(vals)
+        return self._motogene_shopee_notify(
+            _("Tracking synchronized"), tracking, "success"
+        )
+
+    def _motogene_shopee_get_document_status(self, shop, order_sn):
+        body, error = self._motogene_shopee_api_post(
+            shop, "/api/v2/logistics/get_shipping_document_result",
+            {"order_list": [{
+                "order_sn": order_sn,
+                "shipping_document_type": "THERMAL_AIR_WAYBILL",
+            }]},
+        )
+        if error:
+            return None, error
+        results = (body.get("response") or {}).get("result_list") or []
+        item = next((r for r in results if r.get("order_sn") == order_sn), None)
+        if not item:
+            return None, _("Shopee returned no document status.")
+        if item.get("fail_error") or item.get("error"):
+            return None, str(item.get("fail_error") or item.get("error"))[:150]
+        return item.get("status"), None
+
+    def action_motogene_shopee_check_document(self):
+        self.ensure_one()
+        sale, preview, shop = self._motogene_shopee_check_awb_access()
+        status, error = self._motogene_shopee_get_document_status(
+            shop, sale.motogene_shopee_order_ref or preview.name
+        )
+        if error:
+            return self._motogene_shopee_notify(
+                _("AWB status unavailable"), error, "warning"
+            )
+        state = {"READY": "ready", "PROCESSING": "processing", "FAILED": "failed"}.get(status)
+        if state:
+            self.write({"motogene_shopee_document_state": state})
+        return self._motogene_shopee_notify(
+            _("AWB Document Status"),
+            status or _("No status returned"),
+            "success" if status == "READY" else "info",
+        )
+
+    def action_motogene_shopee_generate_document(self):
+        self.ensure_one()
+        sale, preview, shop = self._motogene_shopee_check_awb_access()
+        if self.motogene_shopee_document_state in ("requested", "processing", "ready", "uncertain"):
+            raise UserError(_("Document already requested or status uncertain. Check status first."))
+        order_sn = sale.motogene_shopee_order_ref or preview.name
+        tracking = shop._read_only_api_get(
+            "/api/v2/logistics/get_tracking_number", {"order_sn": order_sn}
+        ).get("tracking_number")
+        if not tracking:
+            raise UserError(_("Tracking not available; arrange shipment first."))
+        status, status_error = self._motogene_shopee_get_document_status(shop, order_sn)
+        if status == "READY":
+            self.write({"motogene_shopee_document_state": "ready"})
+            return self._motogene_shopee_notify(
+                _("AWB already ready"), _("Use Retrieve Shopee AWB on the DO."), "success"
+            )
+        if status == "PROCESSING":
+            self.write({"motogene_shopee_document_state": "processing"})
+            return self._motogene_shopee_notify(
+                _("AWB already processing"), _("Check document status later.")
+            )
+        if status_error:
+            # Some sandbox orders report no document task until one is created;
+            # do not automatically assume other API errors mean safe to create.
+            raise UserError(_("Cannot verify existing AWB task: %s") % status_error)
+        if self.motogene_shopee_document_state == "failed":
+            raise UserError(_("Previous document task failed. Review before retry."))
+        parameter, error = self._motogene_shopee_api_post(
+            shop, "/api/v2/logistics/get_shipping_document_parameter",
+            {"order_list": [{"order_sn": order_sn}]},
+        )
+        if error:
+            raise UserError(_("Cannot retrieve AWB document options: %s") % error)
+        options = (parameter.get("response") or {}).get("result_list") or []
+        item = next((x for x in options if x.get("order_sn") == order_sn), None)
+        if not item or item.get("fail_error"):
+            raise UserError(_("Shopee did not supply valid AWB options."))
+        allowed = item.get("selectable_shipping_document_type") or []
+        if "THERMAL_AIR_WAYBILL" not in allowed:
+            raise UserError(_("THERMAL_AIR_WAYBILL is not supported by this order."))
+        body, error = self._motogene_shopee_api_post(
+            shop, "/api/v2/logistics/create_shipping_document",
+            {"order_list": [{
+                "order_sn": order_sn,
+                "tracking_number": str(tracking),
+                "shipping_document_type": "THERMAL_AIR_WAYBILL",
+            }]},
+        )
+        if error == "transport":
+            self.write({"motogene_shopee_document_state": "uncertain"})
+            return self._motogene_shopee_notify(
+                _("AWB task outcome uncertain"),
+                _("Check status before taking any action. Do not create task again."),
+                "warning",
+            )
+        if error:
+            return self._motogene_shopee_notify(
+                _("Shopee rejected AWB task"), error, "warning"
+            )
+        results = (body.get("response") or {}).get("result_list") or []
+        result = next((x for x in results if x.get("order_sn") == order_sn), None)
+        if not result:
+            self.write({"motogene_shopee_document_state": "uncertain"})
+            return self._motogene_shopee_notify(
+                _("AWB task outcome uncertain"), _("No item result returned. Check status."), "warning"
+            )
+        if result.get("fail_error") or result.get("error"):
+            return self._motogene_shopee_notify(
+                _("AWB task rejected"), str(result.get("fail_error") or result.get("error"))[:200], "warning"
+            )
+        self.write({
+            "motogene_shopee_tracking_number": str(tracking),
+            "motogene_shopee_document_state": "requested",
+        })
+        return self._motogene_shopee_notify(
+            _("AWB task accepted"), _("Check AWB Document Status before retrieving PDF."), "success"
+        )
+
     def _motogene_shopee_check_awb_access(self):
         self.ensure_one()
         if not self.env.user.has_group("base.group_system"):
