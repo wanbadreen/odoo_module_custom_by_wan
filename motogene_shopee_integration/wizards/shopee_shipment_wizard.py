@@ -62,7 +62,7 @@ class ShopeeShipmentWizard(models.TransientModel):
                 "motogene_shopee_tracking_number": str(current_tracking),
                 "motogene_shopee_shipment_state": "requested",
             })
-            raise UserError(_("Tracking already exists on Shopee. Shipment request was not sent."))
+            return picking.action_motogene_shopee_check_progress()
 
         shipping = shop._read_only_api_get(
             "/api/v2/logistics/get_shipping_parameter", {"order_sn": order_sn}
@@ -119,11 +119,7 @@ class ShopeeShipmentWizard(models.TransientModel):
             "motogene_shopee_shipment_state": "requested",
             "motogene_shopee_shipping_method": method,
         })
-        return picking._motogene_shopee_notify(
-            _("Shipment arranged"),
-            _("Shopee accepted %s. Use Sync Tracking Number when available.") % method,
-            "success",
-        )
+        return picking.action_motogene_shopee_check_progress()
 
     def action_arrange_dropoff(self):
         self.ensure_one()
