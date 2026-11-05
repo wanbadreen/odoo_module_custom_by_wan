@@ -9,4 +9,14 @@
     <field name="interval_type">minutes</field>
     <field name="active">False</field>
   </record>
+  <record id="ir_cron_shopee_awb_progress" model="ir.cron">
+    <field name="name">MotoGene Shopee: Process Pending AWBs (Sandbox)</field>
+    <field name="model_id" ref="stock.model_stock_picking"/>
+    <field name="state">code</field>
+    <field name="code">model._cron_motogene_shopee_awb_progress()</field>
+    <field name="user_id" ref="base.user_admin"/>
+    <field name="interval_number">5</field>
+    <field name="interval_type">minutes</field>
+    <field name="active">False</field>
+  </record>
 </odoo>
