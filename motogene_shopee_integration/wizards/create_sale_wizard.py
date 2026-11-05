@@ -9,8 +9,8 @@ class ShopeeCreateSaleWizard(models.TransientModel):
     preview_id = fields.Many2one(
         "motogene.shopee.import.order", required=True, readonly=True)
     partner_id = fields.Many2one(
-        "res.partner", string="Customer (Test)", required=True,
-        help="Select a test customer in staging. No customer is created from Shopee data.")
+        "res.partner", string="Legacy Test Customer (Ignored)",
+        help="Shopee buyer and shipping contact are resolved automatically from verified API identity.")
     company_id = fields.Many2one(
         "res.company", required=True, default=lambda self: self.env.company,
         readonly=True)
@@ -30,8 +30,6 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "motogene_shopee.enable_test_so", default="0"
         ) != "1":
             raise UserError(_("Phase 3A test SO creation is disabled. Enable it explicitly on Odoo staging."))
-        if self.partner_id.company_id and self.partner_id.company_id != self.company_id:
-            raise UserError(_("Test customer belongs to another company."))
         if self.company_id != self.env.company:
             raise UserError(_("Switch to the intended test company before creating the quotation."))
         Order = self.env["sale.order"].sudo().with_company(self.company_id)
@@ -80,8 +78,13 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             if preview.currency and preview.currency != self.company_id.currency_id.name:
                 raise UserError(_("Shopee and company currencies differ; review income before importing."))
 
+        customer, shipping = preview._motogene_shopee_resolve_customer_and_shipping(
+            self.company_id
+        )
         so = Order.create({
-            "partner_id": self.partner_id.id,
+            "partner_id": customer.id,
+            "partner_invoice_id": customer.id,
+            "partner_shipping_id": shipping.id,
             "company_id": self.company_id.id,
             "client_order_ref": preview.name,
             "motogene_shopee_order_ref": preview.name,
