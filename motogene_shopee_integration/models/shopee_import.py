@@ -82,7 +82,7 @@ class ShopeeImportedOrder(models.Model):
         if not self.env.user.has_group("base.group_system"):
             return 0
         previews = self.sudo().search([
-            ("shop_id.environment", "=", "sandbox"),
+            ("shop_id.environment", "in", ["sandbox", "production"]),
             ("shop_id.active", "=", True),
             ("order_status", "=", "READY_TO_SHIP"),
         ])
@@ -122,8 +122,7 @@ class ShopeeImportedOrder(models.Model):
         self.ensure_one()
         if not self.env.user.has_group("base.group_system"):
             raise UserError(_("Only administrators can sync sandbox financial data."))
-        if self.shop_id.environment != "sandbox":
-            raise UserError(_("Escrow preview is sandbox-only."))
+        self.shop_id._check_environment_access()
         response = self.shop_id.sudo()._read_only_api_get(
             "/api/v2/payment/get_escrow_detail", {"order_sn": self.name}
         )
@@ -211,8 +210,7 @@ class MotoGeneShopeeShop(models.Model):
 
     def _read_only_api_get(self, path, payload):
         self.ensure_one()
-        if self.environment != "sandbox":
-            raise UserError(_("Only sandbox read-only import is supported in Phase 2."))
+        self._check_environment_access()
         if self.state != "connected" or not self.shop_id:
             raise UserError(_("Connect the sandbox shop before importing."))
         self._refresh_if_needed()
@@ -247,7 +245,7 @@ class MotoGeneShopeeShop(models.Model):
         if conf.get_param("motogene_shopee.enable_auto_order_sync", "0") != "1":
             return
         shops = self.sudo().search([
-            ("environment", "=", "sandbox"), ("state", "=", "connected"),
+            ("environment", "in", ["sandbox", "production"]), ("state", "=", "connected"),
             ("active", "=", True),
         ], limit=5)
         for shop in shops:
@@ -271,8 +269,9 @@ class MotoGeneShopeeShop(models.Model):
     def _motogene_shopee_sync_order_previews(self):
         """Bounded 3-day lookback; upsert by (shop, order SN), safe to repeat."""
         self.ensure_one()
-        if self.environment != "sandbox" or self.state != "connected":
-            raise UserError(_("Sandbox connected shop required."))
+        self._check_environment_access()
+        if self.state != "connected":
+            raise UserError(_("Connected Shopee Shop required."))
         now = int(time.time())
         begin = now - 3 * 86400
         cursor = ""
@@ -314,8 +313,7 @@ class MotoGeneShopeeShop(models.Model):
 
     def action_preview_recent_orders(self):
         self.ensure_one()
-        if self.environment != "sandbox":
-            raise UserError(_("Read-only order preview is limited to sandbox."))
+        self._check_environment_access()
         # Safe bounded lookback: 3 days, up to 150 orders per button click.
         now = int(time.time())
         begin = now - 3 * 86400
