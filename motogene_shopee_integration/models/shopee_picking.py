@@ -105,6 +105,64 @@ class StockPicking(models.Model):
             return body, str(body["error"])[:150]
         return body, None
 
+    motogene_shopee_last_progress_check = fields.Datetime(
+        string="Shopee AWB Last Checked", readonly=True, copy=False,
+    )
+    motogene_shopee_progress_checks = fields.Integer(
+        string="Shopee AWB Check Count", readonly=True, copy=False, default=0,
+    )
+
+    @models.api.model
+    def _cron_motogene_shopee_awb_progress(self):
+        """Sandbox only, capped. Never arrange shipment again; stop on uncertainty."""
+        if self.env["ir.config_parameter"].sudo().get_param(
+            "motogene_shopee.enable_awb_auto_progress", "0"
+        ) != "1":
+            return
+        pending = self.sudo().search([
+            ("picking_type_code", "=", "outgoing"),
+            ("state", "in", ["confirmed", "assigned", "waiting"]),
+            ("motogene_shopee_shipment_state", "=", "requested"),
+            ("motogene_shopee_awb_attachment_id", "=", False),
+            ("motogene_shopee_document_state", "in",
+             ["not_created", "requested", "processing", "ready"]),
+            ("sale_id.motogene_shopee_channel", "=", "shopee"),
+            ("sale_id.motogene_shopee_preview_id.shop_id.environment", "=", "sandbox"),
+        ], order="motogene_shopee_last_progress_check asc, id asc", limit=10)
+        for picking in pending:
+            started = time.monotonic()
+            try:
+                with self.env.cr.savepoint():
+                    # Do not compete with another cron/manual progress operation.
+                    self.env.cr.execute(
+                        "SELECT pg_try_advisory_xact_lock(%s, id) FROM stock_picking "
+                        "WHERE id = %s", [741230, picking.id]
+                    )
+                    if not self.env.cr.fetchone()[0]:
+                        continue
+                    picking.invalidate_recordset([
+                        "motogene_shopee_awb_attachment_id",
+                        "motogene_shopee_shipment_state",
+                        "motogene_shopee_document_state",
+                    ])
+                    if (picking.motogene_shopee_awb_attachment_id
+                            or picking.motogene_shopee_shipment_state != "requested"
+                            or picking.motogene_shopee_document_state in ("uncertain", "failed")):
+                        continue
+                    picking.action_motogene_shopee_check_progress()
+                    picking.write({
+                        "motogene_shopee_last_progress_check": fields.Datetime.now(),
+                        "motogene_shopee_progress_checks": picking.motogene_shopee_progress_checks + 1,
+                    })
+                    _logger.info(
+                        "Shopee AWB progress DO=%s state=%s attached=%s elapsed=%.2fs",
+                        picking.name, picking.motogene_shopee_document_state,
+                        bool(picking.motogene_shopee_awb_attachment_id),
+                        time.monotonic() - started,
+                    )
+            except Exception:
+                _logger.exception("Shopee AWB auto progress failed for DO %s", picking.name)
+
     def action_motogene_shopee_prepare(self):
         """One entry point: choose shipment method, or advance an arranged shipment."""
         self.ensure_one()
@@ -130,6 +188,15 @@ class StockPicking(models.Model):
         """Bounded progress step: no polling loop and no repeated shipment arrangement."""
         self.ensure_one()
         sale, preview, shop = self._motogene_shopee_check_awb_access()
+        # Serialize UI and background progress for this DO, including first task creation.
+        self.env.cr.execute(
+            "SELECT pg_advisory_xact_lock(%s, %s)", [741230, self.id]
+        )
+        self.invalidate_recordset([
+            "motogene_shopee_awb_attachment_id",
+            "motogene_shopee_shipment_state",
+            "motogene_shopee_document_state",
+        ])
         if self.motogene_shopee_awb_attachment_id:
             return self._motogene_shopee_notify(
                 _("Shopee AWB Ready"), _("PDF is attached. Click Print Shopee AWB."), "success"
