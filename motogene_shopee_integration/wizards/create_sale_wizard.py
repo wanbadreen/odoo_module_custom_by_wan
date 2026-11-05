@@ -31,10 +31,12 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             raise UserError(_("All Shopee items must be mapped before creating a quotation."))
         if preview.order_status != "READY_TO_SHIP":
             raise UserError(_("Phase 3A only allows READY_TO_SHIP test orders."))
-        if self.env["ir.config_parameter"].sudo().get_param(
-            "motogene_shopee.enable_test_so", default="0"
-        ) != "1":
-            raise UserError(_("Phase 3A test SO creation is disabled. Enable it explicitly on Odoo staging."))
+        if preview.shop_id.environment == "sandbox" and (
+            self.env["ir.config_parameter"].sudo().get_param(
+                "motogene_shopee.enable_test_so", "0"
+            ) != "1"
+        ):
+            raise UserError(_("Sandbox SO creation is disabled. Enable the staging test setting."))
         if self.company_id != self.env.company:
             raise UserError(_("Switch to the intended test company before creating the quotation."))
         Order = self.env["sale.order"].sudo().with_company(self.company_id)
