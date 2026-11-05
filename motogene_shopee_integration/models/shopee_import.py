@@ -44,6 +44,17 @@ class ShopeeImportedOrder(models.Model):
         string="Shopee Buyer Username", readonly=True, copy=False,
         groups="base.group_system",
     )
+    buyer_user_id = fields.Char(string="Shopee Buyer User ID", readonly=True, copy=False,
+                                groups="base.group_system")
+    recipient_name = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_phone = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_full_address = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_city = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_state = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_zipcode = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_region = fields.Char(readonly=True, copy=False, groups="base.group_system")
+    recipient_ready = fields.Boolean(readonly=True, copy=False, groups="base.group_system")
+
     escrow_amount = fields.Float(
         string="Shopee Estimated Net Income", readonly=True, digits=(16, 2))
     escrow_status = fields.Selection([
@@ -236,7 +247,7 @@ class MotoGeneShopeeShop(models.Model):
             ids = list(dict.fromkeys(sn_list))[start:start + 50]
             details = self._read_only_api_get("/api/v2/order/get_order_detail", {
                 "order_sn_list": ",".join(ids),
-                "response_optional_fields": "item_list,total_amount,buyer_username",
+                "response_optional_fields": "item_list,total_amount,buyer_username,buyer_user_id,recipient_address",
             })
             for detail in details.get("order_list", []):
                 if not detail.get("order_sn"):
@@ -281,7 +292,28 @@ class MotoGeneShopeeShop(models.Model):
             }))
         status = ("empty" if not lines else
                   "matched" if all(v[2]["matched"] for v in lines) else "review")
+        recipient = detail.get("recipient_address") or {}
+        def clean(key, length=255):
+            value = str(recipient.get(key) or "").strip()
+            return value[:length] if value and "*" not in value else ""
+        recipient_name = clean("name")
+        recipient_address = clean("full_address", 1024)
+        recipient_zip = clean("zipcode", 32)
+        recipient_region = clean("region", 16).upper()
+        ready = bool(
+            recipient_name and recipient_address and recipient_zip
+            and recipient_region == "MY"
+        )
         vals = {
+            "recipient_name": recipient_name,
+            "recipient_phone": clean("phone", 40),
+            "recipient_full_address": recipient_address,
+            "recipient_city": clean("city", 128),
+            "recipient_state": clean("state", 128),
+            "recipient_zipcode": recipient_zip,
+            "recipient_region": recipient_region,
+            "recipient_ready": ready,
+            "buyer_user_id": str(detail.get("buyer_user_id") or "").strip()[:64],
             "name": sn,
             "buyer_username": (str(detail.get("buyer_username") or "").strip()[:128]),
             "shop_id": self.id,
