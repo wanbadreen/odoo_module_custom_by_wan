@@ -11,7 +11,7 @@ _logger = logging.getLogger(__name__)
 
 class ShopeeShipmentOption(models.TransientModel):
     _name = "motogene.shopee.shipment.option"
-    _description = "Shopee Sandbox Pickup Option"
+    _description = "Shopee Pickup Option"
 
     wizard_id = fields.Many2one("motogene.shopee.shipment.wizard", required=True, ondelete="cascade")
     address_id_value = fields.Integer(readonly=True)
@@ -26,7 +26,7 @@ class ShopeeShipmentOption(models.TransientModel):
 
 class ShopeeShipmentWizard(models.TransientModel):
     _name = "motogene.shopee.shipment.wizard"
-    _description = "Arrange Shopee Shipment (Manual Sandbox)"
+    _description = "Arrange Shopee Shipment (Manual)
 
     picking_id = fields.Many2one("stock.picking", required=True, readonly=True)
     order_sn = fields.Char(readonly=True)
