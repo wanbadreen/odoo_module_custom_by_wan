@@ -27,8 +27,9 @@
       <form string="Create Shopee Test Quotation">
         <group>
           <field name="preview_id"/>
-          <field name="partner_id"/>
+          <field name="partner_id" invisible="1"/>
           <field name="company_id"/>
+          <label string="Customer and delivery address will be mapped from verified Shopee recipient data."/>
         </group>
         <div class="alert alert-warning" role="alert">
           This creates a draft quotation only, using item prices from Shopee Sandbox.
