@@ -193,6 +193,11 @@ class StockPicking(models.Model):
             }]},
         )
         if error:
+            # Shopee's pre-generation result check can return this specific code
+            # when no shipping document has yet been created. Treat it as no
+            # existing task, NOT as a reason to retry a previously sent task.
+            if error == "logistics.shipping_document_should_print_first":
+                return None, None
             return None, error
         results = (body.get("response") or {}).get("result_list") or []
         item = next((r for r in results if r.get("order_sn") == order_sn), None)
