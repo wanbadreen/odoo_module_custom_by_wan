@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="group_shopee_reviewer" model="res.groups">
+    <field name="name">Shopee Reviewer (Demo Read Only)</field>
+    <field name="comment">Allows access only to fictitious Shopee demonstration records, without access to real shops, customers, orders, keys, or shipment actions.</field>
+  </record>
+</odoo>
