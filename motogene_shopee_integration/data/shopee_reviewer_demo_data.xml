@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+  <record id="shopee_demo_order_one" model="motogene.shopee.reviewer.demo">
+    <field name="name">DEMO-SHOPEE-001</field>
+    <field name="workflow_stage">preview</field>
+    <field name="item_name">Sample Wellness Product A</field>
+    <field name="quantity">1</field>
+    <field name="total_amount">388.00</field>
+    <field name="shipping_method">Drop-off (demo)</field>
+    <field name="notes">Step 1: The integration can retrieve order information from Shopee API to an order-preview queue. The live integration applies product mapping before preparing the Odoo Sales Order. This is a fictional record for reviewer illustration only.</field>
+  </record>
+  <record id="shopee_demo_order_two" model="motogene.shopee.reviewer.demo">
+    <field name="name">DEMO-SHOPEE-002</field>
+    <field name="workflow_stage">sale</field>
+    <field name="item_name">Sample Wellness Product B</field>
+    <field name="quantity">2</field>
+    <field name="total_amount">700.00</field>
+    <field name="shipping_method">Pickup (demo)</field>
+    <field name="notes">Step 2: Authorized operators can create Sales Orders with mapped products and recipient delivery information. The integration uses shop and customer identifiers to manage matching and avoid duplicate contacts. This record contains no actual buyer information.</field>
+  </record>
+  <record id="shopee_demo_order_three" model="motogene.shopee.reviewer.demo">
+    <field name="name">DEMO-SHOPEE-003</field>
+    <field name="workflow_stage">awb</field>
+    <field name="item_name">Sample Wellness Product C</field>
+    <field name="quantity">1</field>
+    <field name="total_amount">150.00</field>
+    <field name="shipping_method">Drop-off (demo)</field>
+    <field name="notes">Step 3: Authorized operations staff can arrange Shopee shipments, retrieve the tracking number, and attach a printable shipping document to the related Delivery Order. This sample does not call Shopee or generate real labels.</field>
+  </record>
+</odoo>
