@@ -54,7 +54,7 @@
   </record>
   <menuitem id="menu_shopee_root" name="Shopee Integration" sequence="70"
             web_icon="motogene_shopee_integration,static/description/icon.png"
-            groups="base.group_system"/>
+            groups="base.group_system,motogene_shopee_integration.group_shopee_reviewer"/>
   <menuitem id="menu_shopee_config" name="Shopee Shops" parent="menu_shopee_root"
-            action="action_shopee_shop" sequence="10"/>
+            action="action_shopee_shop" sequence="10" groups="base.group_system"/>
 </odoo>
