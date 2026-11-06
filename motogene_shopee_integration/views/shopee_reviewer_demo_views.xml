@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_shopee_reviewer_demo_list" model="ir.ui.view">
+    <field name="name">motogene.shopee.reviewer.demo.list</field>
+    <field name="model">motogene.shopee.reviewer.demo</field>
+    <field name="arch" type="xml">
+      <list string="Shopee Integration - Sample Workflow" create="false" edit="false" delete="false" import="false">
+        <field name="name"/>
+        <field name="workflow_stage"/>
+        <field name="item_name"/>
+        <field name="quantity"/>
+        <field name="total_amount"/>
+        <field name="shipping_method"/>
+      </list>
+    </field>
+  </record>
+  <record id="view_shopee_reviewer_demo_form" model="ir.ui.view">
+    <field name="name">motogene.shopee.reviewer.demo.form</field>
+    <field name="model">motogene.shopee.reviewer.demo</field>
+    <field name="arch" type="xml">
+      <form string="Shopee Integration Sample (No Live Data)" create="false" edit="false" delete="false">
+        <sheet>
+          <div class="alert alert-info" role="alert">
+            Demonstration only. All order references, prices and fulfillment stages are fictional.
+            This view does not access Shopee APIs, create Sales Orders, or arrange shipments.
+          </div>
+          <group>
+            <group><field name="name"/><field name="workflow_stage"/><field name="item_name"/><field name="quantity"/></group>
+            <group><field name="total_amount"/><field name="shipping_method"/></group>
+          </group>
+          <group string="How This Integration Works"><field name="notes" nolabel="1"/></group>
+        </sheet>
+      </form>
+    </field>
+  </record>
+  <record id="action_shopee_reviewer_demo" model="ir.actions.act_window">
+    <field name="name">Reviewer Demo (Sample Data)</field>
+    <field name="res_model">motogene.shopee.reviewer.demo</field>
+    <field name="view_mode">list,form</field>
+    <field name="context">{'create': False, 'edit': False, 'delete': False, 'import': False}</field>
+  </record>
+  <menuitem id="menu_shopee_reviewer_demo" name="Reviewer Demo (Sample Data)" parent="menu_shopee_root"
+    action="action_shopee_reviewer_demo" sequence="5"
+    groups="motogene_shopee_integration.group_shopee_reviewer,base.group_system"/>
+</odoo>
