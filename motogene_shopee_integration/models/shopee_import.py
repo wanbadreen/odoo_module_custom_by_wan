@@ -331,92 +331,129 @@ class MotoGeneShopeeShop(models.Model):
             except Exception:
                 _logger.exception("Shopee auto order sync failed for shop %s", shop.id)
 
+    def _motogene_shopee_discover_order_sns(self):
+        """Discover both new orders and recently changed orders (three-day lookback)."""
+        self.ensure_one()
+        now = int(time.time())
+        begin = now - 3 * 86400
+        numbers = []
+        for time_field in ("create_time", "update_time"):
+            cursor = ""
+            for _page in range(3):
+                data = self._read_only_api_get("/api/v2/order/get_order_list", {
+                    "time_range_field": time_field,
+                    "time_from": begin,
+                    "time_to": now,
+                    "page_size": 50,
+                    "cursor": cursor,
+                })
+                numbers.extend(
+                    str(row["order_sn"]) for row in data.get("order_list", [])
+                    if row.get("order_sn")
+                )
+                if not data.get("more"):
+                    break
+                next_cursor = data.get("next_cursor") or ""
+                if not next_cursor or next_cursor == cursor:
+                    break
+                cursor = next_cursor
+        return list(dict.fromkeys(numbers))
+
+    def _motogene_shopee_retrieve_order_details(self, numbers):
+        """Recover from sandbox batches that silently return zero or partial details.
+
+        Only successful details are upserted. A missing detail remains eligible for
+        the next sync; linked Sales Orders and Delivery Orders are never modified.
+        """
+        self.ensure_one()
+        seen = set()
+        retrieved = 0
+        pending = 0
+        optional = "item_list,total_amount,buyer_username,buyer_user_id,recipient_address"
+        for start in range(0, len(numbers), 50):
+            batch = numbers[start:start + 50]
+            try:
+                response = self._read_only_api_get("/api/v2/order/get_order_detail", {
+                    "order_sn_list": ",".join(batch),
+                    "response_optional_fields": optional,
+                })
+                details = response.get("order_list") or []
+            except Exception:
+                _logger.exception(
+                    "Shopee order detail batch failed shop=%s batch_size=%s",
+                    self.id, len(batch),
+                )
+                details = []
+            returned = set()
+            for detail in details:
+                sn = str(detail.get("order_sn") or "")
+                if sn and sn in batch and sn not in seen:
+                    self._upsert_order_preview(detail)
+                    seen.add(sn)
+                    returned.add(sn)
+                    retrieved += 1
+
+            # An absent order can poison a whole Shopee Sandbox batch.
+            # Retry the missing order(s) individually, without hiding valid peers.
+            for sn in batch:
+                if sn in returned or sn in seen:
+                    continue
+                try:
+                    one = self._read_only_api_get("/api/v2/order/get_order_detail", {
+                        "order_sn_list": sn,
+                        "response_optional_fields": optional,
+                    })
+                    matches = [
+                        item for item in (one.get("order_list") or [])
+                        if str(item.get("order_sn") or "") == sn
+                    ]
+                    if matches:
+                        self._upsert_order_preview(matches[0])
+                        seen.add(sn)
+                        retrieved += 1
+                    else:
+                        pending += 1
+                except Exception:
+                    pending += 1
+                    _logger.exception(
+                        "Shopee individual order detail failed shop=%s order=%s",
+                        self.id, sn,
+                    )
+        _logger.info(
+            "Shopee detail sync shop=%s discovered=%s retrieved=%s pending=%s",
+            self.id, len(numbers), retrieved, pending,
+        )
+        return {"retrieved": retrieved, "pending": pending}
+
     def _motogene_shopee_sync_order_previews(self):
-        """Bounded 3-day lookback; upsert by (shop, order SN), safe to repeat."""
+        """Upsert read-only previews for newly created and recently updated orders."""
         self.ensure_one()
         self._check_environment_access()
         if self.state != "connected":
             raise UserError(_("Connected Shopee Shop required."))
-        now = int(time.time())
-        begin = now - 3 * 86400
-        cursor = ""
-        numbers = []
-        for _page in range(3):
-            data = self._read_only_api_get("/api/v2/order/get_order_list", {
-                "time_range_field": "create_time",
-                "time_from": begin,
-                "time_to": now,
-                "page_size": 50,
-                "cursor": cursor,
-            })
-            numbers.extend(
-                str(row["order_sn"]) for row in data.get("order_list", [])
-                if row.get("order_sn")
-            )
-            if not data.get("more"):
-                break
-            new_cursor = data.get("next_cursor") or ""
-            if not new_cursor or new_cursor == cursor:
-                break
-            cursor = new_cursor
-        numbers = list(dict.fromkeys(numbers))
+        numbers = self._motogene_shopee_discover_order_sns()
         Preview = self.env["motogene.shopee.import.order"].sudo()
         existing = set(Preview.search([
             ("shop_id", "=", self.id), ("name", "in", numbers)
         ]).mapped("name"))
-        retrieved = 0
-        for start in range(0, len(numbers), 50):
-            details = self._read_only_api_get("/api/v2/order/get_order_detail", {
-                "order_sn_list": ",".join(numbers[start:start + 50]),
-                "response_optional_fields": "item_list,total_amount,buyer_username,buyer_user_id,recipient_address",
-            })
-            for detail in details.get("order_list", []):
-                if detail.get("order_sn"):
-                    self._upsert_order_preview(detail)
-                    retrieved += 1
-        return {"retrieved": retrieved, "new": len(set(numbers) - existing)}
+        result = self._motogene_shopee_retrieve_order_details(numbers)
+        now_existing = set(Preview.search([
+            ("shop_id", "=", self.id), ("name", "in", numbers)
+        ]).mapped("name"))
+        return {
+            "retrieved": result["retrieved"],
+            "new": len(now_existing - existing),
+            "pending": result["pending"],
+        }
 
     def action_preview_recent_orders(self):
         self.ensure_one()
         self._check_environment_access()
-        # Safe bounded lookback: 3 days, up to 150 orders per button click.
-        now = int(time.time())
-        begin = now - 3 * 86400
-        cursor = ""
-        sn_list = []
-        for _page in range(3):
-            data = self._read_only_api_get("/api/v2/order/get_order_list", {
-                "time_range_field": "create_time",
-                "time_from": begin,
-                "time_to": now,
-                "page_size": 50,
-                "cursor": cursor,
-            })
-            sn_list.extend(
-                str(v.get("order_sn")) for v in data.get("order_list", [])
-                if v.get("order_sn")
-            )
-            if not data.get("more"):
-                break
-            new_cursor = data.get("next_cursor", "")
-            if not new_cursor or new_cursor == cursor:
-                break
-            cursor = new_cursor
-        imported = 0
-        for start in range(0, len(set(sn_list)), 50):
-            ids = list(dict.fromkeys(sn_list))[start:start + 50]
-            details = self._read_only_api_get("/api/v2/order/get_order_detail", {
-                "order_sn_list": ",".join(ids),
-                "response_optional_fields": "item_list,total_amount,buyer_username,buyer_user_id,recipient_address",
-            })
-            for detail in details.get("order_list", []):
-                if not detail.get("order_sn"):
-                    continue
-                self._upsert_order_preview(detail)
-                imported += 1
+        numbers = self._motogene_shopee_discover_order_sns()
+        result = self._motogene_shopee_retrieve_order_details(numbers)
         return {
             "type": "ir.actions.act_window",
-            "name": _("Shopee Order Previews (%s)") % imported,
+            "name": _("Shopee Order Previews (%s)") % result["retrieved"],
             "res_model": "motogene.shopee.import.order",
             "view_mode": "list,form",
             "domain": [("shop_id", "=", self.id)],
