@@ -19,7 +19,19 @@ class ShopeeProductMapping(models.Model):
     shopee_item_id = fields.Char(required=True, index=True)
     shopee_model_id = fields.Char(default="0", required=True, index=True)
     seller_sku = fields.Char()
+    shopee_main_product = fields.Char(string="Shopee Main Product", readonly=True, copy=False)
+    shopee_variation_name = fields.Char(string="Shopee Variation", readonly=True, copy=False)
+    quantity_multiplier = fields.Integer(
+        string="Quantity Multiplier", required=True, default=1,
+        help="Odoo units per Shopee unit; for example one 2OS30 set equals two OS30 boxes.")
     product_id = fields.Many2one("product.product", required=True, ondelete="restrict")
+
+    @api.constrains("quantity_multiplier")
+    def _check_quantity_multiplier(self):
+        for rec in self:
+            if rec.quantity_multiplier < 1:
+                raise UserError(_("Quantity Multiplier must be a positive whole number."))
+
     active = fields.Boolean(default=True)
 
     _sql_constraints = [
@@ -203,6 +215,7 @@ class ShopeeImportedLine(models.Model):
     shopee_discounted_price = fields.Float(readonly=True, digits=(16, 2))
     product_id = fields.Many2one("product.product", readonly=True)
     matched = fields.Boolean(readonly=True)
+    quantity_multiplier = fields.Integer(readonly=True, default=1)
 
 
 class MotoGeneShopeeShop(models.Model):
@@ -388,6 +401,7 @@ class MotoGeneShopeeShop(models.Model):
                 "shopee_discounted_price": float(item.get("model_discounted_price") or 0),
                 "product_id": mapping.product_id.id if mapping else False,
                 "matched": bool(mapping),
+                "quantity_multiplier": mapping.quantity_multiplier if mapping else 1,
             }))
         status = ("empty" if not lines else
                   "matched" if all(v[2]["matched"] for v in lines) else "review")
