@@ -321,48 +321,79 @@ class GdexConsignment(models.Model):
         }
 
     def _ensure_pdf(self):
+        """Fetch and cache existing GDEX labels; never create new consignments.
+
+        For multi-piece Normal MPS, GDEX returns all labels with the parent CN
+        and paperPrintingSize=GO. Validate page count before making them
+        available to either single or bulk printing.
+        """
         self.ensure_one()
         self._check_operator()
         if self.state != 'success' or not self.awb:
             raise UserError(_('Only successful consignments may be printed.'))
-        if self.pieces > 1:
-            # GetConsignmentNotePDF and GetConsignmentDocument returned only
-            # the parent in the verified GDEX API tests. Never print a
-            # parent-only cached PDF as if it covered all shipped pieces.
-            if not self.pdf_attachment_id:
-                raise UserError(_('MPS requires the official multi-page PDF from myGDEX Prime. '
-                                  'Use Import Official MPS Labels before printing.'))
+
+        if self.pdf_attachment_id:
+            cached = base64.b64decode(self.pdf_attachment_id.datas)
+            if self.pieces <= 1:
+                return cached
+            # Reuse official imported labels or previously downloaded GO PDFs
+            # only if they contain the expected number of parcel labels.
             from pypdf import PdfReader
             try:
-                cached = base64.b64decode(self.pdf_attachment_id.datas)
-                reader = PdfReader(io.BytesIO(cached))
-                if len(reader.pages) != self.pieces:
-                    raise UserError(_('MPS has %s pieces but saved PDF contains %s page(s). '
-                                      'Import the full official MPS PDF from myGDEX Prime.') %
-                                    (self.pieces, len(reader.pages)))
-            except UserError:
-                raise
-            except Exception as exc:
-                raise UserError(_('Saved MPS PDF is invalid. Reimport the original GDEX labels.')) from exc
-            return cached
-        if self.pdf_attachment_id:
-            return base64.b64decode(self.pdf_attachment_id.datas)
+                if len(PdfReader(io.BytesIO(cached)).pages) == self.pieces:
+                    return cached
+                _logger.warning('GDEX cached MPS PDF for %s has an incomplete page count; downloading again', self.awb)
+            except Exception:
+                _logger.warning('GDEX cached MPS PDF for %s is unreadable; downloading again', self.awb)
+
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
+        paper_size = 'GO' if self.pieces > 1 else 'A6'
         try:
-            response = requests.get(endpoint+'/GetConsignmentNotePDF',
-                headers=headers, params={'consignmentNo': self.awb, 'paperPrintingSize': 'A6',
-                                        **({'accountNo': account} if account else {})}, timeout=(10,35))
+            response = requests.get(endpoint + '/GetConsignmentNotePDF',
+                headers=headers,
+                params={'consignmentNo': self.awb, 'paperPrintingSize': paper_size,
+                        **({'accountNo': account} if account else {})},
+                timeout=(10, 35))
         except requests.RequestException as exc:
+            if self.pieces > 1:
+                raise UserError(_('GDEX MPS label retrieval failed (%s). '
+                                  'Use Import Official MPS Labels as a fallback.') %
+                                type(exc).__name__) from exc
             raise UserError(_('GDEX PDF request failed (%s).') % type(exc).__name__) from exc
+
         if response.status_code != 200 or not response.content.startswith(b'%PDF'):
+            if self.pieces > 1:
+                raise UserError(_('GDEX did not return the complete MPS PDF (HTTP %s). '
+                                  'Use Import Official MPS Labels as a fallback.') %
+                                response.status_code)
             raise UserError(_('GDEX did not return a PDF (HTTP %s).') % response.status_code)
-        try:
-            out = convert_to_thermal(response.content)
-        except Exception as exc:
-            _logger.exception('Could not convert GDEX PDF for AWB %s', self.awb)
-            raise UserError(_('Unable to convert GDEX PDF to 100 × 150 mm.')) from exc
+
+        if self.pieces > 1:
+            from pypdf import PdfReader
+            try:
+                count = len(PdfReader(io.BytesIO(response.content)).pages)
+            except Exception as exc:
+                raise UserError(_('GDEX returned an invalid MPS PDF. '
+                                  'Use Import Official MPS Labels as a fallback.')) from exc
+            if count != self.pieces:
+                raise UserError(_('GDEX MPS has %s pieces but the downloaded PDF contains %s '
+                                  'page(s). No incomplete labels were saved. '
+                                  'Use Import Official MPS Labels as a fallback.') %
+                                (self.pieces, count))
+            # GO pages are the complete thermal labels, verified by print and
+            # barcode-scan UAT. Do not crop like the single-piece A4 PDF.
+            out = response.content
+            filename = '%s_MPS_%s_labels_GO.pdf' % (self.awb, self.pieces)
+        else:
+            try:
+                out = convert_to_thermal(response.content)
+            except Exception as exc:
+                _logger.exception('Could not convert GDEX PDF for AWB %s', self.awb)
+                raise UserError(_('Unable to convert GDEX PDF to 100 × 150 mm.')) from exc
+            filename = self.awb + '_100x150.pdf'
+
         att = self.env['ir.attachment'].sudo().create({
-            'name': self.awb+'_100x150.pdf', 'type': 'binary',
+            'name': filename, 'type': 'binary',
             'datas': base64.b64encode(out), 'mimetype': 'application/pdf',
             'res_model': self._name, 'res_id': self.id,
         })
