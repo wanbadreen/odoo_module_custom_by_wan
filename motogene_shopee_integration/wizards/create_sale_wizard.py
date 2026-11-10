@@ -53,7 +53,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         if other:
             raise UserError(_("This Shopee Order SN is already linked to SO %s.") % other.name)
         if any(
-            not line.product_id or line.quantity <= 0
+            not line.product_id or line.quantity <= 0 or line.quantity_multiplier < 1
             for line in preview.line_ids
         ):
             raise UserError(_("Invalid or unmapped item quantity."))
@@ -63,12 +63,13 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             product = line.product_id.with_company(self.company_id)
             if not product.sale_ok:
                 raise UserError(_("Product %s is not available for Sales.") % product.display_name)
+            multiplier = line.quantity_multiplier
             lines.append((0, 0, {
                 "product_id": product.id,
                 "name": product.display_name,
-                "product_uom_qty": line.quantity,
+                "product_uom_qty": line.quantity * multiplier,
                 "product_uom": product.uom_id.id,
-                "price_unit": line.shopee_discounted_price,
+                "price_unit": line.shopee_discounted_price / multiplier,
                 "discount": 0.0,
             }))
         # Odoo Studio selection key includes a trailing space: 'SHOPEE '.
@@ -120,7 +121,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             preview.line_ids,
         ):
             so_line.write({
-                "price_unit": source_line.shopee_discounted_price,
+                "price_unit": source_line.shopee_discounted_price / source_line.quantity_multiplier,
                 "discount": 0.0,
             })
         return {
