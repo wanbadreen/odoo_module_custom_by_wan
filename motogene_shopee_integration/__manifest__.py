@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Shopee Integration",
     "summary": "Shopee Sandbox and gated Production shop integrations, orders and logistics",
-    "version": "18.0.6.2.0",
+    "version": "18.0.6.3.0",
     "category": "Sales/Sales",
     "author": "Morimoto Formulas",
     "license": "LGPL-3",
