@@ -523,7 +523,38 @@ class MotoGeneShopeeShop(models.Model):
             "last_sync_at": fields.Datetime.now(),
         }
         if order:
-            # Replace preview items atomically; no sale.order or stock interaction.
-            order.write({**vals, "line_ids": [(5, 0, 0)] + lines})
+            # Refresh headers on every poll, but preserve unchanged preview line IDs.
+            # Rebuilding one2many records every minute generates unnecessary
+            # unlink/create churn and can invalidate users' open preview views.
+            desired = [command[2] for command in lines]
+            current = order.line_ids
+
+            def same_line(existing, incoming):
+                for field_name in ("item_id", "model_id", "item_name", "seller_sku"):
+                    if (existing[field_name] or "") != (incoming[field_name] or ""):
+                        return False
+                for field_name in (
+                    "quantity", "shopee_original_price", "shopee_discounted_price"
+                ):
+                    if abs(float(existing[field_name] or 0) -
+                           float(incoming[field_name] or 0)) > 0.000001:
+                        return False
+                return (
+                    (existing.product_id.id or False) == (incoming["product_id"] or False)
+                    and bool(existing.matched) == bool(incoming["matched"])
+                    and existing.quantity_multiplier == incoming["quantity_multiplier"]
+                )
+
+            lines_unchanged = (
+                len(current) == len(desired)
+                and all(same_line(old_line, new_line)
+                        for old_line, new_line in zip(current, desired))
+            )
+            if lines_unchanged:
+                order.write(vals)
+            else:
+                # Only rebuild preview lines if Shopee items, prices, quantities,
+                # mappings, or multipliers actually changed.
+                order.write({**vals, "line_ids": [(5, 0, 0)] + lines})
         else:
             Order.create({**vals, "line_ids": lines})
