@@ -324,8 +324,9 @@ class GdexConsignment(models.Model):
         """Fetch and cache existing GDEX labels; never create new consignments.
 
         For multi-piece Normal MPS, GDEX returns all labels with the parent CN
-        and paperPrintingSize=GO. Validate page count before making them
-        available to either single or bulk printing.
+        and paperPrintingSize=GO. Single-piece Normal labels also use GO to
+        preserve the full official GDEX layout without cropping.
+        Validate page count before single or bulk printing.
         """
         self.ensure_one()
         self._check_operator()
@@ -347,7 +348,7 @@ class GdexConsignment(models.Model):
                 _logger.warning('GDEX cached MPS PDF for %s is unreadable; downloading again', self.awb)
 
         headers, account, endpoint, environment = self._credentials(environment=self.api_environment)
-        paper_size = 'GO' if self.pieces > 1 else 'A6'
+        paper_size = 'GO'
         try:
             response = requests.get(endpoint + '/GetConsignmentNotePDF',
                 headers=headers,
@@ -385,12 +386,18 @@ class GdexConsignment(models.Model):
             out = response.content
             filename = '%s_MPS_%s_labels_GO.pdf' % (self.awb, self.pieces)
         else:
+            from pypdf import PdfReader
             try:
-                out = convert_to_thermal(response.content)
+                count = len(PdfReader(io.BytesIO(response.content)).pages)
             except Exception as exc:
-                _logger.exception('Could not convert GDEX PDF for AWB %s', self.awb)
-                raise UserError(_('Unable to convert GDEX PDF to 100 × 150 mm.')) from exc
-            filename = self.awb + '_100x150.pdf'
+                raise UserError(_('GDEX returned an invalid Single AWB PDF.')) from exc
+            if count != 1:
+                raise UserError(_('GDEX Single AWB PDF must contain exactly one page '
+                                  '(received %s). No label was saved.') % count)
+            # GO is the full GDEX thermal layout; preserve vector artwork,
+            # QR codes and barcodes without A4 crop/rescaling.
+            out = response.content
+            filename = self.awb + '_GO.pdf'
 
         att = self.env['ir.attachment'].sudo().create({
             'name': filename, 'type': 'binary',
