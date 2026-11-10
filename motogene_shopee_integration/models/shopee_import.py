@@ -34,6 +34,54 @@ class ShopeeProductMapping(models.Model):
 
     active = fields.Boolean(default=True)
 
+    def action_sync_shopee_names(self):
+        """Fetch parent and variation labels, without changing Odoo product mappings."""
+        if not self.env.user.has_group("base.group_system"):
+            raise UserError(_("Only system administrators can sync catalogue names."))
+        for mapping in self:
+            shop = mapping.shop_id
+            shop._check_environment_access()
+            if shop.state != "connected":
+                raise UserError(_("Connect the Shopee shop before syncing catalogue labels."))
+            base = shop._read_only_api_get(
+                "/api/v2/product/get_item_base_info",
+                {"item_id_list": mapping.shopee_item_id},
+            )
+            items = base.get("item_list") or []
+            item = next(
+                (row for row in items if str(row.get("item_id")) == mapping.shopee_item_id),
+                None,
+            )
+            if not item:
+                raise UserError(_("Shopee listing not found for this mapping."))
+            variation = "No Variation"
+            if item.get("has_model"):
+                details = shop._read_only_api_get(
+                    "/api/v2/product/get_model_list",
+                    {"item_id": int(mapping.shopee_item_id)},
+                )
+                model = next(
+                    (row for row in (details.get("model") or [])
+                     if str(row.get("model_id")) == mapping.shopee_model_id),
+                    None,
+                )
+                if not model:
+                    raise UserError(_("Shopee variation ID not found in this listing."))
+                variation = model.get("model_name") or "Unnamed Variation"
+            mapping.write({
+                "shopee_main_product": str(item.get("item_name") or "")[:255],
+                "shopee_variation_name": str(variation)[:255],
+            })
+        return {
+            "type": "ir.actions.client",
+            "tag": "display_notification",
+            "params": {
+                "title": _("Shopee Names Synced"),
+                "message": _("Main Product and Variation Name updated from Shopee. Mapping and quantity are unchanged."),
+                "type": "success", "sticky": False,
+            },
+        }
+
     _sql_constraints = [
         ("mapping_shop_item_model_unique",
          "unique(shop_id, shopee_item_id, shopee_model_id)",
