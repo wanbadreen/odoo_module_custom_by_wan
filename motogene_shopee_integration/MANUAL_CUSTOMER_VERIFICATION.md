@@ -1,81 +1,81 @@
-# Shopee Manual Customer Verification — Odoo 18
+# MotoGene Shopee — Simple Manual Customer Assignment (Odoo 18)
 
-Version: 18.0.6.1.1 (isolated patch against Production main 18.0.6.1.0).
-The Staging feature branch has diverged: do NOT merge it into this branch blindly.
-Production server deployment is a separate explicit step.
+Version: `18.0.6.1.2`. Patch on deployed Production `18.0.6.1.1`
+(feature branch `feature/shopee-manual-prod-isolated-20261111`).
 
-## New gate
+This patch keeps the API-based flow, Production Auto Sync and existing Odoo
+fulfillment protections. It removes the unnecessarily strict duplicate Seller
+Centre name/address input and string comparison.
 
-- `motogene_shopee.enable_production_manual_so` defaults to `0` (OFF).
-- Existing `motogene_shopee.enable_production_so_creation` may remain `0`.
-- Existing `motogene_shopee.enable_production_fulfillment` must remain `0`.
-- The Production Shop's `production_fulfillment_enabled` must remain unchecked.
-- Shopee auto order preview sync remains independent and can stay ON.
+## Intended workflow
 
-## Human workflow
+1. Shopee order is imported as an Order Preview by the existing auto-sync job.
+2. For a mapped, `READY_TO_SHIP` preview, create a **draft** with the
+   `Select Customer Manually` mode. Never confirm the placeholder draft.
+3. Staff arrange shipment **once** in Shopee Seller Centre and inspect
+   the actual order, recipient and delivery address there.
+4. Click **Assign / Change Shopee Customer** on the draft.
+5. Enter the Seller Centre **AWB/tracking number**.
+6. Choose:
+   - **Select Existing Odoo Contact**: staff visually compare the contact's
+     name AND actual delivery address with Seller Centre, then select it.
+     There is **no extra Seller Centre address field** or automatic fuzzy
+     matching. Odoo refuses inactive/placeholder/wrong-company or incomplete
+     Malaysian addresses.
+   - **Create New Odoo Contact**: when no appropriate contact exists,
+     enter the genuine name, full delivery address and 5-digit postcode.
+     Phone is optional if not available; never invent or copy masked values.
+7. Click **Assign Customer & AWB**. The draft receives the contact as customer,
+   invoice and delivery contact. Odoo records the staff member/time and
+   saves a fingerprint of the selected contact and AWB.
+8. Confirm SO only after the staff checks the details. A confirmed SO creates
+   DO(s) and copies Seller Centre AWB to `mori_awb_no`, with shipment state
+   `external`. No `ship_order` or another shipment request is sent.
 
-1. Verify that Shopee Order Preview is READY_TO_SHIP and all lines are correctly mapped.
-2. Open Create Draft SO; select **Seller Centre Manual Verification**.
-   The Order SN must be unique and Product Mapping complete. The quotation is
-   created under the archived technical `Shopee Pending Verification` contact.
-3. Do not confirm the SO. Arrange shipment **once** in Shopee Seller Centre.
-4. Inspect the official order/AWB in Seller Centre, within the staff member's
-   authorized access. Verify **Order SN, recipient name, full address, postcode**.
-   Phone may be omitted if not shown; never fabricate it.
-5. On Draft SO click **Verify Shopee Customer**. Enter exact Shopee Order SN,
-   AWB number, and verified recipient details.
-6. Select an Odoo contact only if name, complete address and postcode match;
-   otherwise create a new recipient contact. The wizard never automatically
-   changes an existing contact, and never makes a Shopee API mutation.
-7. Verify Customer & AWB. Confirm the SO only after verification.
-8. When Odoo creates a DO, the official tracking number is copied to the
-   existing `mori_awb_no` field and marked **Arranged in Seller Centre**.
-   No extra `ship_order` call is made. Download/print the shipping label from
-   Seller Centre and attach it to the DO if necessary.
+The wizard no longer asks staff to type Order SN, recipient name and address
+for **existing** contacts, or tick a second verification checkbox.
+The source of the truth remains the authorized Seller Centre view.
 
-The API-verified workflow remains present and can be the default again when
-Shopee PII approval arrives. No rollback/revert of this fallback is required.
+## Protection retained
 
-## Safety and limitations
+- Only System Administrators can use manual assignment.
+- `motogene_shopee.enable_production_manual_so` remains an independent flag,
+  and is `1` only if an operator explicitly enabled it.
+- `motogene_shopee.enable_production_so_creation` stays `0`.
+- `motogene_shopee.enable_production_fulfillment` stays `0`, with
+  the Production Shop live shipment checkbox unchecked.
+- `action_confirm` rejects a pending placeholder or a missing/stale AWB
+  fingerprint, and checks saved delivery contact name/address/postcode/MY.
+- One SO per Shopee Order SN, and one AWB cannot be assigned to a different SO
+  through the wizard.
+- Reassigning a different customer or changing the saved contact details after
+  assignment requires the draft to be assigned again before confirmation.
+- Product mapping and status restrictions in the original Draft wizard remain.
+- Staff must visually verify *the correct physical delivery address*. Matching
+  names or postcodes alone is **not** sufficient. This workflow intentionally
+  trusts an authorized human review; it does not perform automatic matching.
+- Odoo does not arrange shipments for these orders. Use the official AWB
+  from Seller Centre.
 
-- Backend `sale.order.action_confirm` rejects pending technical contacts,
-  pending manual SOs, and stale manual verifications.
-- A SHA256 verification fingerprint includes partner identity, delivery
-  address, phone and AWB. Changes after verification block Confirm.
-- The unique Shopee Order SN and Preview constraints still apply.
-- Review and only process orders that Seller Centre shows as shippable.
-- Manual verification is a deliberate action by an Odoo System Administrator.
-- Do not use Order Preview's masked API data as customer details.
-- The original Production quantity multiplier limitation remains: do NOT
-  create multi-box variation SOs on 18.0.6.1.1 until quantity multiplier
-  fixes are separately reconciled and deployed.
-- Archived placeholder contact is never a valid confirmed SO recipient.
-- Existing customer matching is strict by name + complete shipping address
-  + postcode and Malaysia. If it does not match, create a separate delivery
-  contact rather than overwriting an unrelated customer's contact.
-- This feature does not implement automatic creation of Sales Orders,
-  automated SO confirmation, live shipment arrangement, or automated printing
-  of Seller Centre AWBs.
-- A status of `external` on a DO prevents the Shopee Odoo Arrange Shipment
-  buttons from sending another request.
+## Compatibility and deployment
 
-## Safe Production acceptance sequence
+Existing previously verified SOs (e.g. the already confirmed manual workflow)
+retain their `verified` status and AWB; field keys and database records have
+not been renamed. Only their user-facing labels change.
 
-1. Verify exact pinned custom addon commit and backup Production database.
-2. Deploy this isolated branch (do not merge unrelated Staging work).
-3. Upgrade `motogene_shopee_integration` and confirm version 18.0.6.1.1.
-4. Verify manual gate `0`, original SO gate `0`, fulfillment gate `0`,
-   Production Auto Sync `1` and AWB checkbox unchecked.
-5. Confirm an existing non-Shopee order can be processed normally (do not
-   create test shipping orders to the live courier).
-6. In Odoo shell, verify technical placeholder and new models/views exist.
-7. After explicit operational approval, enable only
-   `motogene_shopee.enable_production_manual_so` = `1`.
-8. Use **one** existing simple, mapped, READY_TO_SHIP Shopee order after staff
-   have arranged its shipment in Seller Centre. Verify the pending SO cannot
-   confirm; manually verify it; only then confirm the SO and audit DO AWB.
-9. If a validation fails, switch the manual SO flag back to `0`. Other
-   Production flags and unrelated workflows remain untouched.
+The `main` branch in the *custom addon* repository is not necessarily the
+deployed branch: the previous custom-main push was denied with HTTP 403.
+The parent Production submodule was pinned to an isolated Shopee commit.
+Deploy by pinning the new isolated branch commit **in the parent repository**
+after verifying branch state, **not** by merging an unrelated staging branch.
 
-Do not share or store Shopee OAuth tokens, personal recipient data or full
-AWB PDFs in GitHub issues, logs, public chats or screenshots.
+This is *not* the Staging `18.0.6.3.0` quantity-multiplier / sync-retry build.
+Do not use multi-box product variations in this `18.0.6.1.2` flow until those
+fixes have been reconciled separately.
+
+Review the updated GitHub diff, snapshot/back up the Production database,
+deploy/pin the commit and upgrade `motogene_shopee_integration`.
+Check that Auto Sync is still on, while automatic SO/fulfillment are off.
+Only exercise a single-box production draft with a legitimately arranged
+Seller Centre AWB and staff-checked customer details. Do not repeat a live
+shipment arrangement.
