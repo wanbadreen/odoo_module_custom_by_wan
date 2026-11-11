@@ -58,7 +58,7 @@ class ShopeeManualVerificationWizard(models.TransientModel):
 
         if (sale.state not in ("draft", "sent")
                 or sale.motogene_shopee_channel != "shopee"
-                or sale.motogene_shopee_manual_state != "pending"
+                or sale.motogene_shopee_manual_state not in ("pending", "verified")
                 or not sale.motogene_shopee_preview_id):
             raise UserError(_("This Shopee quotation is not awaiting verification."))
         if not self.source_confirmed:
