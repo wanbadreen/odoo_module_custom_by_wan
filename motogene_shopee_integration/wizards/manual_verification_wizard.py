@@ -82,6 +82,17 @@ class ShopeeManualVerificationWizard(models.TransientModel):
             ))
         if len(awb) > 80 or any(ch.isspace() for ch in awb):
             raise UserError(_("Check the AWB number: it must not contain spaces."))
+        if not re.fullmatch(r"[0-9]{5}", postcode):
+            raise UserError(_("Enter the verified five-digit Malaysian postcode."))
+        another = self.env["sale.order"].sudo().search([
+            ("motogene_shopee_manual_awb_no", "=", awb),
+            ("id", "!=", sale.id),
+        ], limit=1)
+        if another:
+            raise UserError(_(
+                "This AWB is already linked to a different Sales Order. "
+                "Check the Seller Centre Order SN and AWB."
+            ))
 
         if sale.company_id != self.env.company:
             raise UserError(_("Switch to the company of this Shopee Sales Order."))
@@ -108,6 +119,15 @@ class ShopeeManualVerificationWizard(models.TransientModel):
                     "Existing contact does not match the verified name, full address "
                     "and postcode. Do not reuse a customer by name alone. "
                     "Select a matching delivery contact or create a new one."
+                ))
+            known_phones = [v for v in (partner.phone, partner.mobile) if v]
+            if phone and known_phones and not any(
+                re.sub(r"\\D", "", v) == re.sub(r"\\D", "", phone)
+                for v in known_phones
+            ):
+                raise UserError(_(
+                    "The AWB phone does not match the existing contact. "
+                    "Review manually; do not overwrite the original contact."
                 ))
         elif self.match_mode == "new":
             country = self.env.ref("base.my", raise_if_not_found=False)
