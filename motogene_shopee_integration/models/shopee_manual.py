@@ -82,8 +82,6 @@ class ShopeeManualSaleOrder(models.Model):
             raise_if_not_found=False,
         )
         for order in self:
-            if order.motogene_shopee_channel != "shopee":
-                continue
             if (pending_partner and (order.partner_id == pending_partner
                                      or order.partner_shipping_id == pending_partner)):
                 raise UserError(_(
@@ -96,15 +94,18 @@ class ShopeeManualSaleOrder(models.Model):
                     "Customer before confirming the Sales Order."
                 ))
             if order.motogene_shopee_manual_state == "verified":
+                if order.motogene_shopee_channel != "shopee":
+                    raise UserError(_("Verified Shopee order channel was changed."))
                 partner = order.partner_shipping_id
                 if (order.partner_id != partner or not partner.name
                         or not partner.street or not partner.zip
                         or partner.country_id.code != "MY"):
                     raise UserError(_("Verified Shopee recipient address is incomplete."))
+                secure_order = order.sudo()
                 if (not order.motogene_shopee_manual_awb_no
-                        or not order.motogene_shopee_manual_identity_hash
-                        or order.motogene_shopee_manual_identity_hash
-                        != order._motogene_shopee_manual_identity_hash()):
+                        or not secure_order.motogene_shopee_manual_identity_hash
+                        or secure_order.motogene_shopee_manual_identity_hash
+                        != secure_order._motogene_shopee_manual_identity_hash()):
                     raise UserError(_(
                         "Shopee recipient, address, phone or AWB changed since verification. "
                         "Please re-verify before confirming."
@@ -133,7 +134,7 @@ class ShopeeManualSaleOrder(models.Model):
                         "Existing Delivery Order AWB conflicts with Seller Centre AWB. "
                         "No tracking number was overwritten."
                     ))
-                picking.write({
+                picking.sudo().write({
                     "mori_awb_no": tracking,
                     "motogene_shopee_tracking_number": tracking,
                     "motogene_shopee_shipment_state": "external",
