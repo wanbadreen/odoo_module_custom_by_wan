@@ -4,3 +4,4 @@ from . import shopee_sale
 from . import shopee_picking
 from . import shopee_customer
 from . import shopee_reviewer_demo
+from . import shopee_manual
