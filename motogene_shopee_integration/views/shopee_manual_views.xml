@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+  <record id="view_shopee_create_sale_wizard_manual_mode" model="ir.ui.view">
+    <field name="name">motogene.shopee.create.sale.wizard.manual.mode</field>
+    <field name="model">motogene.shopee.create.sale.wizard</field>
+    <field name="inherit_id" ref="motogene_shopee_integration.view_shopee_create_sale_wizard_form"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='partner_id']" position="before">
+        <field name="creation_mode" widget="radio"/>
+      </xpath>
+      <xpath expr="//div[contains(@class, 'alert-info')]" position="replace">
+        <div class="alert alert-info" role="alert" invisible="creation_mode != 'api'">
+          Odoo will resolve the customer automatically only when the Shopee API
+          recipient data is verified and complete.
+        </div>
+        <div class="alert alert-warning" role="alert" invisible="creation_mode != 'manual'">
+          Create a DRAFT using a technical pending contact. Do not confirm or ship it yet.
+          Arrange shipment in Shopee Seller Centre first, then use Verify Shopee Customer
+          on the draft quotation. Manual mode requires separate Production approval.
+        </div>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_sale_order_shopee_manual_verification" model="ir.ui.view">
+    <field name="name">sale.order.shopee.manual.verification</field>
+    <field name="model">sale.order</field>
+    <field name="inherit_id" ref="motogene_shopee_integration.view_sale_order_motogene_shopee_preview"/>
+    <field name="arch" type="xml">
+      <xpath expr="//form/header" position="inside">
+        <button name="action_open_motogene_shopee_manual_verification"
+                type="object" string="Verify Shopee Customer"
+                class="btn-primary" groups="base.group_system"
+                invisible="motogene_shopee_manual_state != 'pending' or state not in ('draft', 'sent')"/>
+      </xpath>
+      <xpath expr="//field[@name='motogene_shopee_preview_id']" position="after">
+        <field name="motogene_shopee_manual_state" readonly="1"
+               invisible="not motogene_shopee_manual_state"/>
+        <field name="motogene_shopee_manual_awb_no" readonly="1"
+               invisible="not motogene_shopee_manual_awb_no"/>
+        <field name="motogene_shopee_manual_verified_by" readonly="1"
+               invisible="not motogene_shopee_manual_verified_by"/>
+        <field name="motogene_shopee_manual_verified_at" readonly="1"
+               invisible="not motogene_shopee_manual_verified_at"/>
+      </xpath>
+    </field>
+  </record>
+
+  <record id="view_shopee_manual_verify_wizard_form" model="ir.ui.view">
+    <field name="name">motogene.shopee.manual.verify.wizard.form</field>
+    <field name="model">motogene.shopee.manual.verify.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Verify Shopee Customer from Seller Centre">
+        <sheet>
+          <group>
+            <field name="sale_order_id"/>
+            <field name="seller_centre_order_sn"/>
+            <field name="awb_number"/>
+          </group>
+          <div class="alert alert-warning" role="alert">
+            Enter only recipient information legitimately available to your staff
+            in Seller Centre / the official AWB. Verify the exact Shopee Order SN.
+            Never guess or copy masked API values.
+          </div>
+          <group string="Customer Matching">
+            <field name="match_mode" widget="radio"/>
+            <field name="existing_partner_id"
+                   invisible="match_mode != 'existing'"
+                   required="match_mode == 'existing'"/>
+          </group>
+          <group string="Verified Shipping Recipient">
+            <field name="recipient_name"/>
+            <field name="recipient_phone"/>
+            <field name="recipient_street"/>
+            <field name="recipient_zip"/>
+            <field name="recipient_city"/>
+          </group>
+          <field name="source_confirmed"/>
+          <div class="alert alert-info" role="alert">
+            Existing contact matching requires the same name, full address,
+            postcode and Malaysia country. No name-only matching. A new contact
+            is created only when selected. This does not arrange shipment via API.
+          </div>
+        </sheet>
+        <footer>
+          <button name="action_verify" type="object" string="Verify Customer &amp; AWB"
+                  class="btn-primary"/>
+          <button special="cancel" string="Cancel" class="btn-secondary"/>
+        </footer>
+      </form>
+    </field>
+  </record>
+</odoo>
