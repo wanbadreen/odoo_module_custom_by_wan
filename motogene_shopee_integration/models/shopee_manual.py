@@ -64,9 +64,9 @@ class ShopeeManualSaleOrder(models.Model):
         if not self.env.user.has_group("base.group_system"):
             raise AccessError(_("Only administrators may verify Shopee recipients."))
         if (self.motogene_shopee_channel != "shopee"
-                or self.motogene_shopee_manual_state != "pending"
+                or self.motogene_shopee_manual_state not in ("pending", "verified")
                 or self.state not in ("draft", "sent")):
-            raise UserError(_("Only pending Shopee draft quotations can be verified."))
+            raise UserError(_("Only Shopee draft quotations requiring manual review can be verified."))
         return {
             "type": "ir.actions.act_window",
             "name": _("Verify Shopee Customer from Seller Centre"),
