@@ -14,10 +14,10 @@ class ShopeeManualSaleOrder(models.Model):
 
     motogene_shopee_manual_state = fields.Selection(
         [
-            ("pending", "Pending Customer Verification"),
-            ("verified", "Manually Verified"),
+            ("pending", "Pending Customer Assignment"),
+            ("verified", "Customer Assigned (Staff Review)"),
         ],
-        string="Shopee Manual Verification",
+        string="Shopee Customer Assignment",
         readonly=True,
         copy=False,
         tracking=True,
@@ -28,13 +28,13 @@ class ShopeeManualSaleOrder(models.Model):
         copy=False,
     )
     motogene_shopee_manual_verified_by = fields.Many2one(
-        "res.users", string="Verified By", readonly=True, copy=False,
+        "res.users", string="Assigned By", readonly=True, copy=False,
     )
     motogene_shopee_manual_verified_at = fields.Datetime(
-        string="Verified At", readonly=True, copy=False,
+        string="Assigned At", readonly=True, copy=False,
     )
     motogene_shopee_manual_identity_hash = fields.Char(
-        string="Verified Recipient Fingerprint",
+        string="Assigned Customer Fingerprint",
         readonly=True, copy=False, groups="base.group_system",
     )
 
@@ -66,10 +66,10 @@ class ShopeeManualSaleOrder(models.Model):
         if (self.motogene_shopee_channel != "shopee"
                 or self.motogene_shopee_manual_state not in ("pending", "verified")
                 or self.state not in ("draft", "sent")):
-            raise UserError(_("Only Shopee draft quotations requiring manual review can be verified."))
+            raise UserError(_("Only Shopee draft quotations requiring customer assignment can be updated."))
         return {
             "type": "ir.actions.act_window",
-            "name": _("Verify Shopee Customer from Seller Centre"),
+            "name": _("Assign Shopee Customer and AWB"),
             "res_model": "motogene.shopee.manual.verify.wizard",
             "view_mode": "form",
             "target": "new",
@@ -85,12 +85,12 @@ class ShopeeManualSaleOrder(models.Model):
             if (pending_partner and (order.partner_id == pending_partner
                                      or order.partner_shipping_id == pending_partner)):
                 raise UserError(_(
-                    "Shopee customer is not verified. Select the correct recipient "
+                    "Shopee customer is still pending. Select the correct recipient "
                     "before confirming this Sales Order."
                 ))
             if order.motogene_shopee_manual_state == "pending":
                 raise UserError(_(
-                    "Shopee recipient verification is pending. Use Verify Shopee "
+                    "Shopee customer assignment is pending. Use Assign Shopee "
                     "Customer before confirming the Sales Order."
                 ))
             if order.motogene_shopee_manual_state == "verified":
@@ -106,15 +106,15 @@ class ShopeeManualSaleOrder(models.Model):
                 if (order.partner_id != partner or not partner.name
                         or not partner.street or not partner.zip
                         or partner.country_id.code != "MY"):
-                    raise UserError(_("Verified Shopee recipient address is incomplete."))
+                    raise UserError(_("Selected Shopee recipient address is incomplete."))
                 secure_order = order.sudo()
                 if (not order.motogene_shopee_manual_awb_no
                         or not secure_order.motogene_shopee_manual_identity_hash
                         or secure_order.motogene_shopee_manual_identity_hash
                         != secure_order._motogene_shopee_manual_identity_hash()):
                     raise UserError(_(
-                        "Shopee recipient, address, phone or AWB changed since verification. "
-                        "Please re-verify before confirming."
+                        "Shopee contact, address, phone or AWB changed after assignment. "
+                        "Please reassign the customer and AWB before confirming."
                     ))
         result = super().action_confirm()
 
