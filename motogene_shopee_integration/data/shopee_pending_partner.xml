@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+  <!-- Archived technical placeholder. Never allowed on a confirmed Shopee SO. -->
+  <record id="partner_shopee_pending_verification" model="res.partner">
+    <field name="name">SHOPEE - PENDING CUSTOMER VERIFICATION (DO NOT SHIP)</field>
+    <field name="active" eval="False"/>
+    <field name="customer_rank" eval="0"/>
+  </record>
+</odoo>
