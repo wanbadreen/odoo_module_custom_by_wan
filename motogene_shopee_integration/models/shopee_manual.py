@@ -96,6 +96,12 @@ class ShopeeManualSaleOrder(models.Model):
             if order.motogene_shopee_manual_state == "verified":
                 if order.motogene_shopee_channel != "shopee":
                     raise UserError(_("Verified Shopee order channel was changed."))
+                preview = order.motogene_shopee_preview_id
+                if preview and preview.order_status in ("CANCELLED", "UNPAID"):
+                    raise UserError(_(
+                        "Shopee order is cancelled or unpaid. Refresh the order status "
+                        "and check Seller Centre before confirming this Sales Order."
+                    ))
                 partner = order.partner_shipping_id
                 if (order.partner_id != partner or not partner.name
                         or not partner.street or not partner.zip
