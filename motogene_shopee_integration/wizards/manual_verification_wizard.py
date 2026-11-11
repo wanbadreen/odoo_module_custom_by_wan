@@ -122,7 +122,7 @@ class ShopeeManualVerificationWizard(models.TransientModel):
                 ))
             known_phones = [v for v in (partner.phone, partner.mobile) if v]
             if phone and known_phones and not any(
-                re.sub(r"\D", "", v) == re.sub(r"\\D", "", phone)
+                re.sub(r"\D", "", v) == re.sub(r"\D", "", phone)
                 for v in known_phones
             ):
                 raise UserError(_(
