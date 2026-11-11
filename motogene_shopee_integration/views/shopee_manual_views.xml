@@ -29,9 +29,9 @@
     <field name="arch" type="xml">
       <xpath expr="//form/header" position="inside">
         <button name="action_open_motogene_shopee_manual_verification"
-                type="object" string="Verify Shopee Customer"
+                type="object" string="Verify / Reverify Shopee Customer"
                 class="btn-primary" groups="base.group_system"
-                invisible="motogene_shopee_manual_state != 'pending' or state not in ('draft', 'sent')"/>
+                invisible="motogene_shopee_manual_state not in ('pending', 'verified') or state not in ('draft', 'sent')"/>
       </xpath>
       <xpath expr="//field[@name='motogene_shopee_preview_id']" position="after">
         <field name="motogene_shopee_manual_state" readonly="1"
