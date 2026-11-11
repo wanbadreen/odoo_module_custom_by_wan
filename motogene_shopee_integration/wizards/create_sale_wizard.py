@@ -4,7 +4,7 @@ from odoo.exceptions import UserError
 
 class ShopeeCreateSaleWizard(models.TransientModel):
     _name = "motogene.shopee.create.sale.wizard"
-    _description = "Create Draft SO from Shopee Preview (API or Manual Verification)"
+    _description = "Create Draft SO from Shopee Preview (API or Manual Customer Selection)"
 
     preview_id = fields.Many2one(
         "motogene.shopee.import.order", required=True, readonly=True)
@@ -13,7 +13,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         help="Shopee buyer and shipping contact are resolved automatically from verified API identity.")
     creation_mode = fields.Selection([
         ("api", "API Verified Recipient"),
-        ("manual", "Seller Centre Manual Verification"),
+        ("manual", "Select Customer Manually"),
     ], string="Recipient Workflow", required=True, default="api")
 
     @api.model
