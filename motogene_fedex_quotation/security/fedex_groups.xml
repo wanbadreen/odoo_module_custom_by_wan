@@ -1,0 +1,5 @@
+<odoo>
+    <record id="group_fedex_operator" model="res.groups">
+        <field name="name">FedEx Quotation Operations</field>
+    </record>
+</odoo>
