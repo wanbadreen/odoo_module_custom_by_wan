@@ -109,12 +109,19 @@ class MotogeneFedexQuoteWizard(models.TransientModel):
                 raise UserError(_("Each package requires positive weight and dimensions."))
         items = order.order_line.filtered(
             lambda l: not l.display_type and l.product_id
-            and l.product_uom_qty > 0 and l.price_subtotal > 0
+            and l.product_uom_qty > 0 and l.product_id.type != "service"
         )
         if not items:
             raise UserError(
-                _("Order must contain goods with genuine positive declared values.")
+                _("Order must contain physical goods for international rating.")
             )
+        if any(l.price_subtotal <= 0 for l in items):
+            raise UserError(
+                _("Zero-value goods require separate customs handling. "
+                  "This first version only rates goods with a genuine positive value.")
+            )
+        if any(l.product_uom_qty != int(l.product_uom_qty) for l in items):
+            raise UserError(_("This version requires whole-unit quantities."))
         if float_compare(sum(items.mapped("price_subtotal")), 0.0, precision_digits=2) <= 0:
             raise UserError(_("The order's goods value must be positive."))
 
@@ -130,7 +137,7 @@ class MotogeneFedexQuoteWizard(models.TransientModel):
             # Before customs paperwork, collect exact per-commodity net weights.
             estimated_weight = round(weight_total * value / value_total, 3)
             goods.append({
-                "description": self.customs_description,
+                "description": line.product_id.display_name or self.customs_description,
                 "countryOfManufacture": self.origin_country_id.code,
                 "numberOfPieces": 1,
                 "quantity": max(1, int(line.product_uom_qty)),
@@ -167,6 +174,7 @@ class MotogeneFedexQuoteWizard(models.TransientModel):
                 },
             },
             "pickupType": "DROPOFF_AT_FEDEX_LOCATION",
+            "totalPackageCount": len(package_lines),
             "shipDateStamp": fields.Date.to_string(self.ship_date),
             "packagingType": "YOUR_PACKAGING",
             "rateRequestType": ["ACCOUNT"],
