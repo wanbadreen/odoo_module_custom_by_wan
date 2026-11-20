@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Event Contacts Integration",
     "summary": "Booking owners, attendee contacts, safe matching and staff reviews",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "author": "WanBadreen",
     "category": "Marketing/Events",
     "license": "LGPL-3",

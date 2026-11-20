@@ -1,1 +1,1 @@
-{'name': 'Morimoto Mobile Staging', 'version': '18.0.3.1.0', 'depends': ['sale_management', 'mail', 'delivery'], 'data': ['security/groups.xml', 'security/ir.model.access.csv'], 'license': 'LGPL-3', 'installable': True}
+{'name': 'Morimoto Mobile Staging', 'version': '20.0.3.1.0', 'depends': ['sale_management', 'mail', 'delivery'], 'data': ['security/groups.xml', 'security/ir.model.access.csv'], 'license': 'LGPL-3', 'installable': True}

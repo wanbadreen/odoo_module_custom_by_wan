@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Events Operations Bundle",
     "summary": "Combined event Excel reporting, optional staff activities, and email readiness review",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "category": "Marketing/Events",
     "author": "WanBadreen",
     "license": "LGPL-3",

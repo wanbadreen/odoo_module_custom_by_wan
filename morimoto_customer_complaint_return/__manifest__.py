@@ -2,7 +2,7 @@
 {
     "name": "Customer Complaint & Return Management",
     "summary": "Centralised customer complaints and product returns linked to sales & stock",
-    "version": "18.0.1.0.0",
+    "version": "20.0.1.0.0",
     "author": "WanBadreen",
     "website": "https://www.morimoto.com",
     "category": "Customer Relationship Management",

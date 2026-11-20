@@ -1,7 +1,7 @@
 {
     "name": "MotoGene Event Activity Hub",
     "summary": "Multiple-session activity builder using standard Odoo Events",
-    "version": "18.0.1.2.1",
+    "version": "20.0.1.2.1",
     "category": "Marketing/Events",
     "author": "WanBadreen",
     "license": "LGPL-3",
