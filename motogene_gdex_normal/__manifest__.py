@@ -8,7 +8,7 @@
     'depends': ['stock', 'delivery', 'morimoto_inter_company'],
     'data': [
         'security/gdex_groups.xml',
-        'security/ir.model.access.csv',
+        'security/ir.access.csv',
         'views/config_views.xml',
         'views/consignment_views.xml',
         'views/wizard_views.xml',

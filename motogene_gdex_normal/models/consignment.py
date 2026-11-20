@@ -75,29 +75,29 @@ class GdexConsignment(models.Model):
     @api.model
     def _credentials(self, environment=None, require_creation=False):
         params = self.env['ir.config_parameter'].sudo()
-        active = params.get_param('motogene_gdex_normal.environment', 'sandbox')
+        active = params.get_str('motogene_gdex_normal.environment', 'sandbox')
         environment = environment or active
         if environment not in ('sandbox', 'production'):
             raise UserError(_('Invalid GDEX environment.'))
         if require_creation and environment != active:
             raise UserError(_('GDEX environment changed; reload the wizard.'))
         if environment == 'production':
-            if require_creation and params.get_param('motogene_gdex_normal.production_enabled', 'False') != 'True':
+            if require_creation and not params.get_bool('motogene_gdex_normal.production_enabled'):
                 raise UserError(_('Production AWB creation is disabled by administrator.'))
             endpoint = PRODUCTION
-            token = params.get_param('motogene_gdex_normal.production_token')
-            key = params.get_param('motogene_gdex_normal.production_key')
+            token = params.get_str('motogene_gdex_normal.production_token')
+            key = params.get_str('motogene_gdex_normal.production_key')
         else:
             endpoint = DEMO
-            token = params.get_param('motogene_gdex_normal.sandbox_token')
-            key = params.get_param('motogene_gdex_normal.sandbox_key')
+            token = params.get_str('motogene_gdex_normal.sandbox_token')
+            key = params.get_str('motogene_gdex_normal.sandbox_key')
         if not token or not key:
             raise UserError(_('Configure GDEX %s credentials first.') % environment)
         return ({
             'ApiToken': token, 'Subscription-Key': key,
             'Content-Type': 'application/json-patch+json',
             'Accept': 'application/json',
-        }, params.get_param('motogene_gdex_normal.account_no'), endpoint, environment)
+        }, params.get_str('motogene_gdex_normal.account_no'), endpoint, environment)
 
     @api.model
     def create_from_wizard_line(self, line):
@@ -221,7 +221,7 @@ class GdexConsignment(models.Model):
             raise UserError(_('MPS cancellation is blocked until GDEX confirms that cancelling the parent also cancels every child CN.'))
         params = self.env['ir.config_parameter'].sudo()
         if (self.api_environment == 'production' and
-                params.get_param('motogene_gdex_normal.production_enabled', 'False') != 'True'):
+                not params.get_bool('motogene_gdex_normal.production_enabled')):
             raise UserError(_('Production actions are disabled. Administrator must enable Production AWB Creation before live cancellation.'))
         reason = (self.env.context.get('gdex_cancel_reason') or self.cancellation_reason or '').strip()
         if not reason:

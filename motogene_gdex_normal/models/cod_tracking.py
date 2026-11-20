@@ -43,7 +43,7 @@ class GdexCodTracking(models.Model):
         self.ensure_one()
         params = self.env['ir.config_parameter'].sudo()
         prefix = 'motogene_gdex_normal.cod_' + self.api_environment + '_'
-        token, key = params.get_param(prefix + 'token'), params.get_param(prefix + 'key')
+        token, key = params.get_str(prefix + 'token'), params.get_str(prefix + 'key')
         if not token or not key:
             raise UserError(_('GDEX COD %s credentials are missing.') % self.api_environment)
         return ({'ApiToken': token, 'Subscription-Key': key,

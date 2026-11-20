@@ -92,9 +92,9 @@ class GdexPickup(models.Model):
     @api.model
     def _allow_production_mutation(self, environment):
         if environment == 'production':
-            enabled = self.env['ir.config_parameter'].sudo().get_param(
-                'motogene_gdex_normal.pickup_production_enabled', 'False')
-            if enabled != 'True':
+            enabled = self.env['ir.config_parameter'].sudo().get_bool(
+                'motogene_gdex_normal.pickup_production_enabled')
+            if not enabled:
                 raise UserError(_('Production pickup create/cancel is disabled. '
                                   'Enable it separately in GDEX settings after UAT.'))
 
@@ -132,7 +132,7 @@ class GdexPickup(models.Model):
             raise UserError(_('Only draft pickups can be sent to GDEX.'))
         self._validate()
         params = self.env['ir.config_parameter'].sudo()
-        environment = params.get_param('motogene_gdex_normal.environment', 'sandbox')
+        environment = params.get_str('motogene_gdex_normal.environment', 'sandbox')
         self._allow_production_mutation(environment)
         headers, account, endpoint, resolved_environment = self._credentials(environment=environment)
         if not account:

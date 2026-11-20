@@ -57,21 +57,21 @@ class GdexCodConsignment(models.Model):
     @api.model
     def _cod_credentials(self):
         params = self.env['ir.config_parameter'].sudo()
-        environment = params.get_param('motogene_gdex_normal.cod_environment', 'sandbox')
+        environment = params.get_str('motogene_gdex_normal.cod_environment', 'sandbox')
         if environment not in ('sandbox', 'production'):
             raise UserError(_('Invalid GDEX COD environment.'))
         prefix = 'motogene_gdex_normal.cod_' + environment + '_'
-        token = params.get_param(prefix + 'token')
-        key = params.get_param(prefix + 'key')
-        account = params.get_param(prefix + 'account')
+        token = params.get_str(prefix + 'token')
+        key = params.get_str(prefix + 'key')
+        account = params.get_str(prefix + 'account')
         if not token or not key or not account:
             raise UserError(_('Configure GDEX COD %s token, subscription key and account first.') % environment)
         if environment == 'production':
-            normal_account = params.get_param('motogene_gdex_normal.account_no')
+            normal_account = params.get_str('motogene_gdex_normal.account_no')
             if normal_account and normal_account.strip() == account.strip():
                 raise UserError(_('COD Production Account Number must be different from the GDEX Normal account.'))
-        if environment == 'production' and params.get_param(
-                'motogene_gdex_normal.cod_production_enabled', 'False') != 'True':
+        if environment == 'production' and not params.get_bool(
+                'motogene_gdex_normal.cod_production_enabled'):
             raise UserError(_('Production GDEX COD creation is disabled in Settings.'))
         headers = {
             'ApiToken': token, 'Subscription-Key': key,
@@ -253,9 +253,9 @@ class GdexCodConsignment(models.Model):
             # No new consignment creation during printing. Read back via COD credentials.
             params = self.env['ir.config_parameter'].sudo()
             prefix = 'motogene_gdex_normal.cod_' + self.api_environment + '_'
-            token = params.get_param(prefix + 'token')
-            key = params.get_param(prefix + 'key')
-            account = params.get_param(prefix + 'account')
+            token = params.get_str(prefix + 'token')
+            key = params.get_str(prefix + 'key')
+            account = params.get_str(prefix + 'account')
             if not all((token, key, account)):
                 raise UserError(_('COD credentials are not configured.'))
             endpoint = PRODUCTION if self.api_environment == 'production' else DEMO

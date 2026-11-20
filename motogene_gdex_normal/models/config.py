@@ -80,18 +80,18 @@ class ResConfigSettings(models.TransientModel):
         if not self.env.user.has_group('base.group_system'):
             raise UserError(_('Only administrators can test GDEX credentials.'))
         params = self.env['ir.config_parameter'].sudo()
-        environment = params.get_param('motogene_gdex_normal.environment', 'sandbox')
+        environment = params.get_str('motogene_gdex_normal.environment', 'sandbox')
         if environment not in ('sandbox', 'production'):
             raise UserError(_('Unknown GDEX environment.'))
         prefix = 'motogene_gdex_normal.'
         if environment == 'sandbox':
             endpoint = DEMO
-            token = params.get_param(prefix + 'sandbox_token')
-            key = params.get_param(prefix + 'sandbox_key')
+            token = params.get_str(prefix + 'sandbox_token')
+            key = params.get_str(prefix + 'sandbox_key')
         else:
             endpoint = PRODUCTION
-            token = params.get_param(prefix + 'production_token')
-            key = params.get_param(prefix + 'production_key')
+            token = params.get_str(prefix + 'production_token')
+            key = params.get_str(prefix + 'production_key')
         if not token or not key:
             raise UserError(_('Please save the %s token and subscription key first.') % environment)
         try:
@@ -113,7 +113,7 @@ class ResConfigSettings(models.TransientModel):
             'params': {
                 'title': _('GDEX %s Connected') % environment.title(),
                 'message': _('Account status: Active. Production AWB creation switch is %s.') % (
-                    'ON' if params.get_param('motogene_gdex_normal.production_enabled') == 'True' else 'OFF'
+                    'ON' if params.get_bool('motogene_gdex_normal.production_enabled') else 'OFF'
                 ),
                 'type': 'success', 'sticky': False,
             },
