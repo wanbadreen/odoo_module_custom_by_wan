@@ -21,14 +21,14 @@ class GdexDoActions(models.TransientModel):
         for wizard in self:
             p = wizard.picking_id
             awb = (p.mori_awb_no or '').strip()
-            is_normal = p.picking_type_code == 'outgoing' and p.x_studio_order_type == 'Normal'
+            is_normal = p.picking_type_code == 'outgoing' and p._gdex_shipment_type() == 'Normal'
             wizard.can_create = bool(is_normal and p.state == 'assigned' and not awb)
             wizard.can_track = bool(awb)
             matching = cons.search([('picking_id', '=', p.id),
                                     ('awb', '=', awb),
                                     ('state', '=', 'success')], limit=1) if awb else cons.browse()
             wizard.can_import_mps = bool(matching and matching.pieces > 1)
-            is_cod = p.picking_type_code == 'outgoing' and p.x_studio_order_type in ('COD', 'Cash On Delivery', 'Cash on Delivery')
+            is_cod = p.picking_type_code == 'outgoing' and p._gdex_shipment_type() == 'COD'
             cod_count = self.env['motogene.gdex.cod.consignment'].sudo().search_count([('picking_id', '=', p.id)])
             wizard.can_create_cod = bool(is_cod and p.state == 'assigned' and not awb and not cod_count)
             wizard.can_view_cod = bool(is_cod and cod_count)

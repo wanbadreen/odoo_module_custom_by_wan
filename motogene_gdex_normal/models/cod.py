@@ -1,11 +1,11 @@
 """GDEX COD consignments: one AWB per parcel with durable attempt reservations."""
-import base64
 import io
 import logging
 import uuid
 
 import requests
 
+from .odoo20_compat import gdex_pdf_bytes
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError
 from odoo.modules.registry import Registry
@@ -20,10 +20,10 @@ class GdexCodConsignment(models.Model):
     _name = 'motogene.gdex.cod.consignment'
     _description = 'GDEX COD Parcel / AWB'
     _order = 'picking_id, parcel_no'
-    _sql_constraints = [
-        ('cod_parcel_unique', 'unique(picking_id, parcel_no)',
-         'This COD parcel number already has an attempt. Verify it before retrying.'),
-    ]
+    _cod_parcel_unique = models.Constraint(
+        'UNIQUE(picking_id, parcel_no)',
+        'This COD parcel number already has an attempt. Verify it before retrying.',
+    )
 
     picking_id = fields.Many2one('stock.picking', required=True, ondelete='restrict', index=True)
     parcel_no = fields.Integer(required=True)
@@ -120,7 +120,7 @@ class GdexCodConsignment(models.Model):
             cr.execute('SELECT id FROM stock_picking WHERE id = %s FOR UPDATE', (p.id,))
             current = other['stock.picking'].browse(p.id)
             if (current.state != 'assigned' or current.picking_type_code != 'outgoing'
-                    or current.x_studio_order_type != 'COD'):
+                    or current._gdex_shipment_type() != 'COD'):
                 raise UserError(_('COD creation requires a Ready outgoing COD Delivery Order.'))
             # Existing AWBs, including manually entered references, must not be overwritten.
             if current.mori_awb_no:
@@ -187,7 +187,7 @@ class GdexCodConsignment(models.Model):
             other = api.Environment(cr, uid, dict(self.env.context))
             cr.execute('SELECT id FROM stock_picking WHERE id = %s FOR UPDATE', (picking_id,))
             picking = other['stock.picking'].sudo().browse(picking_id).exists()
-            if not picking or picking.x_studio_order_type != 'COD':
+            if not picking or picking._gdex_shipment_type() != 'COD':
                 raise UserError(_('The selected Delivery Order is not COD.'))
             attempts = other[self._name].sudo().search(
                 [('picking_id', '=', picking_id)], order='parcel_no, id')
@@ -227,7 +227,7 @@ class GdexCodConsignment(models.Model):
         for rec in selected:
             # Single print is also the safe fetch-and-cache path.
             rec.action_print_cod()
-            pdf = base64.b64decode(rec.pdf_attachment_id.sudo().datas)
+            pdf = gdex_pdf_bytes(rec.pdf_attachment_id.sudo().raw)
             reader = PdfReader(io.BytesIO(pdf))
             if len(reader.pages) != 1:
                 raise UserError(_('COD label %s must contain exactly one page.') % rec.awb)
@@ -236,7 +236,7 @@ class GdexCodConsignment(models.Model):
         writer.write(result)
         attachment = self.env['ir.attachment'].sudo().create({
             'name': 'GDEX_COD_Bulk_%s_labels.pdf' % len(selected),
-            'type': 'binary', 'datas': base64.b64encode(result.getvalue()),
+            'type': 'binary', 'raw': result.getvalue(),
             'mimetype': 'application/pdf',
             'res_model': self._name, 'res_id': selected[0].id,
         })
@@ -273,7 +273,7 @@ class GdexCodConsignment(models.Model):
                 raise UserError(_('COD label retrieval failed (%s).') % type(exc).__name__) from exc
             att = self.env['ir.attachment'].sudo().create({
                 'name': 'GDEX_COD_%s.pdf' % self.awb,
-                'type': 'binary', 'datas': base64.b64encode(pdf),
+                'type': 'binary', 'raw': pdf,
                 'mimetype': 'application/pdf', 'res_model': self._name, 'res_id': self.id,
             })
             self.sudo().write({'pdf_attachment_id': att.id})

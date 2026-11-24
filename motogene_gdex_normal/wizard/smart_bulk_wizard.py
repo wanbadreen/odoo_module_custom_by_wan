@@ -45,7 +45,7 @@ class GdexSmartBulkWizard(models.TransientModel):
         lines = []
         reasons = []
         for p in pickings.sorted(key=lambda x: x.name):
-            dtype = p.x_studio_order_type
+            dtype = p._gdex_shipment_type()
             route = 'normal' if dtype == 'Normal' else (
                 'cod' if dtype in ('COD', 'Cash On Delivery', 'Cash on Delivery') else 'skip')
             issue = False
@@ -177,8 +177,8 @@ class GdexSmartBulkWizard(models.TransientModel):
         groups = defaultdict(list)
         for line in eligible:
             p = line.picking_id
-            expected = 'normal' if p.x_studio_order_type == 'Normal' else (
-                'cod' if p.x_studio_order_type in ('COD','Cash On Delivery','Cash on Delivery') else 'skip')
+            expected = 'normal' if p._gdex_shipment_type() == 'Normal' else (
+                'cod' if p._gdex_shipment_type() == 'COD' else 'skip')
             if (line.route != expected or p.state != 'assigned'
                     or p.picking_type_code != 'outgoing' or p.mori_awb_no
                     or p.partner_id.country_id.code != 'MY'):

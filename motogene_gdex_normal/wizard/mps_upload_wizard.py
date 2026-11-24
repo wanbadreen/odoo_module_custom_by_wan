@@ -1,4 +1,3 @@
-import base64
 import io
 import json
 
@@ -7,6 +6,7 @@ from odoo.exceptions import UserError
 from pypdf import PdfReader
 
 from ..models.mps_labels import normalize_official_mps
+from ..models.odoo20_compat import gdex_pdf_bytes
 
 
 class GdexMpsUploadWizard(models.TransientModel):
@@ -37,7 +37,7 @@ class GdexMpsUploadWizard(models.TransientModel):
         if not self.pdf_file:
             raise UserError(_('Upload the official myGDEX Prime PDF first.'))
         try:
-            raw = base64.b64decode(self.pdf_file)
+            raw = gdex_pdf_bytes(self.pdf_file)
             normalized = normalize_official_mps(raw, consignment.awb, children)
             if len(PdfReader(io.BytesIO(normalized)).pages) != consignment.pieces:
                 raise ValueError('Normalized page count does not match pieces.')
@@ -46,7 +46,7 @@ class GdexMpsUploadWizard(models.TransientModel):
         attachment = self.env['ir.attachment'].sudo().create({
             'name': consignment.awb + '_MPS_%s_labels_100x150.pdf' % consignment.pieces,
             'type': 'binary',
-            'datas': base64.b64encode(normalized),
+            'raw': normalized,
             'mimetype': 'application/pdf',
             'res_model': consignment._name,
             'res_id': consignment.id,

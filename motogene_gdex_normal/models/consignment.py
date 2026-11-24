@@ -1,10 +1,10 @@
-import base64
 import io
 import json
 import logging
 import uuid
 
 import requests
+from .odoo20_compat import gdex_pdf_bytes
 from odoo import api, fields, models, _
 from odoo.modules.registry import Registry
 from odoo.exceptions import AccessError, UserError
@@ -141,7 +141,7 @@ class GdexConsignment(models.Model):
             other = api.Environment(cr, user_id, dict(self.env.context))
             cr.execute('SELECT id FROM stock_picking WHERE id=%s FOR UPDATE', (picking.id,))
             p = other['stock.picking'].browse(picking.id).exists()
-            if not p or p.picking_type_code != 'outgoing' or p.state != 'assigned' or p.x_studio_order_type != 'Normal':
+            if not p or p.picking_type_code != 'outgoing' or p.state != 'assigned' or p._gdex_shipment_type() != 'Normal':
                 return False, _('Blocked: Ready outgoing Normal Delivery only.')
             if p.mori_awb_no:
                 return False, _('Blocked: an AWB already exists on the Delivery Order.')
@@ -334,7 +334,7 @@ class GdexConsignment(models.Model):
             raise UserError(_('Only successful consignments may be printed.'))
 
         if self.pdf_attachment_id:
-            cached = base64.b64decode(self.pdf_attachment_id.datas)
+            cached = gdex_pdf_bytes(self.pdf_attachment_id.sudo().raw)
             if self.pieces <= 1:
                 return cached
             # Reuse official imported labels or previously downloaded GO PDFs
@@ -401,7 +401,7 @@ class GdexConsignment(models.Model):
 
         att = self.env['ir.attachment'].sudo().create({
             'name': filename, 'type': 'binary',
-            'datas': base64.b64encode(out), 'mimetype': 'application/pdf',
+            'raw': out, 'mimetype': 'application/pdf',
             'res_model': self._name, 'res_id': self.id,
         })
         self.pdf_attachment_id = att.id
@@ -449,7 +449,7 @@ class GdexConsignment(models.Model):
         attachment = self.env['ir.attachment'].sudo().create({
             'name': 'GDEX_Bulk_Reprint_%s_labels_100x150.pdf' % len(lines),
             'type': 'binary',
-            'datas': base64.b64encode(stream.getvalue()),
+            'raw': stream.getvalue(),
             'mimetype': 'application/pdf',
             'res_model': 'res.users',
             'res_id': self.env.uid,

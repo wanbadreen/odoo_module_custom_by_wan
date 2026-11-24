@@ -58,7 +58,7 @@ class GdexCodWizard(models.TransientModel):
         picking.ensure_one()
         if picking.state != 'assigned' or picking.picking_type_code != 'outgoing':
             raise UserError(_('GDEX COD can only be created for Ready outgoing Delivery Orders.'))
-        if picking.x_studio_order_type not in ('COD', 'Cash On Delivery', 'Cash on Delivery'):
+        if picking._gdex_shipment_type() != 'COD':
             raise UserError(_('This is not a COD Delivery Order. Check the internal delivery type value.'))
         if picking.mori_awb_no or self.env['motogene.gdex.cod.consignment'].sudo().search_count([
                 ('picking_id', '=', picking.id)]):

@@ -5,6 +5,47 @@ from odoo.exceptions import AccessError, UserError
 class StockPicking(models.Model):
     _inherit = 'stock.picking'
 
+    # The original Studio field remains authoritative on upgraded production DBs.
+    # Development DBs without Studio may explicitly select Normal/COD here.
+    gdex_order_type_fallback = fields.Selection(
+        [('Normal', 'Normal'), ('COD', 'COD')],
+        string='GDEX Type (when Studio unavailable)', copy=False,
+        help='Used only when the original x_studio_order_type field does not exist.',
+    )
+    gdex_order_type = fields.Selection(
+        [('Normal', 'Normal'), ('COD', 'COD')],
+        string='GDEX Shipment Type', compute='_compute_gdex_order_type',
+    )
+    gdex_studio_type_available = fields.Boolean(
+        compute='_compute_gdex_order_type',
+    )
+
+    def _gdex_shipment_type(self):
+        """Canonical GDEX type without redefining/migrating the Studio field.
+
+        Presence of Studio always wins, even if its value is empty/unsupported.
+        This prevents Development fallback settings changing real production
+        classification when the Studio customization is installed.
+        """
+        self.ensure_one()
+        if 'x_studio_order_type' in self._fields:
+            raw = self['x_studio_order_type']
+        else:
+            raw = self.gdex_order_type_fallback
+        if raw == 'Normal':
+            return 'Normal'
+        if raw in ('COD', 'Cash On Delivery', 'Cash on Delivery'):
+            return 'COD'
+        return False
+
+    @api.depends('gdex_order_type_fallback')
+    def _compute_gdex_order_type(self):
+        has_studio = 'x_studio_order_type' in self._fields
+        for picking in self:
+            picking.gdex_studio_type_available = has_studio
+            picking.gdex_order_type = picking._gdex_shipment_type()
+
+
     gdex_cod_ids = fields.One2many(
         'motogene.gdex.cod.consignment', 'picking_id',
         string='GDEX COD AWBs', readonly=True)
@@ -75,7 +116,7 @@ class StockPicking(models.Model):
     def action_open_gdex_actions(self):
         self.ensure_one()
         self.env['motogene.gdex.consignment']._check_operator()
-        if self.picking_type_code != 'outgoing' or self.x_studio_order_type not in ('Normal', 'COD', 'Cash On Delivery', 'Cash on Delivery'):
+        if self.picking_type_code != 'outgoing' or self._gdex_shipment_type() not in ('Normal', 'COD'):
             raise UserError(_('This Delivery Order is not an eligible GDEX Normal or COD outgoing shipment.'))
         return {
             'type': 'ir.actions.act_window',
