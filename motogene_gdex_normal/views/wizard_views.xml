@@ -38,6 +38,6 @@
   <field name="binding_view_types">list</field>
   <field name="state">code</field>
   <field name="code">action = records.action_gdex_normal_wizard()</field>
-  <field name="groups_id" eval="[(4, ref('motogene_gdex_normal.group_gdex_normal_user'))]"/>
+  <field name="group_ids" eval="[(4, ref('motogene_gdex_normal.group_gdex_normal_user'))]"/>
  </record>
 </odoo>
