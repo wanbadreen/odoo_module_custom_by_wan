@@ -77,7 +77,7 @@ class GdexCodWizard(models.TransientModel):
         wizard = self.create({
             'picking_id': picking.id, 'currency_id': sale.currency_id.id,
             'sales_amount': total, 'total_cod': total,
-            'receiver_name': partner.name, 'receiver_mobile': partner.mobile or partner.phone,
+            'receiver_name': partner.name, 'receiver_mobile': getattr(partner, 'mobile', False) or partner.phone,
             'receiver_address1': address, 'receiver_postcode': partner.zip,
         })
         # Explicitly initialize allocation; onchange is not guaranteed on create().

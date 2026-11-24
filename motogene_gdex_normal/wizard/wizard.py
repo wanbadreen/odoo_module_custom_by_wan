@@ -18,7 +18,7 @@ class GdexWizard(models.TransientModel):
             address = ', '.join(x for x in [partner.street, partner.street2, partner.city] if x)
             vals.append((0, 0, {
                 'picking_id': p.id, 'receiver_name': partner.name,
-                'receiver_mobile': partner.mobile or partner.phone,
+                'receiver_mobile': getattr(partner, 'mobile', False) or partner.phone,
                 'receiver_address1': address, 'receiver_postcode': partner.zip,
                 'weight': 1.0, 'pieces': 1, 'note_source': 'none',
             }))

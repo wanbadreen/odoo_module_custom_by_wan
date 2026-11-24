@@ -67,7 +67,7 @@ class GdexSmartBulkWizard(models.TransientModel):
             partner = p.partner_id
             receiver = {
                 'receiver_name': partner.name or '',
-                'receiver_mobile': partner.mobile or partner.phone or '',
+                'receiver_mobile': getattr(partner, 'mobile', False) or partner.phone or '',
                 'receiver_address1': ', '.join(v for v in (
                     partner.street, partner.street2, partner.city) if v),
                 'receiver_postcode': partner.zip or '',
