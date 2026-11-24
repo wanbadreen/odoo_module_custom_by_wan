@@ -95,6 +95,7 @@
     <field name="code">action = records.action_refresh_tracking()</field>
   </record>
   <record id="gdex_tracking_menu" model="ir.ui.menu">
+    <field name="name">GDEX Shipment Tracking</field>
     <field name="active" eval="False"/>
   </record>
   <menuitem id="gdex_pickup_menu" name="Pickup Management"
