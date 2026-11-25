@@ -49,11 +49,11 @@ class ScratchGiftStockSale(models.Model):
         ])
         for line in lines:
             product = line.product_id
-            outstanding = line.product_uom._compute_quantity(
+            outstanding = line.product_uom_id._compute_quantity(
                 max(0, line.product_uom_qty - line.qty_delivered), product.uom_id)
             # free_qty already excludes these physical reservations. Only
             # deduct the remaining promise, including draft reward quotations.
-            reserved = sum(move.product_uom._compute_quantity(
+            reserved = sum(move.uom_id._compute_quantity(
                 move.quantity, product.uom_id)
                 for move in line.move_ids
                 if move.state not in ('done', 'cancel')

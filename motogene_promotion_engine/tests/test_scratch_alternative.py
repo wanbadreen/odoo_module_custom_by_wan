@@ -153,7 +153,7 @@ class TestScratchAlternative(TransactionCase):
         self.assertEqual(self.pools['D'].next_number, self.pools['D'].first_number)
 
     def test_transfer_includes_policy_and_allowed_prefixes(self):
-        import base64
+        from odoo.tools.binary import BinaryBytes
         import json
         product = self.env['product.product'].create({'name': 'Alternative transfer gift', 'type': 'service'})
         self.program.write({'scratch_vip_prefix': 'A', 'scratch_replacement_policy': 'allowed',
@@ -170,7 +170,7 @@ class TestScratchAlternative(TransactionCase):
         payload = self.program._scratch_setup_payload()
         wizard = self.env['motogene.scratch.setup.transfer'].create({
             'program_id': destination.id, 'mode': 'import',
-            'file_data': base64.b64encode(json.dumps(payload).encode())})
+            'file_data': BinaryBytes(json.dumps(payload).encode())})
         wizard.action_import()
         self.assertEqual(destination.scratch_replacement_policy, 'allowed')
         pool = destination.scratch_serial_pool_ids.filtered(lambda p: p.prefix == 'D')
@@ -180,7 +180,7 @@ class TestScratchAlternative(TransactionCase):
         payload['settings'].pop('scratch_replacement_policy')
         for entry in payload['pools']:
             entry.pop('allowed_replacement_prefixes')
-        wizard.file_data = base64.b64encode(json.dumps(payload).encode())
+        wizard.file_data = BinaryBytes(json.dumps(payload).encode())
         wizard.action_import()
         self.assertEqual(destination.scratch_replacement_policy, 'any')
         self.assertFalse(pool.allowed_replacement_pool_ids)

@@ -20,9 +20,7 @@ class ScratchSerialPool(models.Model):
     prize_description = fields.Char(
         string="Redemption Prize", help="Gift or rebate printed on this card type. Used for CS verification; no SO reward is added automatically.",
     )
-    _sql_constraints = [
-        ("scratch_serial_pool_unique", "UNIQUE(program_id, prefix)", "Only one pool per card type is allowed."),
-    ]
+    _scratch_serial_pool_unique = models.Constraint('UNIQUE(program_id, prefix)', 'Only one pool per card type is allowed.')
 
     @api.model_create_multi
     def create(self, vals_list):

@@ -104,11 +104,6 @@
             </xpath>
         </field>
     </record>
-    <record id="rule_scratch_card_replacement_company" model="ir.rule">
-        <field name="name">Scratch card replacement history allowed companies</field>
-        <field name="model_id" ref="model_motogene_scratch_card_replacement"/>
-        <field name="domain_force">[('company_id', 'in', company_ids)]</field>
-    </record>
     <record id="view_scratch_recall_receipt" model="ir.ui.view">
         <field name="name">motogene.scratch.recall.receipt.form</field>
         <field name="model">motogene.scratch.recall.receipt</field>

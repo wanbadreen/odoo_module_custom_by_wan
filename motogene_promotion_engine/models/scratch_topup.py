@@ -120,8 +120,7 @@ class ScratchTopupWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
         order = self.sale_id.exists()
-        order.check_access_rights('write')
-        order.check_access_rule('write')
+        order.check_access('write')
         if not order or order.state not in ('draft', 'sent'):
             raise UserError(_('This quotation changed. Close this window and confirm it again.'))
         self.env.cr.execute('SELECT id FROM sale_order WHERE id = %s FOR UPDATE', [order.id])

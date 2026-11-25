@@ -94,10 +94,8 @@ class ScratchCardReplacement(models.Model):
         self.ensure_one()
         if not self.env.user.has_group('stock.group_stock_user'):
             raise UserError(_('Only Operations users can reconcile recalled scratch cards.'))
-        self.check_access_rights('read')
-        self.check_access_rule('read')
-        self.picking_id.check_access_rights('write')
-        self.picking_id.check_access_rule('write')
+        self.check_access('read')
+        self.picking_id.check_access('write')
         if self.company_id not in self.env.companies:
             raise UserError(_('Switch to the original delivery company.'))
 
@@ -271,10 +269,8 @@ class ScratchReplaceableCard(models.Model):
         if not self.env.user.has_group('stock.group_stock_user'):
             raise UserError(_('Only Operations users can replace scratch cards.'))
         for record in (self, self.picking_id):
-            record.check_access_rights('write')
-            record.check_access_rule('write')
-        self.sale_id.check_access_rights('read')
-        self.sale_id.check_access_rule('read')
+            record.check_access('write')
+        self.sale_id.check_access('read')
         if self.sale_id.company_id not in self.env.companies:
             raise UserError(_('Switch to the delivery company before replacing a card.'))
 
@@ -310,8 +306,7 @@ class ScratchReplaceableCard(models.Model):
                 target = replacement_picking.exists() if replacement_picking else source_picking
                 if len(target) != 1:
                     raise UserError(_('Select a valid replacement Delivery Order for the same Sales Order.'))
-                target.check_access_rights('write')
-                target.check_access_rule('write')
+                target.check_access('write')
                 self.env.cr.execute('SELECT id FROM stock_picking WHERE id = %s FOR UPDATE', [target.id])
                 target.invalidate_recordset()
                 if (self.state != 'sent' or source_picking.state != 'done'
@@ -382,8 +377,7 @@ class ScratchReplacementPicking(models.Model):
 
     def action_replace_scratch_card(self):
         self.ensure_one()
-        self.check_access_rights('write')
-        self.check_access_rule('write')
+        self.check_access('write')
         if not self.env.user.has_group('stock.group_stock_user') or not self.scratch_can_replace_card:
             raise UserError(_('No replaceable scratch card is available on this delivery.'))
         wizard = self.env['motogene.scratch.replace.wizard'].create({'picking_id': self.id})

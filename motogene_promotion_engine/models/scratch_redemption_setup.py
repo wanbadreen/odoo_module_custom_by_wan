@@ -90,8 +90,7 @@ class ScratchRedemptionSaleOrder(models.Model):
 
     def action_redeem_scratch_card(self):
         self.ensure_one()
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
         if not self._redeemable_scratch_cards():
             raise UserError(_("This customer has no dispatched, unredeemed cards within their redemption expiry. Refresh the quotation."))
         return {
@@ -165,7 +164,7 @@ class ScratchRedemptionSaleLine(models.Model):
 
     def write(self, vals):
         if "scratch_redemption_id" in vals or (self.scratch_redemption_id and set(vals) & {
-            "order_id", "product_id", "product_uom", "product_uom_qty", "price_unit", "discount", "tax_id",
+            "order_id", "product_id", "product_uom_id", "product_uom_qty", "price_unit", "discount", "tax_ids",
             "is_motogene_promo_reward", "promotion_program_id", "display_type",
         }):
             raise UserError(_("Scratch redemption rewards cannot be edited. Cancel the quotation to reverse redemption."))

@@ -153,8 +153,7 @@ class ScratchAlternativeShortage(models.TransientModel):
     def action_alternative_cards(self):
         self.ensure_one()
         orders = self.order_ids.exists()
-        orders.check_access_rights('write')
-        orders.check_access_rule('write')
+        orders.check_access('write')
         if len(orders) != 1:
             raise UserError(_('Select alternative cards for one quotation at a time.'))
         if not orders or any(o.state not in ('draft', 'sent') for o in orders):
@@ -214,8 +213,7 @@ class ScratchAlternativeWizard(models.TransientModel):
     def action_confirm(self):
         self.ensure_one()
         orders = self.order_ids.exists()
-        orders.check_access_rights('write')
-        orders.check_access_rule('write')
+        orders.check_access('write')
         if len(orders) != 1:
             raise UserError(_('Select alternative cards for one quotation at a time.'))
         if not orders or any(o.state not in ('draft', 'sent') for o in orders):

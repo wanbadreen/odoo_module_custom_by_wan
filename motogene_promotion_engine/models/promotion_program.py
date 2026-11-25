@@ -341,33 +341,11 @@ class MotogenePromotionProgram(models.Model):
     # SQL CONSTRAINTS
     # =========================================================
 
-    _sql_constraints = [
-        (
-            "threshold_positive",
-            "CHECK(threshold_qty > 0)",
-            "Every X quantity must be greater than zero.",
-        ),
-        (
-            "reward_qty_positive",
-            "CHECK(reward_qty > 0)",
-            "Reward quantity must be greater than zero.",
-        ),
-        (
-            "tagged_box_units_positive",
-            "CHECK(tagged_box_units_per_qty > 0)",
-            "Tagged product paid box units must be greater than zero.",
-        ),
-        (
-            "pwp_trigger_qty_positive",
-            "CHECK(pwp_trigger_qty > 0)",
-            "PWP Trigger Qty per Entitlement must be greater than zero.",
-        ),
-        (
-            "pwp_buy_qty_positive",
-            "CHECK(pwp_buy_qty > 0)",
-            "PWP Buy Qty must be greater than zero.",
-        ),
-    ]
+    _threshold_positive = models.Constraint('CHECK(threshold_qty > 0)', 'Every X quantity must be greater than zero.')
+    _reward_qty_positive = models.Constraint('CHECK(reward_qty > 0)', 'Reward quantity must be greater than zero.')
+    _tagged_box_units_positive = models.Constraint('CHECK(tagged_box_units_per_qty > 0)', 'Tagged product paid box units must be greater than zero.')
+    _pwp_trigger_qty_positive = models.Constraint('CHECK(pwp_trigger_qty > 0)', 'PWP Trigger Qty per Entitlement must be greater than zero.')
+    _pwp_buy_qty_positive = models.Constraint('CHECK(pwp_buy_qty > 0)', 'PWP Buy Qty must be greater than zero.')
 
     # =========================================================
     # VALIDATION
@@ -881,12 +859,8 @@ class MotogeneScratchPackage(models.Model):
                 len(prefix) != 1 or not prefix.isalpha() for prefix in prefixes
             ):
                 raise ValidationError(_("Card types must match Included Cards and use single letters, e.g. A,B,F,E."))
-    _sql_constraints = [
-        ("scratch_package_unique", "UNIQUE(program_id, product_tmpl_id)",
-         "This package is already configured for this Scratch & Win program."),
-        ("scratch_package_cards_nonnegative", "CHECK(advertised_cards >= 0)",
-         "Cards included in the package cannot be negative."),
-    ]
+    _scratch_package_unique = models.Constraint('UNIQUE(program_id, product_tmpl_id)', 'This package is already configured for this Scratch & Win program.')
+    _scratch_package_cards_nonnegative = models.Constraint('CHECK(advertised_cards >= 0)', 'Cards included in the package cannot be negative.')
 
 
 class MotogenePromotionEligibility(models.Model):
@@ -921,16 +895,6 @@ class MotogenePromotionEligibility(models.Model):
         ),
     )
 
-    _sql_constraints = [
-        (
-            "box_units_positive",
-            "CHECK(box_units_per_qty > 0)",
-            "Paid box units must be greater than zero.",
-        ),
-        (
-            "program_product_unique",
-            "UNIQUE(program_id, product_tmpl_id)",
-            "This product is already configured for the promotion.",
-        ),
-    ]
+    _box_units_positive = models.Constraint('CHECK(box_units_per_qty > 0)', 'Paid box units must be greater than zero.')
+    _program_product_unique = models.Constraint('UNIQUE(program_id, product_tmpl_id)', 'This product is already configured for the promotion.')
 

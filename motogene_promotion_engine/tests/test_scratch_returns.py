@@ -37,7 +37,7 @@ class TestScratchCardReturns(TransactionCase):
         picking = self.env["stock.picking"].create(vals)
         self.env["stock.move"].create({
             "name": self.product.name, "product_id": self.product.id,
-            "product_uom_qty": 1, "product_uom": self.product.uom_id.id,
+            "product_uom_qty": 1, "uom_id": self.product.uom_id.id,
             "picking_id": picking.id, "location_id": picking.location_id.id,
             "location_dest_id": picking.location_dest_id.id,
         })

@@ -87,8 +87,7 @@ class ScratchUndeliveredPicking(models.Model):
 
     def action_release_undelivered_cards(self):
         self.ensure_one()
-        self.check_access_rights('write')
-        self.check_access_rule('write')
+        self.check_access('write')
         if not self.env.user.has_group('stock.group_stock_user') or not self.scratch_can_release_undelivered:
             raise UserError(_('Release is only available to Operations on a completed outgoing delivery with dispatched cards.'))
         wizard = self.env['motogene.scratch.undelivered.wizard'].create({'picking_id': self.id})
@@ -126,11 +125,9 @@ class ScratchUndeliveredWizard(models.TransientModel):
         if not self.env.user.has_group('stock.group_stock_user'):
             raise UserError(_('Only Operations users can release cards for reuse.'))
         picking = self.picking_id.exists()
-        picking.check_access_rights('write')
-        picking.check_access_rule('write')
+        picking.check_access('write')
         cards = self.card_ids.exists()
-        cards.check_access_rights('write')
-        cards.check_access_rule('write')
+        cards.check_access('write')
         if not cards or not (self.reason or '').strip() or not self.cards_unscratched:
             raise UserError(_('Select recovered cards, enter a reason and confirm that the cards are physically back in the warehouse, unscratched and in good condition.'))
         if self.release_type not in ('before_dispatch', 'customer_return'):

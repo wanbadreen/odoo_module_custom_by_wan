@@ -1,7 +1,7 @@
-import base64
 from datetime import timedelta
 
 from odoo import Command, fields
+from odoo.tools.binary import BinaryBytes
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
 
@@ -40,7 +40,7 @@ class TestScratchGiftVariants(TransactionCase):
         })
         self.env["stock.move"].create({
             "name": "Test delivery", "product_id": self.product.id,
-            "product_uom_qty": 1, "product_uom": self.product.uom_id.id,
+            "product_uom_qty": 1, "uom_id": self.product.uom_id.id,
             "picking_id": self.delivery.id, "location_id": self.delivery.location_id.id,
             "location_dest_id": self.delivery.location_dest_id.id,
         })
@@ -56,7 +56,7 @@ class TestScratchGiftVariants(TransactionCase):
     def _redemption(self, **overrides):
         vals = {
             "card_id": self.card.id, "target_sale_id": self.target_order.id,
-            "card_photo": base64.b64encode(b"test photo evidence"), "photo_filename": "test.png",
+            "card_photo": BinaryBytes(b"test photo evidence"), "photo_filename": "test.png",
         }
         vals.update(overrides)
         return self.env["motogene.scratch.redemption"].create(vals)
@@ -138,7 +138,7 @@ class TestScratchGiftVariants(TransactionCase):
         line, variants = self._variants()
         wizard = self.env['motogene.scratch.redemption.wizard'].create({
             'sale_id': self.target_order.id, 'card_id': self.card.id,
-            'card_photo': base64.b64encode(b'photo'),
+            'card_photo': BinaryBytes(b'photo'),
         })
         self.assertEqual(wizard.gift_choice_ids.reward_line_id, line)
         self.assertEqual(set(wizard.gift_choice_ids.allowed_product_ids.ids), set(variants.ids))
@@ -174,7 +174,7 @@ class TestScratchGiftVariants(TransactionCase):
         self.assertEqual(payload['version'], 2)
         wizard = self.env['motogene.scratch.setup.transfer'].create({
             'program_id': destination.id, 'mode': 'import',
-            'file_data': base64.b64encode(json.dumps(payload).encode())})
+            'file_data': BinaryBytes(json.dumps(payload).encode())})
         wizard.action_import()
         imported = destination.scratch_serial_pool_ids.reward_product_line_ids
         self.assertEqual(imported.variant_mode, 'choose')
@@ -182,7 +182,7 @@ class TestScratchGiftVariants(TransactionCase):
         self.assertFalse(imported.product_id)
         payload['version'] = 1
         payload['pools'][0]['products'] = [{'product': self.program._scratch_setup_reference(variants[0]), 'quantity': 1}]
-        wizard.file_data = base64.b64encode(json.dumps(payload).encode())
+        wizard.file_data = BinaryBytes(json.dumps(payload).encode())
         wizard.action_import()
         imported = destination.scratch_serial_pool_ids.reward_product_line_ids
         self.assertEqual(imported.variant_mode, 'fixed')

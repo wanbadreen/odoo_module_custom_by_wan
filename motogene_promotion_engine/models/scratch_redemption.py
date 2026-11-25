@@ -1,27 +1,31 @@
 # -*- coding: utf-8 -*-
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
-from odoo.osv import expression
+from odoo.fields import Domain
 
 
 def scratch_pool_search_domain(env, operator, value):
-    """Search the live promo/prefix match, including cards with no pool."""
+    """Search the same live promo/prefix match, including cards with no pool.
+
+    Odoo 20 Domain is the replacement for legacy expression.OR/list negation.
+    """
     if operator not in ("=", "!=", "in", "not in"):
         raise UserError(_("Unsupported scratch pool search operator: %s") % operator)
     values = list(value) if operator in ("in", "not in") else [value]
     Pool = env["motogene.scratch.serial.pool"]
     pools = Pool.browse([v for v in values if v]).exists()
+
     def matches(records):
-        return expression.OR([
-            [("card_id.program_id", "=", p.program_id.id),
-             ("card_id.prefix", "=", p.prefix)]
-            for p in records
+        return Domain.OR([
+            Domain("card_id.program_id", "=", pool.program_id.id)
+            & Domain("card_id.prefix", "=", pool.prefix)
+            for pool in records
         ])
-    domains = [matches(pools)]
+
+    domain = matches(pools)
     if any(not v for v in values):
-        domains.append(["!"] + matches(Pool.search([])))
-    domain = expression.OR(domains)
-    return ["!"] + domain if operator in ("!=", "not in") else domain
+        domain = Domain.OR([domain, ~matches(Pool.search([]))])
+    return ~domain if operator in ("!=", "not in") else domain
 
 
 class ScratchRedemption(models.Model):
@@ -138,8 +142,7 @@ class ScratchRedemption(models.Model):
 
     def action_confirm_redemption(self):
         self.ensure_one()
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
         order = self.target_sale_id
         order.flush_recordset()
         self.env.cr.execute("SELECT id FROM sale_order WHERE id = %s FOR UPDATE", [order.id])
@@ -208,7 +211,7 @@ class ScratchRedemption(models.Model):
                 raise UserError(_("Reward products must belong to the quotation company or be shared."))
             self.env["sale.order.line"].with_context(motogene_skip_promotion_engine=True)._create_scratch_reward({
                 "order_id": order.id, "product_id": product.id,
-                "product_uom_qty": quantity, "product_uom": product.uom_id.id,
+                "product_uom_qty": quantity, "product_uom_id": product.uom_id.id,
                 "price_unit": price, "discount": 0,
                 "name": _("[SCRATCH %s] %s") % (self.card_id.serial_number, product.display_name),
                 "is_motogene_promo_reward": True, "promotion_program_id": self.program_id.id,

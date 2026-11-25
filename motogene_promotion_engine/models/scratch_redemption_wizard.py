@@ -43,8 +43,7 @@ class ScratchRedemptionWizard(models.TransientModel):
 
     def action_confirm(self):
         self.ensure_one()
-        self.sale_id.check_access_rights("write")
-        self.sale_id.check_access_rule("write")
+        self.sale_id.check_access("write")
         if self.card_id not in self.sale_id._redeemable_scratch_cards():
             raise UserError(_("This card is no longer eligible for this customer's quotation."))
         record = self.env["motogene.scratch.redemption"].create({

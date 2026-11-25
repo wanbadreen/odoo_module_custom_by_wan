@@ -59,8 +59,7 @@ class ScratchVariantRedemption(models.Model):
 
     def action_load_gift_choices(self):
         self.ensure_one()
-        self.check_access_rights('write')
-        self.check_access_rule('write')
+        self.check_access('write')
         if self.state != 'draft':
             raise UserError(_('Variant choices are locked after redemption.'))
         self.gift_choice_ids = choice_commands(self.pool_id)
@@ -98,8 +97,7 @@ class ScratchGiftChoice(models.Model):
     quantity = fields.Float(related='reward_line_id.quantity', string='Configured Quantity')
     product_id = fields.Many2one('product.product', string='Selected Variant', ondelete='restrict')
     allowed_product_ids = fields.Many2many('product.product', compute='_compute_allowed_products')
-    _sql_constraints = [('scratch_gift_choice_unique', 'UNIQUE(redemption_id, reward_line_id)',
-                         'Select one variant per gift setup row.')]
+    _scratch_gift_choice_unique = models.Constraint('UNIQUE(redemption_id, reward_line_id)', 'Select one variant per gift setup row.')
 
     @api.depends('reward_line_id', 'redemption_id.target_sale_id.company_id')
     def _compute_allowed_products(self):

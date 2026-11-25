@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
-import base64
 import json
 import math
 from odoo import Command, fields, models, _
+from odoo.tools.binary import BinaryBytes
 from odoo.exceptions import UserError
 
 
@@ -56,18 +56,16 @@ class ScratchSetupTransferProgram(models.Model):
 
     def action_export_scratch_setup(self):
         self.ensure_one()
-        self.check_access_rights("read")
-        self.check_access_rule("read")
+        self.check_access("read")
         wizard = self.env["motogene.scratch.setup.transfer"].create({
             "program_id": self.id, "mode": "export", "filename": "scratch-setup-%s.json" % self.id,
-            "file_data": base64.b64encode(json.dumps(self._scratch_setup_payload(), ensure_ascii=False, indent=2).encode()),
+            "file_data": BinaryBytes(json.dumps(self._scratch_setup_payload(), ensure_ascii=False, indent=2).encode()),
         })
         return wizard._window_action()
 
     def action_import_scratch_setup(self):
         self.ensure_one()
-        self.check_access_rights("write")
-        self.check_access_rule("write")
+        self.check_access("write")
         wizard = self.env["motogene.scratch.setup.transfer"].create({"program_id": self.id, "mode": "import"})
         return wizard._window_action()
 
@@ -128,8 +126,7 @@ class ScratchSetupTransfer(models.TransientModel):
         if self.mode != "import":
             raise UserError(_("Open Import Setup to import a file."))
         program = self.program_id
-        program.check_access_rights("write")
-        program.check_access_rule("write")
+        program.check_access("write")
         if program.reward_type != "scratch_cards" or program.state != "draft":
             raise UserError(_("Import into a draft Scratch & Win promotion."))
         # Lock the destination against activation/allocation while replacing setup.
@@ -147,7 +144,7 @@ class ScratchSetupTransfer(models.TransientModel):
         if any(p.next_number != p.first_number for p in pools) or self.env["motogene.scratch.picking.card"].search_count([("program_id", "=", program.id)]):
             raise UserError(_("Import cannot modify a promotion whose serial pools have been used."))
         try:
-            raw = base64.b64decode(self.file_data, validate=True)
+            raw = self.file_data.content
             if len(raw) > 2 * 1024 * 1024:
                 raise ValueError("file too large")
             data = json.loads(raw.decode("utf-8"))

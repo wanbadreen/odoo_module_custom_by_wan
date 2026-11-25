@@ -1,7 +1,7 @@
-import base64
 from datetime import timedelta
 
 from odoo import Command, fields
+from odoo.tools.binary import BinaryBytes
 from odoo.exceptions import UserError, ValidationError
 from odoo.tests.common import TransactionCase, tagged
 
@@ -40,7 +40,7 @@ class TestScratchRedemption(TransactionCase):
         })
         self.env["stock.move"].create({
             "name": "Test delivery", "product_id": self.product.id,
-            "product_uom_qty": 1, "product_uom": self.product.uom_id.id,
+            "product_uom_qty": 1, "uom_id": self.product.uom_id.id,
             "picking_id": self.delivery.id, "location_id": self.delivery.location_id.id,
             "location_dest_id": self.delivery.location_dest_id.id,
         })
@@ -56,7 +56,7 @@ class TestScratchRedemption(TransactionCase):
     def _redemption(self, **overrides):
         vals = {
             "card_id": self.card.id, "target_sale_id": self.target_order.id,
-            "card_photo": base64.b64encode(b"test photo evidence"), "photo_filename": "test.png",
+            "card_photo": BinaryBytes(b"test photo evidence"), "photo_filename": "test.png",
         }
         vals.update(overrides)
         return self.env["motogene.scratch.redemption"].create(vals)
@@ -158,7 +158,7 @@ class TestScratchRedemption(TransactionCase):
         self.assertIn(self.card, self.target_order._redeemable_scratch_cards())
         wizard = self.env["motogene.scratch.redemption.wizard"].create({
             "sale_id": self.target_order.id, "card_id": self.card.id,
-            "card_photo": base64.b64encode(b"photo"),
+            "card_photo": BinaryBytes(b"photo"),
         })
         wizard.action_confirm()
         self.assertEqual(self.card.state, "redeemed")
@@ -302,7 +302,7 @@ class TestScratchRedemption(TransactionCase):
         })
         return self.env["motogene.scratch.setup.transfer"].create({
             "program_id": destination.id, "mode": "import",
-            "file_data": base64.b64encode(json.dumps(self.program._scratch_setup_payload()).encode()),
+            "file_data": BinaryBytes(json.dumps(self.program._scratch_setup_payload()).encode()),
         })
 
     def _transfer_destination(self):
@@ -333,9 +333,9 @@ class TestScratchRedemption(TransactionCase):
         import json
         destination = self._transfer_destination()
         wizard = self._setup_transfer_file(destination)
-        payload = json.loads(base64.b64decode(wizard.file_data))
+        payload = json.loads(wizard.file_data.content)
         payload["pools"][0]["products"][0]["product"] = {"name": "DOES-NOT-EXIST-IMPORT-TEST", "code": "NO-SUCH-SKU", "xmlid": None}
-        wizard.file_data = base64.b64encode(json.dumps(payload).encode())
+        wizard.file_data = BinaryBytes(json.dumps(payload).encode())
         with self.assertRaises(UserError), self.env.cr.savepoint():
             wizard.action_import()
         self.assertFalse(destination.scratch_serial_pool_ids)

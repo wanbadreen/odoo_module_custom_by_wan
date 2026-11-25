@@ -16,16 +16,22 @@ export class ScratchGiftStockPicker extends Component {
         return this.props.record.data[this.props.name] || { groups: [] };
     }
 
+    relationalId(value) {
+        if (!value) return false;
+        if (Array.isArray(value)) return value[0] || false;
+        return typeof value === "object" ? (value.id || false) : value;
+    }
+
     selectedId(group) {
         if (this.options.groups.length === 1) {
-            return this.props.record.data.selected_variant_id?.[0] || false;
+            return this.relationalId(this.props.record.data.selected_variant_id);
         }
-        return this.choiceRecord(group)?.data.product_id?.[0] || false;
+        return this.relationalId(this.choiceRecord(group)?.data.product_id);
     }
 
     choiceRecord(group) {
         return this.props.record.data.gift_choice_ids?.records.find(
-            (record) => record.data.reward_line_id?.[0] === group.reward_line_id
+            (record) => this.relationalId(record.data.reward_line_id) === group.reward_line_id
         );
     }
 
@@ -36,7 +42,7 @@ export class ScratchGiftStockPicker extends Component {
         this.state.busy = true;
         this.state.error = "";
         try {
-            const value = [variant.id, variant.name];
+            const value = { id: variant.id, display_name: variant.name };
             if (this.options.groups.length === 1) {
                 // Triggers the existing onchange/inverse, which updates the
                 // actual gift choice copied to the redemption record.
