@@ -7,7 +7,7 @@ The original inventory covers **12 functional Custom WAN modules**. Eleven are r
 
 ## Source changes made
 - Converted **30 legacy ACL rows in 8 modules** to `security/ir.access.csv`, with identical granted operation sets. For Event Contacts and Activity Hub, four company-domain rules are transferred into the corresponding staff access rows. Removed obsolete rule XML and ACL CSV from this branch.
-- Converted **20 legacy SQL constraints in 12 source files** to named `models.Constraint` attributes. Preserved SQL statements, messages and derived constraint identifiers.
+- Converted **21 legacy SQL constraints in 12 source files** to named `models.Constraint` attributes. Preserved SQL statements, messages and derived constraint identifiers.
 - Updated Shopee sale lines to `product_uom_id` and Complaint/Return stock move reads to `uom_id`.
 - Updated XLSX attachment creation to write `raw` bytes in Event Daily Summary and Customer Complaint/Return.
 - Separate FedEx prep: 7 ACL rows converted, version changed to `20.0.1.0.0`; source stays on its separate FedEx branch.
