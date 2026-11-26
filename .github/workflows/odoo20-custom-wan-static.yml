@@ -1,0 +1,29 @@
+name: Odoo 20 Custom WAN static compatibility
+on:
+  push:
+    branches:
+      - audit/odoo20-customwan-one-pass-20261126
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  static-preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout isolated audit branch
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Validate manifests, Python, XML and ACLs
+        run: python3 tools/odoo20_custom_wan_preflight.py
+      - name: Assert production-safe scope
+        run: |
+          test "$(git branch --show-current)" = "audit/odoo20-customwan-one-pass-20261126"
+          if git diff --name-only origin/upgrade-odoo20-manifest...HEAD 2>/dev/null | grep -Eq '^(motogene_promotion_engine|motogene_gdex_normal)/'; then
+            echo "Previously UAT-closed module changed; refusing to approve static preflight"
+            exit 1
+          fi
+          echo "PASS: previously UAT-closed modules untouched"
