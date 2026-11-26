@@ -406,7 +406,7 @@ class MonthlyComplaintReportWizard(models.TransientModel):
 
         workbook.close()
         output.seek(0)
-        data = base64.b64encode(output.read())
+        data = output.read()
 
         filename = "Monthly_Complaints_%s_%s.xlsx" % (
             self.date_from,
@@ -417,7 +417,7 @@ class MonthlyComplaintReportWizard(models.TransientModel):
             {
                 "name": filename,
                 "type": "binary",
-                "datas": data,
+                "raw": data,
                 "res_model": self._name,
                 "res_id": self.id,
                 "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

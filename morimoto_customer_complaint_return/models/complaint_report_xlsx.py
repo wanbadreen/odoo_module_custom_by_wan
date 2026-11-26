@@ -153,7 +153,7 @@ class CustomerComplaint(models.Model):
         attachment = self.env["ir.attachment"].create({
             "name": filename,
             "type": "binary",
-            "datas": base64.b64encode(xlsx_data),
+            "raw": xlsx_data,
             "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         })
 
