@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Website-scoped activity pages; no public create/write endpoints."""
-import base64
-
 from odoo import http
 from odoo.http import request
 
@@ -44,7 +42,7 @@ class MotoGeneActivityWebsite(http.Controller):
         activity = self._activity(activity_id)
         if not activity or not activity.image_1920:
             return request.not_found()
-        payload = base64.b64decode(activity.image_1920)
+        payload = activity.image_1920.content
         content_type = "image/jpeg"
         if payload.startswith(b"\x89PNG"):
             content_type = "image/png"

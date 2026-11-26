@@ -9,6 +9,7 @@ from datetime import datetime, time, timedelta
 import pytz
 from odoo import api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools.binary import BinaryBytes
 
 
 class MotoGeneEventExportWizard(models.TransientModel):
@@ -86,13 +87,12 @@ class MotoGeneEventExportWizard(models.TransientModel):
             "timezone": "Asia/Kuala_Lumpur",
         })
         xlsx = config._build_xlsx(new_regs, all_regs)
-        import base64
         slug = "Activity" if self.scope == "activity" else "Event"
         filename = "MotoGene_%s_%s_Attendees.xlsx" % (
             slug, self.activity_id.id if self.scope == "activity" else self.event_id.id,
         )
         self.write({
-            "file_data": base64.b64encode(xlsx),
+            "file_data": BinaryBytes(xlsx, filename=filename),
             "file_name": filename,
         })
         return {

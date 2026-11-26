@@ -64,16 +64,15 @@ class Mobile(http.Controller):
         def catalog_item(product):
             image = product.image_128
             image_data = None
-            if image and len(image) <= 262144:
-                try:
-                    raw = base64.b64decode(image, validate=True)
+            # Odoo 20 binary fields return BinaryValue (raw bytes), not base64.
+            if image:
+                raw = image.content
+                if len(raw) <= 262144:
                     mime = ('image/png' if raw.startswith(b'\x89PNG\r\n\x1a\n') else
                             'image/jpeg' if raw.startswith(b'\xff\xd8\xff') else None)
                     if mime:
-                        encoded = image.decode('ascii') if isinstance(image, bytes) else image
+                        encoded = base64.b64encode(raw).decode('ascii')
                         image_data = 'data:' + mime + ';base64,' + encoded
-                except (ValueError, UnicodeError):
-                    pass
             return {
                 'id': product.id, 'name': product.display_name,
                 'description': (product.description_sale or '')[:4000],
