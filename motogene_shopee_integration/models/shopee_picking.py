@@ -1,4 +1,3 @@
-import base64
 import io
 import logging
 import time
@@ -759,7 +758,7 @@ class StockPicking(models.Model):
         attachment = self.env["ir.attachment"].sudo().create({
             "name": "Shopee_AWB_%s.pdf" % order_sn,
             "type": "binary",
-            "datas": base64.b64encode(binary),
+            "raw": binary,
             "mimetype": "application/pdf",
             "res_model": "stock.picking",
             "res_id": self.id,
@@ -837,7 +836,7 @@ class StockPicking(models.Model):
                     or attachment.res_id != picking.id or attachment.mimetype != "application/pdf"):
                 skipped.append(picking.name)
                 continue
-            binary = base64.b64decode(attachment.sudo().datas or b"")
+            binary = attachment.sudo().raw.content if attachment.sudo().raw else b""
             if not binary.startswith(b"%PDF-") or len(binary) > 5 * 1024 * 1024:
                 skipped.append(picking.name)
                 continue
@@ -864,7 +863,7 @@ class StockPicking(models.Model):
         attachment = self.env["ir.attachment"].sudo().create({
             "name": filename,
             "type": "binary",
-            "datas": base64.b64encode(pdf),
+            "raw": pdf,
             "mimetype": "application/pdf",
             "res_model": "res.users",
             "res_id": self.env.user.id,
