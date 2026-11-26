@@ -19,10 +19,8 @@ class CustomerAccount(models.Model):
     token_hash = fields.Char(index=True, copy=False)
     token_kind = fields.Char(copy=False)
     token_expires = fields.Datetime(copy=False)
-    _sql_constraints = [
-        ('email_unique', 'unique(email)', 'Email already registered.'),
-        ('phone_unique', 'unique(phone)', 'Phone already linked.'),
-    ]
+    _email_unique = models.Constraint("unique(email)", "Email already registered.")
+    _phone_unique = models.Constraint("unique(phone)", "Phone already linked.")
 
 
 class CustomerSession(models.Model):
@@ -32,7 +30,7 @@ class CustomerSession(models.Model):
     token_hash = fields.Char(required=True, index=True, copy=False)
     version = fields.Integer(required=True)
     expires = fields.Datetime(required=True)
-    _sql_constraints = [('token_unique', 'unique(token_hash)', 'Session already exists.')]
+    _token_unique = models.Constraint("unique(token_hash)", "Session already exists.")
 
     @api.autovacuum
     def _remove_expired(self):
@@ -45,7 +43,7 @@ class CustomerRate(models.Model):
     key = fields.Char(required=True, index=True)
     count = fields.Integer(default=0)
     expires = fields.Datetime(required=True)
-    _sql_constraints = [('key_unique', 'unique(key)', 'Counter already exists.')]
+    _key_unique = models.Constraint("unique(key)", "Counter already exists.")
 
     @api.autovacuum
     def _remove_expired(self):

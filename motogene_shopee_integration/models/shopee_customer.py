@@ -12,10 +12,7 @@ class ShopeeCustomerMapping(models.Model):
     shop_id = fields.Many2one("motogene.shopee.shop", required=True, ondelete="cascade", index=True)
     buyer_user_id = fields.Char(required=True, index=True, readonly=True)
     partner_id = fields.Many2one("res.partner", required=True, ondelete="restrict", readonly=True)
-    _sql_constraints = [
-        ("unique_shopee_buyer", "unique(shop_id, buyer_user_id)",
-         "This Shopee buyer is already linked to an Odoo customer."),
-    ]
+    _unique_shopee_buyer = models.Constraint("unique(shop_id, buyer_user_id)", "This Shopee buyer is already linked to an Odoo customer.")
 
 
 class ShopeeRecipientMapping(models.Model):
@@ -28,10 +25,7 @@ class ShopeeRecipientMapping(models.Model):
     )
     address_fingerprint = fields.Char(required=True, index=True, readonly=True)
     partner_id = fields.Many2one("res.partner", required=True, ondelete="restrict", readonly=True)
-    _sql_constraints = [
-        ("unique_shopee_recipient", "unique(customer_mapping_id, address_fingerprint)",
-         "This buyer's shipping address was mapped already."),
-    ]
+    _unique_shopee_recipient = models.Constraint("unique(customer_mapping_id, address_fingerprint)", "This buyer's shipping address was mapped already.")
 
 
 class ShopeeOrderRecipient(models.Model):

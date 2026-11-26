@@ -8,4 +8,4 @@ class SaleOrder(models.Model):
     _inherit = 'sale.order'
     morimoto_mobile_key = fields.Char(copy=False, index=True)
     morimoto_mobile_fingerprint = fields.Char(copy=False)
-    _sql_constraints = [('morimoto_mobile_key_unique', 'unique(morimoto_mobile_key)', 'Mobile request already exists.')]
+    _morimoto_mobile_key_unique = models.Constraint("unique(morimoto_mobile_key)", "Mobile request already exists.")

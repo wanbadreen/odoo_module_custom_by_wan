@@ -38,9 +38,7 @@ class MotoGeneEventSelfServiceConfig(models.Model):
         default="x_studio_event_notification_recipients", readonly=True,
         help="Use existing Event Notification Recipients Studio field for staff alerts, if present.",
     )
-    _sql_constraints = [
-        ("website_unique", "unique(website_id)", "Only one self-service configuration per website."),
-    ]
+    _website_unique = models.Constraint("unique(website_id)", "Only one self-service configuration per website.")
 
     @api.constrains("website_id", "company_id")
     def _check_website_company(self):
@@ -189,9 +187,7 @@ class MotoGeneEventSelfServiceToken(models.Model):
     expires_at = fields.Datetime(required=True, readonly=True)
     used_at = fields.Datetime(readonly=True)
 
-    _sql_constraints = [
-        ("token_hash_unique", "unique(token_hash)", "Verification grants must be unique."),
-    ]
+    _token_hash_unique = models.Constraint("unique(token_hash)", "Verification grants must be unique.")
 
     @api.model
     def _issue_token(self, email, website, ip):

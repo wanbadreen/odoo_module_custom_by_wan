@@ -37,9 +37,7 @@ class MotoGeneEventDailyConfig(models.Model):
     send_minute = fields.Integer(default=0)
     summary_ids = fields.One2many("motogene.event.daily.summary", "config_id", readonly=True)
 
-    _sql_constraints = [
-        ("website_unique", "unique(website_id)", "Only one daily summary configuration is allowed per website."),
-    ]
+    _website_unique = models.Constraint("unique(website_id)", "Only one daily summary configuration is allowed per website.")
 
     @api.constrains("company_id", "website_id", "send_hour", "send_minute")
     def _check_configuration(self):
@@ -214,7 +212,7 @@ class MotoGeneEventDailyConfig(models.Model):
                 attachment = self.env["ir.attachment"].sudo().create({
                     "name": "MotoGene_Daily_Summary_%s.xlsx" % report_date.isoformat(),
                     "type": "binary",
-                    "datas": base64.b64encode(xlsx_content),
+                    "raw": xlsx_content,
                     "res_model": summary._name,
                     "res_id": summary.id,
                     "mimetype": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -317,9 +315,7 @@ class MotoGeneEventDailySummary(models.Model):
     attempt_count = fields.Integer(string="Attempts", default=0, readonly=True)
     last_attempt_at = fields.Datetime(string="Last Attempt", readonly=True)
 
-    _sql_constraints = [
-        ("unique_report", "unique(config_id, report_date)", "This report has already been generated for the date."),
-    ]
+    _unique_report = models.Constraint("unique(config_id, report_date)", "This report has already been generated for the date.")
 
     def action_retry_failed(self):
         """Admin-only explicit retry. Enqueues once; never sends directly."""

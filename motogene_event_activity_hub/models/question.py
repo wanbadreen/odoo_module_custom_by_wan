@@ -18,13 +18,7 @@ class EventQuestion(models.Model):
         help="Original Activity question from which this session question was created.",
     )
 
-    _sql_constraints = [
-        (
-            "motogene_unique_question_source_per_event",
-            "unique(event_id, motogene_activity_source_id)",
-            "An Activity question may only appear once per session.",
-        )
-    ]
+    _motogene_unique_question_source_per_event = models.Constraint("unique(event_id, motogene_activity_source_id)", "An Activity question may only appear once per session.")
 
     def _motogene_managed_children(self):
         return self.env["event.question"].search([

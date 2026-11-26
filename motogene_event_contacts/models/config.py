@@ -14,9 +14,7 @@ class MotoGeneEventContactConfig(models.Model):
         help="Disabled by default. Enable only after reviewing the event registration flow on staging.")
     review_user_id = fields.Many2one("res.users", string="Identity Review Assignee",
         help="Schedule an Odoo To Do activity for new identity conflicts; no email is sent by this feature.")
-    _sql_constraints = [
-        ("website_unique", "unique(website_id)", "Only one Contacts configuration per website."),
-    ]
+    _website_unique = models.Constraint("unique(website_id)", "Only one Contacts configuration per website.")
 
     @api.constrains("company_id", "website_id")
     def _check_company(self):

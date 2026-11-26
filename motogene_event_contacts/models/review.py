@@ -30,10 +30,7 @@ class MotoGeneContactReview(models.Model):
     resolved_at = fields.Datetime(readonly=True)
     resolution_note = fields.Text(string="Staff Review Notes")
 
-    _sql_constraints = [
-        ("unique_registration_review", "unique(registration_id)",
-         "Only one Contact review record is allowed per attendee."),
-    ]
+    _unique_registration_review = models.Constraint("unique(registration_id)", "Only one Contact review record is allowed per attendee.")
 
     def _finish(self, partner, status):
         self.ensure_one()

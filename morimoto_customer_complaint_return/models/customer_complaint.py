@@ -188,9 +188,7 @@ class CustomerComplaint(models.Model):
     # ---------------------------------------------------------
     # UNIQUE COMPLAINT NUMBER
     # ---------------------------------------------------------
-    _sql_constraints = [
-        ("name_uniq", "unique(name)", "Complaint number must be unique!"),
-    ]
+    _name_uniq = models.Constraint("unique(name)", "Complaint number must be unique!")
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -258,7 +256,7 @@ class CustomerComplaint(models.Model):
                         {
                             "product_id": move.product_id.id,
                             "quantity_purchased": qty_delivered,
-                            "uom_id": move.product_uom.id,
+                            "uom_id": move.uom_id.id,
                             # quantity_returned staff akan isi sendiri
                         },
                     )

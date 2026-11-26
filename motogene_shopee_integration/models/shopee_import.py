@@ -22,11 +22,7 @@ class ShopeeProductMapping(models.Model):
     product_id = fields.Many2one("product.product", required=True, ondelete="restrict")
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ("mapping_shop_item_model_unique",
-         "unique(shop_id, shopee_item_id, shopee_model_id)",
-         "This Shopee shop/item/model mapping already exists."),
-    ]
+    _mapping_shop_item_model_unique = models.Constraint("unique(shop_id, shopee_item_id, shopee_model_id)", "This Shopee shop/item/model mapping already exists.")
 
 
 class ShopeeImportedOrder(models.Model):
@@ -182,10 +178,7 @@ class ShopeeImportedOrder(models.Model):
             "context": {"default_preview_id": self.id},
         }
 
-    _sql_constraints = [
-        ("shopee_order_per_shop_unique", "unique(shop_id, name)",
-         "Shopee order already exists for this shop."),
-    ]
+    _shopee_order_per_shop_unique = models.Constraint("unique(shop_id, name)", "Shopee order already exists for this shop.")
 
 
 class ShopeeImportedLine(models.Model):

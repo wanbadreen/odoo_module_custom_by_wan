@@ -88,7 +88,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
                 "product_id": product.id,
                 "name": product.display_name,
                 "product_uom_qty": line.quantity,
-                "product_uom": product.uom_id.id,
+                "product_uom_id": product.uom_id.id,
                 "price_unit": line.shopee_discounted_price,
                 "discount": 0.0,
             }))

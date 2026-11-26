@@ -19,18 +19,8 @@ class SaleOrder(models.Model):
         string="MotoGene Shopee Preview",
         copy=False, readonly=True, index=True,
     )
-    _sql_constraints = [
-        (
-            "motogene_shopee_ref_unique",
-            "unique(motogene_shopee_order_ref)",
-            "A MotoGene Shopee Order SN can only be linked once.",
-        ),
-        (
-            "motogene_shopee_preview_unique",
-            "unique(motogene_shopee_preview_id)",
-            "A Shopee order preview can be linked to only one Sales Order.",
-        ),
-    ]
+    _motogene_shopee_ref_unique = models.Constraint("unique(motogene_shopee_order_ref)", "A MotoGene Shopee Order SN can only be linked once.")
+    _motogene_shopee_preview_unique = models.Constraint("unique(motogene_shopee_preview_id)", "A Shopee order preview can be linked to only one Sales Order.")
 
     def _prepare_invoice(self):
         """Use Shopee username and order SN as reference on new draft invoices."""

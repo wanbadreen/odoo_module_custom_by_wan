@@ -23,12 +23,8 @@ class MotoGeneEventActivitySession(models.Model):
     event_id = fields.Many2one("event.event", string="Linked Odoo Event", readonly=True,
         copy=False, ondelete="restrict",
         help="Standard Odoo Event that manages registration, tickets and attendees.")
-    _sql_constraints = [
-        ("activity_session_unique_name", "unique(activity_id, name)",
-            "Session names must be unique within an activity."),
-        ("activity_session_unique_event", "unique(event_id)",
-            "An Odoo Event can only belong to one session."),
-    ]
+    _activity_session_unique_name = models.Constraint("unique(activity_id, name)", "Session names must be unique within an activity.")
+    _activity_session_unique_event = models.Constraint("unique(event_id)", "An Odoo Event can only belong to one session.")
 
     @api.constrains("date_begin", "date_end", "seats_max")
     def _check_details(self):
