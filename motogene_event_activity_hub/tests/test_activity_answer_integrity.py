@@ -71,6 +71,27 @@ class TestActivityHistoricalAnswerLabels(TransactionCase):
             "value_answer_id": cls.child_used.id,
         })
 
+    def test_sync_preserves_existing_answered_question_and_has_no_duplicates(self):
+        """Odoo 20 M2M question relationship must preserve saved answer IDs."""
+        original_question = self.child_question
+        original_option = self.child_used
+        self.activity._sync_questions(self.event)
+        self.activity._sync_questions(self.event)
+        matched = self.event.question_ids.filtered(
+            lambda q: q.motogene_activity_source_id == self.source_question
+        )
+        self.assertEqual(matched, original_question)
+        self.assertEqual(matched.motogene_activity_session_event_id, self.event)
+        self.assertEqual(self.saved_answer.value_answer_id, original_option)
+        self.assertEqual(self.saved_answer.question_id, original_question)
+        for required_type in ("name", "email"):
+            self.assertEqual(
+                len(self.event.question_ids.filtered(
+                    lambda q: q.question_type == required_type
+                )),
+                1,
+            )
+
     def test_used_source_answer_cannot_be_renamed(self):
         with self.assertRaises(UserError):
             self.source_used.write({"name": "Changed Choice"})

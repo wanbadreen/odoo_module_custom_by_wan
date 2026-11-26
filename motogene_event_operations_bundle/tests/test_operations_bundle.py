@@ -68,7 +68,7 @@ class TestMotoGeneOperationsBundle(TransactionCase):
     def test_report_has_booking_email_and_questions(self):
         r = self._register("QA Choice", "qa-choice@example.invalid")
         question = self.env["event.question"].create({
-            "event_id": self.event.id, "title": "Preferred Topic",
+            "event_ids": [(4, self.event.id)], "title": "Preferred Topic",
             "question_type": "simple_choice",
         })
         choice = self.env["event.question.answer"].create({

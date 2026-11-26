@@ -109,7 +109,7 @@ try:
         def c02():
             r = reg("QA Formula", prefix + "-formula@example.invalid")
             q = E["event.question"].create({
-                "event_id": event.id, "title": "Favourite Activity",
+                "event_ids": [(4, event.id)], "title": "Favourite Activity",
                 "question_type": "simple_choice",
             })
             a = E["event.question.answer"].create({
