@@ -12,7 +12,7 @@
         "motogene_event_self_service",
     ],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/event_operations_views.xml",
         "views/event_export_views.xml",
     ],

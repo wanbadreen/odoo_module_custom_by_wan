@@ -7,8 +7,7 @@
     "license": "LGPL-3",
     "depends": ["motogene_event_activity_hub", "motogene_event_self_service", "website_event", "mail"],
     "data": [
-        "security/ir.model.access.csv",
-        "security/contact_rules.xml",
+        "security/ir.access.csv",
         "views/contact_backend_views.xml",
         "views/contact_website_templates.xml"
     ],

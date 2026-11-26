@@ -1,4 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_mobile_account_admin,Mobile account admin,model_morimoto_mobile_account,base.group_system,1,1,1,1
-access_mobile_session_admin,Mobile session admin,model_morimoto_mobile_session,base.group_system,1,1,1,1
-access_mobile_rate_admin,Mobile rate admin,model_morimoto_mobile_rate,base.group_system,1,1,1,1

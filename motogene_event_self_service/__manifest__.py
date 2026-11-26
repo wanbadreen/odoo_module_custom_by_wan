@@ -7,7 +7,7 @@
     "license": "LGPL-3",
     "depends": ["website_event", "mail"],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "views/self_service_config_views.xml",
         "views/self_service_website_templates.xml",
     ],

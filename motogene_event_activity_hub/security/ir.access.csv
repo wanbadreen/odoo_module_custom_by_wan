@@ -1,0 +1,4 @@
+id,name,model_id,group_id/id,operation,domain
+motogene_activity_user,motogene.activity.user,model_motogene_event_activity,event.group_event_user,crud,"[('company_id', 'in', company_ids)]"
+motogene_activity_session_user,motogene.activity.session.user,model_motogene_event_activity_session,event.group_event_user,crud,"[('activity_id.company_id', 'in', company_ids)]"
+motogene_activity_create_user,motogene.create.user,model_motogene_event_create_wizard,event.group_event_user,crud,

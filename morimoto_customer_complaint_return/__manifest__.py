@@ -9,7 +9,7 @@
     "license": "LGPL-3",
     "depends": ["base", "mail", "sale", "account", "stock"],
     "data": [
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "data/complaint_sequence.xml",
         "views/customer_complaint_actions.xml",
         "views/customer_complaint_views.xml",

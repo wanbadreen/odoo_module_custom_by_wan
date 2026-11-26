@@ -8,7 +8,7 @@
     "depends": ["base", "web", "product", "sale", "sale_stock"],
     "data": [
         "security/shopee_reviewer_groups.xml",
-        "security/ir.model.access.csv",
+        "security/ir.access.csv",
         "data/shopee_pending_partner.xml",
         "views/shopee_shop_views.xml",
         "views/shopee_reviewer_demo_views.xml",
