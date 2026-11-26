@@ -4,7 +4,7 @@ import json
 
 import pytz
 
-from odoo import api, fields, models, _
+from odoo import Command, api, fields, models, _
 from odoo.exceptions import UserError, ValidationError
 
 
@@ -75,7 +75,11 @@ class MotoGeneEventActivity(models.Model):
         ]
 
     def _ensure_activity_questions(self):
-        """Upgrade existing V1.1 records without replacing session answers."""
+        """Upgrade existing V1.1 records without replacing session answers.
+
+        Odoo 20 uses event.question.event_ids / event_type_ids (Many2many).
+        The parent Activity question must be independent of session records.
+        """
         self.ensure_one()
         if self.question_ids:
             return
@@ -86,13 +90,18 @@ class MotoGeneEventActivity(models.Model):
             for question in existing.question_ids.sorted(
                 lambda q: (q.sequence, q.id)
             ):
+                if question.is_default:
+                    continue  # Native shared defaults are not Activity-owned.
                 question.copy({
-                    "event_id": False,
-                    "event_type_id": False,
+                    "event_ids": [Command.clear()],
+                    "event_type_ids": [Command.clear()],
+                    "is_default": False,
+                    "is_reusable": False,
                     "motogene_activity_id": self.id,
                     "motogene_activity_source_id": False,
+                    "motogene_activity_session_event_id": False,
                 })
-        else:
+        if not self.question_ids:
             for _, _, vals in self._default_activity_questions():
                 self.env["event.question"].create(dict(
                     vals, motogene_activity_id=self.id
@@ -228,18 +237,29 @@ class MotoGeneEventActivity(models.Model):
                 answers.create(dict(vals, question_id=dest.id))
 
     def _sync_questions(self, event):
-        """Use exact Odoo event.question behavior and keep answered IDs stable."""
+        """Keep per-session question/answer identity after Odoo 20 M2M change.
+
+        Standard Odoo 20 questions may be reusable across events. Never edit
+        shared/default questions to represent an Activity-owned session.
+        """
         self.ensure_one()
         question_model = self.env["event.question"]
+        Answer = self.env["event.registration.answer"]
         for source in self.question_ids.sorted(lambda q: (q.sequence, q.id)):
-            linked = event.question_ids.filtered(
+            linked_set = event.question_ids.filtered(
                 lambda q: q.motogene_activity_source_id == source
-            )[:1]
+            )
+            if len(linked_set) > 1:
+                raise UserError(_("Duplicate Activity questions found for one session. Review before syncing."))
+            linked = linked_set[:1]
             if not linked:
-                # Attach questions created by the prior V1.1 setup to the
-                # centralized source instead of duplicating them.
+                # Reuse a private legacy V1.1 question so existing attendee
+                # answers keep the original question and option IDs.
                 candidates = event.question_ids.filtered(
                     lambda q: not q.motogene_activity_source_id
+                    and not q.is_default
+                    and not q.event_type_ids
+                    and len(q.event_ids) == 1
                     and q.question_type == source.question_type
                     and (q.title == source.title
                          or source.question_type in ("name", "email", "phone"))
@@ -252,13 +272,38 @@ class MotoGeneEventActivity(models.Model):
                 "is_mandatory_answer": source.is_mandatory_answer,
                 "once_per_order": source.once_per_order,
                 "motogene_activity_source_id": source.id,
+                "motogene_activity_session_event_id": event.id,
             }
             if linked:
+                if linked.event_ids != event:
+                    raise UserError(_("The linked Activity question is shared across sessions. Review before syncing."))
                 linked.write(vals)
             else:
                 linked = question_model.create(dict(
-                    vals, event_id=event.id
+                    vals,
+                    event_ids=[Command.link(event.id)],
+                    is_default=False,
+                    is_reusable=False,
                 ))
+
+            # Native default Name/Email/Phone questions are shared in Odoo 20.
+            # Replacing an unanswered default with this session-owned question
+            # avoids asking the participant twice without editing global IDs.
+            if source.question_type in ("name", "email", "phone"):
+                defaults = event.question_ids.filtered(
+                    lambda q: q != linked and q.is_default
+                    and q.question_type == source.question_type
+                )
+                for default in defaults:
+                    if Answer.search_count([
+                        ("registration_id", "in", event.registration_ids.ids),
+                        ("question_id", "=", default.id),
+                    ]):
+                        raise UserError(_(
+                            "A shared default question has historical answers. "
+                            "Do not replace it without an explicit migration review."
+                        ))
+                    event.write({"question_ids": [Command.unlink(default.id)]})
             if source.question_type == "simple_choice":
                 self._sync_question_answers(source, linked)
 

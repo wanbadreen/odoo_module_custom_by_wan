@@ -2,7 +2,7 @@
 """Protect Activity selection labels while allowing unrelated event editing."""
 from datetime import timedelta
 
-from odoo import fields
+from odoo import Command, fields
 from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase
 
@@ -46,7 +46,8 @@ class TestActivityHistoricalAnswerLabels(TransactionCase):
         cls.child_question = cls.env["event.question"].create({
             "title": "Registration Preference",
             "question_type": "simple_choice",
-            "event_id": cls.event.id,
+            "event_ids": [Command.link(cls.event.id)],
+            "motogene_activity_session_event_id": cls.event.id,
             "motogene_activity_source_id": cls.source_question.id,
         })
         cls.child_used = cls.env["event.question.answer"].create({
@@ -95,7 +96,7 @@ class TestActivityHistoricalAnswerLabels(TransactionCase):
         independent_question = self.env["event.question"].create({
             "title": "Independent Event Preference",
             "question_type": "simple_choice",
-            "event_id": self.event.id,
+            "event_ids": [Command.link(self.event.id)],
         })
         independent = self.env["event.question.answer"].create({
             "name": "Initial", "question_id": independent_question.id,

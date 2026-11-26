@@ -18,12 +18,21 @@ class EventQuestion(models.Model):
         help="Original Activity question from which this session question was created.",
     )
 
-    _motogene_unique_question_source_per_event = models.Constraint("unique(event_id, motogene_activity_source_id)", "An Activity question may only appear once per session.")
+    # Odoo 20 uses question.event_ids (Many2many), not question.event_id.
+    # Keep a private session marker so the original per-session uniqueness
+    # remains enforced by the database without affecting shared questions.
+    motogene_activity_session_event_id = fields.Many2one(
+        "event.event", string="Linked Activity Session Event",
+        ondelete="cascade", index=True, copy=False,
+    )
+    _motogene_unique_question_source_per_event = models.Constraint(
+        "unique(motogene_activity_session_event_id, motogene_activity_source_id)",
+        "An Activity question may only appear once per session.",
+    )
 
     def _motogene_managed_children(self):
         return self.env["event.question"].search([
             ("motogene_activity_source_id", "in", self.ids),
-            ("event_id", "!=", False),
         ])
 
     def action_view_question_answers(self):
@@ -34,7 +43,7 @@ class EventQuestion(models.Model):
         action = self.env["ir.actions.actions"]._for_xml_id(
             "event.action_event_registration_report"
         )
-        action["domain"] = [("question_id", "in", children.ids)]
+        action["domain"] = [("event_id.question_ids", "in", children.ids)]
         if self.question_type == "simple_choice":
             action["views"] = [(False, "graph"), (False, "pivot"), (False, "list")]
         elif self.question_type == "text_box":
