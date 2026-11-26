@@ -26,7 +26,7 @@ class MotoGeneBookingController(WebsiteEventController):
         # Keep the visitor link, but set Booked by to False so the participant
         # Email remains an honest individual field. Ownership belongs to the
         # dedicated booking record, not to event.registration.partner_id.
-        visitor = request.env["website.visitor"]._get_visitor_from_request(force_create=True)
+        visitor = request.env["ir.http"]._get_visitor_from_request(force_create=True)
         to_create = []
         for values in registration_data:
             item = dict(values)
