@@ -51,7 +51,7 @@ for module in MODULES:
     for bundle in manifest.get("assets", {}).values():
         files.extend(bundle if isinstance(bundle, list) else [bundle])
     for relative in files:
-        if not (base / relative.split("/", 1)[-1]).exists() and not (ROOT / relative).exists():
+        if not (base / relative).exists() and not (ROOT / relative).exists():
             failure(module, f"Manifest missing file: {relative}")
     for entry in manifest.get("data", []):
         if "ir.model.access.csv" in entry:
