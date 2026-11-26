@@ -63,6 +63,21 @@ for module in MODULES:
             counts["python"] += 1
             if "_sql_constraints" in source and "models" in path.parts:
                 failure(path.relative_to(ROOT), "Legacy _sql_constraints found")
+            legacy_patterns = {
+                "from odoo.tools.misc import xlsxwriter":
+                    "Odoo 20 no longer exports xlsxwriter from odoo.tools.misc",
+                "from odoo.osv import expression":
+                    "Deprecated osv.expression import",
+                "request.env[\"website.visitor\"]._get_visitor_from_request":
+                    "Odoo 20 visitor helper is on ir.http",
+            }
+            for pattern, description in legacy_patterns.items():
+                if pattern in source:
+                    failure(path.relative_to(ROOT), description)
+            if module == "motogene_event_activity_hub" and path.name == "question.py":
+                if "unique(event_id, motogene_activity_source_id)" in source:
+                    failure(path.relative_to(ROOT), "Event question.event_id removed in Odoo 20")
+
         except (SyntaxError, UnicodeDecodeError) as exc:
             failure(path.relative_to(ROOT), f"Python parse failed: {exc}")
     for path in base.rglob("*.xml"):
@@ -72,6 +87,10 @@ for module in MODULES:
             for node in tree.iter("record"):
                 if node.attrib.get("model") == "ir.rule":
                     failure(path.relative_to(ROOT), "Legacy ir.rule record remains")
+                if node.attrib.get("model") == "ir.actions.server":
+                    if any(field.attrib.get("name") == "groups_id" for field in node.iter("field")):
+                        failure(path.relative_to(ROOT), "Server actions use group_ids in Odoo 20")
+
         except ET.ParseError as exc:
             failure(path.relative_to(ROOT), f"XML parse failed: {exc}")
     access = base / "security" / "ir.access.csv"
