@@ -9,7 +9,7 @@ from collections import defaultdict
 
 import pytz
 from odoo import fields, models
-from odoo.tools.misc import xlsxwriter
+import xlsxwriter
 
 from odoo.addons.motogene_event_daily_summary.models.daily_summary import STATES
 

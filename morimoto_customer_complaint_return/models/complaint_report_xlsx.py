@@ -1,7 +1,7 @@
 # morimoto_customer_complaint_return/models/complaint_report_xlsx.py
 
 from odoo import models
-from odoo.tools.misc import xlsxwriter
+import xlsxwriter
 from io import BytesIO
 import base64
 from datetime import datetime, date  # <-- tambah import ni

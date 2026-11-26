@@ -8,7 +8,7 @@ from datetime import datetime, time, timedelta
 import pytz
 from odoo import api, fields, models, _
 from odoo.exceptions import AccessError, UserError, ValidationError
-from odoo.tools.misc import xlsxwriter
+import xlsxwriter
 
 _logger = logging.getLogger(__name__)
 
