@@ -19,5 +19,13 @@ def migrate(cr, version):
                 "Activity session question %s is linked to multiple Events; "
                 "manual migration review required." % child.id
             )
+        if not events and env["event.registration.answer"].search_count([
+            ("question_id", "=", child.id),
+        ]):
+            raise ValueError(
+                "Activity question %s has historical attendee answers but no linked "
+                "event after native Odoo 20 migration. Stop and restore event links "
+                "before proceeding." % child.id
+            )
         if events:
             child.write({"motogene_activity_session_event_id": events.id})
