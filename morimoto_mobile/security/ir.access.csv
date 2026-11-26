@@ -1,4 +1,4 @@
 id,name,model_id,group_id/id,operation,domain
-access_mobile_account_admin,Mobile account admin,model_morimoto_mobile_account,base.group_system,crud,
-access_mobile_session_admin,Mobile session admin,model_morimoto_mobile_session,base.group_system,crud,
-access_mobile_rate_admin,Mobile rate admin,model_morimoto_mobile_rate,base.group_system,crud,
+access_mobile_account_admin,Mobile account admin,morimoto.mobile.account,base.group_system,crud,
+access_mobile_session_admin,Mobile session admin,morimoto.mobile.session,base.group_system,crud,
+access_mobile_rate_admin,Mobile rate admin,morimoto.mobile.rate,base.group_system,crud,

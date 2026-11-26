@@ -105,6 +105,8 @@ for module in MODULES:
                     op = row["operation"] or ""
                     if not op or len(set(op)) != len(op) or not set(op) <= set("crud"):
                         failure(access.relative_to(ROOT), f"Invalid operation at line {index}: {op!r}")
+                    if (row["model_id"] or "").startswith("model_"):
+                        failure(access.relative_to(ROOT), f"Legacy model XML ID at line {index}: {row['model_id']}")
                     if not row["id"] or not row["model_id"]:
                         failure(access.relative_to(ROOT), f"Missing id/model at line {index}")
                     counts["acl_rows"] += 1

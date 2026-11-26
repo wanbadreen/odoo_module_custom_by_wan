@@ -1,3 +1,3 @@
 id,name,model_id,group_id/id,operation,domain
-access_motogene_self_service_config_admin,motogene.self.service.config.admin,model_motogene_event_self_service_config,base.group_system,cru,
-access_motogene_self_service_token_admin,motogene.self.service.token.admin,model_motogene_event_self_service_token,base.group_system,r,
+access_motogene_self_service_config_admin,motogene.self.service.config.admin,motogene.event.self.service.config,base.group_system,cru,
+access_motogene_self_service_token_admin,motogene.self.service.token.admin,motogene.event.self.service.token,base.group_system,r,

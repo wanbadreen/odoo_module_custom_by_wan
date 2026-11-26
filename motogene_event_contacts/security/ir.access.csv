@@ -1,5 +1,5 @@
 id,name,model_id,group_id/id,operation,domain
-access_moto_contact_config_admin,motogene.event.contact.config.admin,model_motogene_event_contact_config,base.group_system,cru,
-access_moto_booking_staff,motogene.event.booking.staff,model_motogene_event_booking,event.group_event_user,r,"[('company_id', 'in', company_ids)]"
-access_moto_review_staff,motogene.event.contact.review.staff,model_motogene_event_contact_review,event.group_event_user,ru,"[('company_id', 'in', company_ids)]"
-access_moto_review_admin,motogene.event.contact.review.admin,model_motogene_event_contact_review,base.group_system,cru,
+access_moto_contact_config_admin,motogene.event.contact.config.admin,motogene.event.contact.config,base.group_system,cru,
+access_moto_booking_staff,motogene.event.booking.staff,motogene.event.booking,event.group_event_user,r,"[('company_id', 'in', company_ids)]"
+access_moto_review_staff,motogene.event.contact.review.staff,motogene.event.contact.review,event.group_event_user,ru,"[('company_id', 'in', company_ids)]"
+access_moto_review_admin,motogene.event.contact.review.admin,motogene.event.contact.review,base.group_system,cru,
