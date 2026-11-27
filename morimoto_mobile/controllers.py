@@ -13,7 +13,7 @@ STAGING_HOST = 'percyianodoo-morimotoformulas-staging-37481016.dev.odoo.com'
 class Mobile(http.Controller):
     def _free_delivery_carrier(self, env, shipping, company):
         # One existing carrier, selected server-side. Never accept client prices or IDs.
-        carrier_id = int(env['ir.config_parameter'].sudo().get_param('morimoto_mobile.carrier_id', '2'))
+        carrier_id = int(env['ir.config_parameter'].sudo().get_str('morimoto_mobile.carrier_id', '2'))
         carrier = env['delivery.carrier'].browse(carrier_id).exists()
         country = env.ref('base.my')
         if (shipping.country_id != country or not carrier or not carrier.active
@@ -29,14 +29,14 @@ class Mobile(http.Controller):
         if not request.httprequest.headers.get('Authorization', '').startswith('Bearer '):
             raise Forbidden()
         params = request.env['ir.config_parameter'].sudo()
-        if (params.get_param('morimoto_mobile.enabled') != 'staging'
+        if (params.get_str('morimoto_mobile.enabled') != 'staging'
                 or request.httprequest.host.split(':')[0] != STAGING_HOST
-                or params.get_param('morimoto_mobile.database') != request.env.cr.dbname
+                or params.get_str('morimoto_mobile.database') != request.env.cr.dbname
                 or not request.env.user.has_group('morimoto_mobile.group_mobile_api')):
             raise Forbidden()
         try:
-            partner_id = int(params.get_param('morimoto_mobile.test_partner_id', '0'))
-            company_id = int(params.get_param('morimoto_mobile.company_id', '0'))
+            partner_id = int(params.get_str('morimoto_mobile.test_partner_id', '0'))
+            company_id = int(params.get_str('morimoto_mobile.company_id', '0'))
         except ValueError:
             raise Forbidden()
         company = request.env['res.company'].browse(company_id).exists()

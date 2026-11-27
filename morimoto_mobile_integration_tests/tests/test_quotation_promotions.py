@@ -73,7 +73,7 @@ class TestMobilePromotionIntegration(TransactionCase):
         country = self.env.ref('base.my')
         product = self.env['product.product'].create({'name': 'Free shipping fixture', 'type': 'service', 'list_price': 0, 'taxes_id': [(5, 0, 0)]})
         carrier = self.env['delivery.carrier'].create({'name': 'Malaysia free fixture', 'delivery_type': 'fixed', 'fixed_price': 0, 'product_id': product.id, 'country_ids': [(6, 0, country.ids)]})
-        self.env['ir.config_parameter'].sudo().set_param('morimoto_mobile.carrier_id', str(carrier.id))
+        self.env['ir.config_parameter'].sudo().set_str('morimoto_mobile.carrier_id', str(carrier.id))
         for name in ['Pahang', 'Sabah', 'Sarawak']:
             state = self.env['res.country.state'].search([('country_id', '=', country.id), ('name', 'ilike', name)], limit=1)
             self.assertTrue(state)

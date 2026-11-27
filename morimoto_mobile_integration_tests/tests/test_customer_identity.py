@@ -30,7 +30,7 @@ class TestCustomerIdentity(TransactionCase):
         params = self.env['ir.config_parameter'].sudo()
         for key, value in {'enabled': 'staging', 'customer_auth': 'staging', 'database': self.env.cr.dbname,
                            'company_id': str(self.env.company.id), 'test_partner_id': str(self.partners[1].id)}.items():
-            params.set_param('morimoto_mobile.' + key, value)
+            params.set_str('morimoto_mobile.' + key, value)
         self.fake = SimpleNamespace(env=self.env(user=self.service.id))
         self.fake.httprequest = SimpleNamespace(host=HOST, headers={
             'Authorization': 'Bearer fixture', 'X-Morimoto-Customer-Session': self.token,

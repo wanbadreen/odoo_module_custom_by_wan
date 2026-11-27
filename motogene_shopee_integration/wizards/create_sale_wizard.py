@@ -43,7 +43,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         if preview.shop_id.environment == "production":
             key = ("motogene_shopee.enable_production_manual_so" if manual
                    else "motogene_shopee.enable_production_so_creation")
-            if self.env["ir.config_parameter"].sudo().get_param(key, "0") != "1":
+            if self.env["ir.config_parameter"].sudo().get_str(key, "0") != "1":
                 raise UserError(_(
                     "This Production SO workflow is disabled. Activate its "
                     "separate administrator flag only after approval."
@@ -53,7 +53,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
         if preview.order_status != "READY_TO_SHIP":
             raise UserError(_("Phase 3A only allows READY_TO_SHIP test orders."))
         if preview.shop_id.environment == "sandbox" and (
-            self.env["ir.config_parameter"].sudo().get_param(
+            self.env["ir.config_parameter"].sudo().get_str(
                 "motogene_shopee.enable_test_so", "0"
             ) != "1"
         ):

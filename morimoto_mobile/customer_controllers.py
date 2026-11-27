@@ -16,9 +16,9 @@ def gateway():
     params = request.env['ir.config_parameter'].sudo()
     if (not request.httprequest.headers.get('Authorization', '').startswith('Bearer ')
             or request.httprequest.host.split(':')[0] != HOST
-            or params.get_param('morimoto_mobile.database') != request.env.cr.dbname
-            or params.get_param('morimoto_mobile.enabled') != 'staging'
-            or params.get_param('morimoto_mobile.customer_auth') != 'staging'
+            or params.get_str('morimoto_mobile.database') != request.env.cr.dbname
+            or params.get_str('morimoto_mobile.enabled') != 'staging'
+            or params.get_str('morimoto_mobile.customer_auth') != 'staging'
             or not request.env.user.has_group('morimoto_mobile.group_mobile_api')):
         raise Forbidden()
 
@@ -140,7 +140,7 @@ class CustomerAuth(http.Controller):
             if action in ('register', 'recover'):
                 data = self._data(['email', 'name'] if action == 'register' else ['email'], ['phone'] if action == 'register' else [])
                 email = email_address(data['email'])
-                sender = request.env['ir.config_parameter'].sudo().get_param('morimoto_mobile.auth_email_from')
+                sender = request.env['ir.config_parameter'].sudo().get_str('morimoto_mobile.auth_email_from')
                 if not sender:
                     return self._reply({'error': 'Pengesahan email belum tersedia. Hubungi Morimoto.'}, 503)
                 email_address(sender)
@@ -166,7 +166,7 @@ class CustomerAuth(http.Controller):
                                            ('token_expires', '>', fields.Datetime.now())], limit=1)
                 if not account:
                     return self._reply({'error': 'Pautan tidak sah atau sudah tamat tempoh. Minta pautan baharu.'}, 400)
-                company_id = int(request.env['ir.config_parameter'].sudo().get_param('morimoto_mobile.company_id', '0'))
+                company_id = int(request.env['ir.config_parameter'].sudo().get_str('morimoto_mobile.company_id', '0'))
                 if company_id not in request.env.user.company_ids.ids:
                     raise Forbidden()
                 values = {'password_hash': request.env['res.users']._crypt_context().hash(password),

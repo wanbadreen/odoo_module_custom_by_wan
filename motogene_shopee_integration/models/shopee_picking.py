@@ -132,7 +132,7 @@ class StockPicking(models.Model):
         A durable running marker is committed BEFORE sending each mutating API
         request. On interruption, staff must verify with Shopee; never auto-retry.
         """
-        if self.env["ir.config_parameter"].sudo().get_param(
+        if self.env["ir.config_parameter"].sudo().get_str(
             "motogene_shopee.enable_bulk_dropoff", "0"
         ) != "1":
             return
@@ -246,7 +246,7 @@ class StockPicking(models.Model):
     @api.model
     def _cron_motogene_shopee_awb_progress(self):
         """Sandbox only, capped. Never arrange shipment again; stop on uncertainty."""
-        if self.env["ir.config_parameter"].sudo().get_param(
+        if self.env["ir.config_parameter"].sudo().get_str(
             "motogene_shopee.enable_awb_auto_progress", "0"
         ) != "1":
             return

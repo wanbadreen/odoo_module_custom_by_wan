@@ -68,6 +68,10 @@ for module in MODULES:
                     "Odoo 20 no longer exports xlsxwriter from odoo.tools.misc",
                 "from odoo.osv import expression":
                     "Deprecated osv.expression import",
+                ".get_param(":
+                    "Odoo 20 ir.config_parameter.get_param was removed; use typed getters",
+                ".set_param(":
+                    "Odoo 20 ir.config_parameter.set_param was removed; use typed setters",
                 "request.env[\"website.visitor\"]._get_visitor_from_request":
                     "Odoo 20 visitor helper is on ir.http",
             }

@@ -60,11 +60,11 @@ class MotoGeneShopeeShop(models.Model):
         if self.environment != "production":
             raise UserError(_("Unsupported Shopee environment."))
         conf = self.env["ir.config_parameter"].sudo()
-        if conf.get_param("motogene_shopee.enable_production_connection", "0") != "1":
+        if conf.get_str("motogene_shopee.enable_production_connection", "0") != "1":
             raise UserError(_("Production Shopee access is disabled. Enable connection explicitly first."))
         if mutation and (
             not self.production_fulfillment_enabled
-            or conf.get_param("motogene_shopee.enable_production_fulfillment", "0") != "1"
+            or conf.get_str("motogene_shopee.enable_production_fulfillment", "0") != "1"
         ):
             raise UserError(_("Production shipment actions are locked until explicitly authorized."))
 
@@ -253,7 +253,7 @@ class MotoGeneShopeeShop(models.Model):
         ])
         for shop in shops:
             if shop.environment == "production" and (
-                self.env["ir.config_parameter"].sudo().get_param(
+                self.env["ir.config_parameter"].sudo().get_str(
                     "motogene_shopee.enable_production_connection", "0"
                 ) != "1"
             ):

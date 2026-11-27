@@ -235,7 +235,7 @@ class MotoGeneShopeeShop(models.Model):
     def _cron_motogene_shopee_auto_sync(self):
         """Opt-in sandbox order discovery, read-only from Shopee; no SO creation."""
         conf = self.env["ir.config_parameter"].sudo()
-        if conf.get_param("motogene_shopee.enable_auto_order_sync", "0") != "1":
+        if conf.get_str("motogene_shopee.enable_auto_order_sync", "0") != "1":
             return
         shops = self.sudo().search([
             ("environment", "in", ["sandbox", "production"]), ("state", "=", "connected"),
@@ -243,7 +243,7 @@ class MotoGeneShopeeShop(models.Model):
         ], limit=5)
         for shop in shops:
             if shop.environment == "production" and (
-                conf.get_param("motogene_shopee.enable_production_auto_sync", "0") != "1"
+                conf.get_str("motogene_shopee.enable_production_auto_sync", "0") != "1"
             ):
                 continue
             try:
