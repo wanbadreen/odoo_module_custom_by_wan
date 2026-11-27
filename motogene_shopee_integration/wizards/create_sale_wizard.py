@@ -92,16 +92,19 @@ class ShopeeCreateSaleWizard(models.TransientModel):
                 "price_unit": line.shopee_discounted_price,
                 "discount": 0.0,
             }))
-        # Odoo Studio selection key includes a trailing space: 'SHOPEE '.
-        order_type_field = Order._fields.get("x_studio_order_type")
-        allowed = dict(Order.fields_get(
-            ["x_studio_order_type"], attributes=["selection"]
-        )["x_studio_order_type"].get("selection") or []) if order_type_field else {}
-        if "SHOPEE " not in allowed:
-            raise UserError(_(
-                "Shopee Delivery Type ('SHOPEE ' with trailing space) is missing. "
-                "Check the Odoo Studio selection before testing."
-            ))
+        # Studio fields do not exist on a fresh Odoo 20 database.
+        # Preserve the production value when the optional Studio field exists;
+        # rely on motogene_shopee_channel on a database without Odoo Studio.
+        studio_order_type_field = Order._fields.get("x_studio_order_type")
+        if studio_order_type_field:
+            allowed = dict(Order.fields_get(
+                ["x_studio_order_type"], attributes=["selection"]
+            )["x_studio_order_type"].get("selection") or [])
+            if "SHOPEE " not in allowed:
+                raise UserError(_(
+                    "Shopee Delivery Type ('SHOPEE ' with trailing space) is missing. "
+                    "Check the Odoo Studio selection before testing."
+                ))
         if preview.escrow_status == "available":
             if preview.currency and preview.currency != self.company_id.currency_id.name:
                 raise UserError(_("Shopee and company currencies differ; review income before importing."))
@@ -122,7 +125,7 @@ class ShopeeCreateSaleWizard(models.TransientModel):
                 raise UserError(_(
                     "Shopee recipient mapping is inconsistent; quotation not created."
                 ))
-        so = Order.create({
+        order_values = {
             "partner_id": customer.id,
             "partner_invoice_id": customer.id,
             "partner_shipping_id": shipping.id,
@@ -130,14 +133,16 @@ class ShopeeCreateSaleWizard(models.TransientModel):
             "client_order_ref": preview.name,
             "motogene_shopee_order_ref": preview.name,
             "motogene_shopee_channel": "shopee",
-            "x_studio_order_type": "SHOPEE ",
             "origin": "MotoGene Shopee %s: %s" % (
                 preview.shop_id.environment.title(), preview.name
             ),
             "motogene_shopee_preview_id": preview.id,
             "motogene_shopee_manual_state": "pending" if manual else False,
             "order_line": lines,
-        })
+        }
+        if studio_order_type_field:
+            order_values["x_studio_order_type"] = "SHOPEE "
+        so = Order.create(order_values)
         # Only write an available Shopee escrow amount to the existing Studio field.
         if (preview.escrow_status == "available"
                 and "x_studio_estimated_income_shopee_order_only" in Order._fields):
